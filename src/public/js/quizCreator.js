@@ -420,6 +420,7 @@ async function saveExistingQuiz(id, quiz){
         var res = await fetch('/api/quizzes/' + id, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 name: quiz.name,
                 questions: quiz.questions,
@@ -442,7 +443,7 @@ async function saveExistingQuiz(id, quiz){
 
 async function loadQuiz(id){
     try{
-        var res = await fetch('/api/quizzes/' + id);
+        var res = await fetch('/api/quizzes/' + id, { credentials: 'include' });
         var quiz = await res.json();
         if(!res.ok){
             alert(quiz.error || t('loadError'));
