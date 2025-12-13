@@ -6,37 +6,47 @@
         <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
     </head>
     <body>
-        <a id="back" href="../">Volver</a>
+        <a id="back" href="../" data-i18n="back">Volver</a>
         <div class="page-shell">
-            <h1 id="title">Creador de quizzes</h1>
-            <h4 id="subtitle">Diseña las preguntas y guarda tu juego para lanzarlo cuando quieras.</h4>
+            <div class="top-row">
+                <h1 id="title" data-i18n="title">Creador de quizzes</h1>
+                <label class="lang-switch">
+                    <span data-i18n="langLabel">Idioma</span>
+                    <select id="lang-select">
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                        <option value="ca">Català</option>
+                    </select>
+                </label>
+            </div>
+            <h4 id="subtitle" data-i18n="subtitle">Diseña las preguntas y guarda tu juego para lanzarlo cuando quieras.</h4>
 
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <p class="eyebrow">Configuración</p>
-                        <h3>Datos del quiz</h3>
-                        <p class="subtext">Ponle un nombre para identificarlo en la biblioteca.</p>
+                        <p class="eyebrow" data-i18n="configEyebrow">Configuración</p>
+                        <h3 data-i18n="configTitle">Datos del quiz</h3>
+                        <p class="subtext" data-i18n="configDesc">Ponle un nombre para identificarlo en la biblioteca.</p>
                     </div>
                 </div>
                 <div class="form-field">
-                    <label id="quizTitle" for="name">Título del quiz</label>
+                    <label id="quizTitle" for="name" data-i18n="quizTitle">Título del quiz</label>
                     <input id="name" type="text" name="name" placeholder="Ej: Repaso de energía" autofocus/>
                 </div>
                 <div class="form-field">
-                    <label for="tags">Etiquetas (separadas por comas)</label>
+                    <label for="tags" data-i18n="tagsLabel">Etiquetas (separadas por comas)</label>
                     <input id="tags" type="text" name="tags" placeholder="ej: física, 2ºESO, energía">
                 </div>
                 <div class="form-field">
-                    <label for="visibility">Visibilidad del quiz</label>
+                    <label for="visibility" data-i18n="visibilityLabel">Visibilidad del quiz</label>
                     <select id="visibility" name="visibility">
-                        <option value="private">Solo yo (privado)</option>
-                        <option value="unlisted">Por enlace/ID</option>
-                        <option value="public">Público en la biblioteca</option>
+                        <option value="private" data-i18n="visibilityPrivate">Solo yo (privado)</option>
+                        <option value="unlisted" data-i18n="visibilityUnlisted">Por enlace/ID</option>
+                        <option value="public" data-i18n="visibilityPublic">Público en la biblioteca</option>
                     </select>
                 </div>
                 <div class="form-field inline">
-                    <label for="allow-clone" class="checkbox-label">
+                    <label for="allow-clone" class="checkbox-label" data-i18n="allowCloneLabel">
                         <input id="allow-clone" type="checkbox"> Permitir que otras personas hagan una copia
                     </label>
                 </div>
@@ -45,20 +55,28 @@
             <div class="panel">
                 <div class="panel-header">
                     <div>
-                        <p class="eyebrow">Preguntas</p>
-                        <h3>Construye las preguntas</h3>
-                        <p class="subtext">Añade 4 posibles respuestas y marca la correcta (1-4).</p>
+                        <p class="eyebrow" data-i18n="questionsEyebrow">Preguntas</p>
+                        <h3 data-i18n="questionsTitle">Construye las preguntas</h3>
+                        <p class="subtext" data-i18n="questionsDesc">Añade 4 posibles respuestas y marca la correcta (1-4).</p>
                     </div>
-                    <button class="btn btn-ghost" onclick="addQuestion()">+ Añadir pregunta</button>
+                    <button class="btn btn-ghost" onclick="addQuestion()" data-i18n="addQuestion">+ Añadir pregunta</button>
                 </div>
                 <div id="allQuestions" class="question-grid"></div>
             </div>
 
             <div class="panel actions">
                 <div class="actions-row">
-                    <button class="btn btn-primary" onclick="updateDatabase()">Guardar quiz</button>
-                    <button class="btn btn-ghost" onclick="cancelQuiz()">Cancelar y volver</button>
+                    <button class="btn btn-primary" onclick="updateDatabase()" data-i18n="btnSave">Guardar quiz</button>
+                    <button class="btn btn-ghost" onclick="saveLocal()" data-i18n="btnPlayLocal">Jugar sin guardar</button>
+                    <button class="btn btn-ghost" onclick="exportCsv()" data-i18n="btnExportCsv">Exportar CSV</button>
+                    <button class="btn btn-ghost" onclick="cancelQuiz()" data-i18n="btnCancel">Cancelar y volver</button>
                 </div>
+                <p class="subtext" data-i18n="localInfo">
+                    Sin sesión: “Guardar” o “Jugar sin guardar” crean un quiz anónimo.<br>
+                    - Si eliges <strong>Solo yo</strong> caduca en 24h.<br>
+                    - Si eliges <strong>Por enlace/Público</strong> se guarda globalmente y persiste tras reinicios.<br>
+                    Con sesión iniciada, se guardan en tu usuario.
+                </p>
             </div>
         </div>
 

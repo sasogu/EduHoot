@@ -17,6 +17,50 @@ const io = socketIO(server);
 const games = new LiveGames();
 const players = new Players();
 const sessions = new Map();
+const ephemeralQuizzes = new Map();
+const GLOBAL_OWNER_ID = 'global-anon-owner';
+const GLOBAL_OWNER_EMAIL = 'anon@local';
+
+function extractKahootId(raw = '') {
+  if (!raw) return '';
+  const idMatch = raw.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if (idMatch) return idMatch[1];
+  const clean = raw.trim();
+  if (clean.length === 36) return clean;
+  return '';
+}
+
+function saveEphemeralQuiz(quiz) {
+  const id = `local-${crypto.randomBytes(6).toString('hex')}`;
+  const visibility = normalizeVisibility(quiz.visibility, 'public');
+  const allowClone = normalizeAllowClone(quiz.allowClone, false);
+  // Si es público/unlisted no caduca; si es privado caduca en 24h
+  const expires = visibility === 'private' ? (Date.now() + 24 * 60 * 60 * 1000) : null;
+  const sanitized = {
+    id,
+    name: quiz.name || 'Quiz local',
+    questions: normalizeQuestions(quiz.questions || []),
+    tags: normalizeTags(quiz.tags || []),
+    visibility,
+    allowClone,
+    sourceQuizId: quiz.sourceQuizId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    expires
+  };
+  ephemeralQuizzes.set(id, sanitized);
+  return sanitized;
+}
+
+function getEphemeralQuiz(id) {
+  const quiz = ephemeralQuizzes.get(id);
+  if (!quiz) return null;
+  if (quiz.expires && quiz.expires < Date.now()) {
+    ephemeralQuizzes.delete(id);
+    return null;
+  }
+  return quiz;
+}
 
 // MongoDB setup (single shared client to avoid legacy OP_QUERY code path)
 // Prefer IPv4 loopback to avoid ::1 connection issues on some setups
@@ -69,7 +113,11 @@ async function findGameById(gameId) {
     ]
   };
   const [game] = await collection.find(query).limit(1).toArray();
-  return game;
+  if (game) return game;
+  if (typeof gameId === 'string' && gameId.startsWith('local-')) {
+    return getEphemeralQuiz(gameId);
+  }
+  return null;
 }
 
 async function nextGameId(collection) {
@@ -144,6 +192,11 @@ function verifyPassword(password, user) {
   if (!user || !user.passwordHash || !user.passwordSalt) return false;
   const hash = crypto.pbkdf2Sync(password, user.passwordSalt, 10000, 64, 'sha512').toString('hex');
   return hash === user.passwordHash;
+}
+
+function setPasswordFields(password) {
+  const { salt, hash } = hashPassword(password);
+  return { passwordSalt: salt, passwordHash: hash };
 }
 
 function createSession(user) {
@@ -221,7 +274,10 @@ function canManageQuiz(quiz, user) {
   if (!quiz) return false;
   if (user && user.role === 'admin') return true;
   const ownerId = quiz.ownerId || quiz.owner_id || quiz.owner;
-  if (!ownerId) return true; // legacy quizzes without owner can be gestionated by anyone logged in
+  if (!ownerId) {
+    // Legacy quizzes sin dueño: solo admin los gestiona; no se tratan como "solo yo"
+    return false;
+  }
   if (!user) return false;
   return ownerId.toString() === user.id;
 }
@@ -291,7 +347,6 @@ server.listen(3000, () => {
 });
 
 app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'No autorizado' });
   if (!req.file) {
     return res.status(400).json({ error: 'Selecciona un archivo CSV para importar.' });
   }
@@ -315,16 +370,45 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
     }
 
     const questions = rows.map(toQuestion);
+    const tags = normalizeTags(req.body.tags ? [].concat(req.body.tags) : []);
+
+    const visibility = normalizeVisibility(req.body.visibility);
+    const allowClone = normalizeAllowClone(req.body.allowClone);
+
+    if (!req.user) {
+      if (visibility === 'private') {
+        const saved = saveEphemeralQuiz({ name: quizName, tags, questions, visibility, allowClone });
+        logEvent('upload-csv:local', { filename: req.file.originalname, id: saved.id, count: questions.length });
+        return res.json({ id: saved.id, name: quizName, count: questions.length, local: true });
+      }
+      const collection = await getGamesCollection();
+      const newId = await nextGameId(collection);
+      const quiz = {
+        id: newId,
+        name: quizName,
+        tags,
+        questions,
+        visibility,
+        allowClone,
+        ownerId: GLOBAL_OWNER_ID,
+        ownerEmail: GLOBAL_OWNER_EMAIL,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      await collection.insertOne(quiz);
+      logEvent('upload-csv:public-anon', { filename: req.file.originalname, newId, count: questions.length });
+      return res.json({ id: newId, name: quizName, count: questions.length, local: false });
+    }
+
     const collection = await getGamesCollection();
     const newId = await nextGameId(collection);
-    const tags = normalizeTags(req.body.tags ? [].concat(req.body.tags) : []);
     const quiz = {
       id: newId,
       name: quizName,
       tags,
       questions,
-      visibility: normalizeVisibility(req.body.visibility),
-      allowClone: normalizeAllowClone(req.body.allowClone),
+      visibility,
+      allowClone,
       ownerId: req.user.id,
       ownerEmail: req.user.email,
       createdAt: new Date(),
@@ -333,21 +417,96 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
 
     await collection.insertOne(quiz);
     logEvent('upload-csv:success', { filename: req.file.originalname, newId, count: questions.length });
-    return res.json({ id: newId, name: quizName, count: questions.length });
+    return res.json({ id: newId, name: quizName, count: questions.length, local: false });
   } catch (err) {
     console.error('upload-csv error', err);
     return res.status(500).json({ error: 'No se pudo importar el CSV.' });
   }
 });
 
+async function buildQuizDoc({ name, tags, questions, visibility, allowClone, user }) {
+  const collection = await getGamesCollection();
+  const newId = await nextGameId(collection);
+  const quiz = {
+    id: newId,
+    name,
+    tags,
+    questions,
+    visibility,
+    allowClone,
+    ownerId: user && user.id ? user.id : GLOBAL_OWNER_ID,
+    ownerEmail: user && user.email ? user.email : GLOBAL_OWNER_EMAIL,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  await collection.insertOne(quiz);
+  return { quiz, collection };
+}
+
+function mapKahootQuestions(kQuestions = []) {
+  return normalizeQuestions(
+    (kQuestions || []).map((q) => {
+      const answers = Array.isArray(q.choices) ? q.choices : [];
+      const textAnswers = answers.map((a) => (a && a.answer) || '').slice(0, 4);
+      while (textAnswers.length < 4) textAnswers.push('');
+      const correctIdx = Math.max(
+        0,
+        answers.findIndex((a) => a && a.correct)
+      );
+      return {
+        question: q.question || '',
+        answers: textAnswers,
+        correct: correctIdx + 1,
+        time: Math.round((q.time || 20000) / 1000) || 20,
+        image: q.image || '',
+        video: (q.video && q.video.full_url) || ''
+      };
+    })
+  );
+}
+
+// Importar Kahoot público por URL o ID
+app.post('/api/import/kahoot', async (req, res) => {
+  const rawUrl = (req.body.url || '').trim();
+  const rawId = (req.body.id || '').trim();
+  const kahootId = extractKahootId(rawUrl) || extractKahootId(rawId);
+  if (!kahootId) return res.status(400).json({ error: 'Falta URL o id de Kahoot.' });
+  const visibility = normalizeVisibility(req.body.visibility || 'public');
+  const allowClone = normalizeAllowClone(req.body.allowClone);
+  try {
+    const response = await fetch(`https://create.kahoot.it/rest/kahoots/${kahootId}/card/?includeKahoot=true`);
+    if (!response.ok) {
+      if (response.status === 404) return res.status(404).json({ error: 'Quiz de Kahoot no encontrado.' });
+      return res.status(502).json({ error: `Kahoot respondió ${response.status}.` });
+    }
+    const data = await response.json();
+    const k = data.kahoot || {};
+    const name = (k.title || 'Kahoot importado').trim();
+    const tags = normalizeTags(
+      Array.isArray(k.tags) ? k.tags : (typeof k.tags === 'string' ? k.tags.split(',') : [])
+    );
+    const questions = mapKahootQuestions(k.questions || []);
+    if (!questions.length) return res.status(400).json({ error: 'No se encontraron preguntas en el Kahoot.' });
+
+    // Si no hay usuario y es privado, se guarda en memoria; si es público/unlisted se persiste con owner global
+    if (!req.user && visibility === 'private') {
+      const saved = saveEphemeralQuiz({ name, tags, questions, visibility, allowClone, sourceQuizId: kahootId });
+      return res.json({ id: saved.id, name, count: questions.length, local: true });
+    }
+
+    const { quiz } = await buildQuizDoc({ name, tags, questions, visibility, allowClone, user: req.user });
+    return res.json({ id: quiz.id, name, count: questions.length, local: false });
+  } catch (err) {
+    console.error('import-kahoot error', err);
+    return res.status(500).json({ error: 'No se pudo importar desde Kahoot.' });
+  }
+});
+
 // Get quiz by id
 app.get('/api/quizzes/:id', async (req, res) => {
-  const quizId = parseInt(req.params.id, 10);
-  if (!quizId) {
-    return res.status(400).json({ error: 'Falta id.' });
-  }
+  const quizIdParam = req.params.id;
   try {
-    const quiz = await findGameById(quizId);
+    const quiz = await findGameById(quizIdParam);
     if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
@@ -373,12 +532,9 @@ app.get('/api/quizzes/:id', async (req, res) => {
 
 // Download quiz as CSV
 app.get('/api/quizzes/:id/csv', async (req, res) => {
-  const quizId = parseInt(req.params.id, 10);
-  if (!quizId) {
-    return res.status(400).json({ error: 'Falta id.' });
-  }
+  const quizIdParam = req.params.id;
   try {
-    const quiz = await findGameById(quizId);
+    const quiz = await findGameById(quizIdParam);
     if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
@@ -401,22 +557,22 @@ app.patch('/api/quizzes/:id', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'No autorizado' });
   }
-  const quizId = parseInt(req.params.id, 10);
+  const quizIdParam = req.params.id;
   const newName = (req.body.name || '').trim();
-  if (!quizId || !newName) {
+  if (!quizIdParam || !newName) {
     return res.status(400).json({ error: 'Faltan id o nombre.' });
   }
   try {
     const collection = await getGamesCollection();
-    const quiz = await collection.findOne({ id: quizId });
-    if (!quiz) {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz || typeof quiz.id === 'string') {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
     if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({ error: 'No autorizado.' });
     }
-    const result = await collection.updateOne({ id: quizId }, { $set: { name: newName, updatedAt: new Date() } });
-    return res.json({ ok: true, id: quizId, name: newName });
+    const result = await collection.updateOne({ id: quiz.id }, { $set: { name: newName, updatedAt: new Date() } });
+    return res.json({ ok: true, id: quiz.id, name: newName });
   } catch (err) {
     console.error('rename-quiz error', err);
     return res.status(500).json({ error: 'No se pudo renombrar.' });
@@ -428,10 +584,7 @@ app.put('/api/quizzes/:id', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'No autorizado' });
   }
-  const quizId = parseInt(req.params.id, 10);
-  if (!quizId) {
-    return res.status(400).json({ error: 'Falta id.' });
-  }
+  const quizIdParam = req.params.id;
   const name = (req.body.name || '').trim();
   const questions = normalizeQuestions(req.body.questions || []);
   const tags = normalizeTags(req.body.tags || []);
@@ -445,15 +598,15 @@ app.put('/api/quizzes/:id', async (req, res) => {
   }
   try {
     const collection = await getGamesCollection();
-    const quiz = await collection.findOne({ id: quizId });
-    if (!quiz) {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz || typeof quiz.id === 'string') {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
     if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({ error: 'No autorizado.' });
     }
     const result = await collection.updateOne(
-      { id: quizId },
+      { id: quiz.id },
       {
         $set: {
           name,
@@ -477,21 +630,18 @@ app.delete('/api/quizzes/:id', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'No autorizado' });
   }
-  const quizId = parseInt(req.params.id, 10);
-  if (!quizId) {
-    return res.status(400).json({ error: 'Falta id.' });
-  }
+  const quizIdParam = req.params.id;
   try {
     const collection = await getGamesCollection();
-    const quiz = await collection.findOne({ id: quizId });
-    if (!quiz) {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz || typeof quiz.id === 'string') {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
     if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({ error: 'No autorizado.' });
     }
-    const result = await collection.deleteOne({ id: quizId });
-    return res.json({ ok: true, id: quizId });
+    const result = await collection.deleteOne({ id: quiz.id });
+    return res.json({ ok: true, id: quiz.id });
   } catch (err) {
     console.error('delete-quiz error', err);
     return res.status(500).json({ error: 'No se pudo eliminar.' });
@@ -503,23 +653,23 @@ app.patch('/api/quizzes/:id/sharing', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'No autorizado' });
   }
-  const quizId = parseInt(req.params.id, 10);
-  if (!quizId) {
+  const quizIdParam = req.params.id;
+  if (!quizIdParam) {
     return res.status(400).json({ error: 'Falta id.' });
   }
   const visibility = normalizeVisibility(req.body.visibility);
   const allowClone = normalizeAllowClone(req.body.allowClone);
   try {
     const collection = await getGamesCollection();
-    const quiz = await collection.findOne({ id: quizId });
-    if (!quiz) {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz || typeof quiz.id === 'string') {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
     if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({ error: 'No autorizado.' });
     }
     await collection.updateOne(
-      { id: quizId },
+      { id: quiz.id },
       { $set: { visibility, allowClone, updatedAt: new Date() } }
     );
     return res.json({ ok: true, visibility, allowClone });
@@ -960,10 +1110,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('newQuiz', async (data) => {
-    if (!socket.user) {
-      socket.emit('noGameFound');
-      return;
-    }
     try {
       const collection = await getGamesCollection();
       const newId = await nextGameId(collection);
@@ -974,8 +1120,8 @@ io.on('connection', (socket) => {
         tags: normalizeTags(data.tags || []),
         visibility: normalizeVisibility(data.visibility),
         allowClone: normalizeAllowClone(data.allowClone),
-        ownerId: socket.user.id,
-        ownerEmail: socket.user.email,
+        ownerId: (socket.user && socket.user.id) || GLOBAL_OWNER_ID,
+        ownerEmail: (socket.user && socket.user.email) || GLOBAL_OWNER_EMAIL,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -1024,13 +1170,10 @@ app.post('/api/quizzes/:id/clone', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Debes iniciar sesión para clonar.' });
   }
-  const quizId = parseInt(req.params.id, 10);
-  if (!quizId) {
-    return res.status(400).json({ error: 'Falta id.' });
-  }
+  const quizIdParam = req.params.id;
   try {
     const collection = await getGamesCollection();
-    const original = await collection.findOne({ id: quizId });
+    const original = await findGameById(quizIdParam);
     if (!original) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
@@ -1056,6 +1199,42 @@ app.post('/api/quizzes/:id/clone', async (req, res) => {
   } catch (err) {
     console.error('clone-quiz error', err);
     return res.status(500).json({ error: 'No se pudo clonar.' });
+  }
+});
+
+// Crear quiz en memoria (sin login)
+app.post('/api/quizzes/local', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    const questions = normalizeQuestions(req.body.questions || []);
+    const tags = normalizeTags(req.body.tags || []);
+    const visibility = normalizeVisibility(req.body.visibility);
+    const allowClone = normalizeAllowClone(req.body.allowClone);
+    if (!name) return res.status(400).json({ error: 'Falta nombre.' });
+    if (!questions.length) return res.status(400).json({ error: 'Añade preguntas.' });
+    if (visibility === 'private') {
+      const saved = saveEphemeralQuiz({ name, questions, tags, visibility, allowClone });
+      return res.json({ ok: true, id: saved.id, count: questions.length });
+    }
+    const collection = await getGamesCollection();
+    const newId = await nextGameId(collection);
+    const quiz = {
+      id: newId,
+      name,
+      questions,
+      tags,
+      visibility,
+      allowClone,
+      ownerId: GLOBAL_OWNER_ID,
+      ownerEmail: GLOBAL_OWNER_EMAIL,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    await collection.insertOne(quiz);
+    return res.json({ ok: true, id: newId, count: questions.length });
+  } catch (err) {
+    console.error('local-quiz error', err);
+    return res.status(500).json({ error: 'No se pudo crear el quiz local.' });
   }
 });
 // Auth endpoints
@@ -1117,6 +1296,23 @@ app.post('/api/auth/users', requireRole('admin'), async (req, res) => {
   }
 });
 
+app.post('/api/auth/reset-admin', requireRole('admin'), async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    const password = req.body.password || '';
+    if (!email || !password) return res.status(400).json({ error: 'Faltan email o contraseña.' });
+    const users = await getUsersCollection();
+    const user = await users.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    const newFields = setPasswordFields(password);
+    await users.updateOne({ _id: user._id }, { $set: { ...newFields } });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('reset-admin error', err);
+    return res.status(500).json({ error: 'No se pudo actualizar la contraseña.' });
+  }
+});
+
 app.post('/api/auth/logout', (req, res) => {
   const cookies = parseCookies(req.headers.cookie || '');
   const sid = cookies.sessionId;
@@ -1128,4 +1324,51 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/auth/me', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'No autorizado' });
   return res.json({ id: req.user.id, email: req.user.email, role: req.user.role || 'editor' });
+});
+
+// Solicitar token de reseteo (se guarda en BD y se muestra en logs)
+app.post('/api/auth/request-reset', async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Falta email.' });
+    const users = await getUsersCollection();
+    const user = await users.findOne({ email });
+    if (user) {
+      const token = crypto.randomBytes(24).toString('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
+      await users.updateOne({ _id: user._id }, { $set: { resetToken: token, resetExpires: expires } });
+      console.log(`[password-reset] Para ${email} usa el token: ${token} (caduca ${expires.toISOString()})`);
+    }
+    // responder genérico para no filtrar emails
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('request-reset error', err);
+    return res.status(500).json({ error: 'No se pudo procesar la solicitud.' });
+  }
+});
+
+// Resetear contraseña usando token
+app.post('/api/auth/reset', async (req, res) => {
+  try {
+    const token = (req.body.token || '').trim();
+    const password = req.body.password || '';
+    if (!token || !password) return res.status(400).json({ error: 'Faltan token o contraseña.' });
+    const users = await getUsersCollection();
+    const user = await users.findOne({
+      resetToken: token,
+      resetExpires: { $gt: new Date() }
+    });
+    if (!user) {
+      return res.status(400).json({ error: 'Token no válido o caducado.' });
+    }
+    const newFields = setPasswordFields(password);
+    await users.updateOne(
+      { _id: user._id },
+      { $set: { ...newFields }, $unset: { resetToken: '', resetExpires: '' } }
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('reset error', err);
+    return res.status(500).json({ error: 'No se pudo actualizar la contraseña.' });
+  }
 });
