@@ -284,8 +284,11 @@ function buildQuestionCard(num, data){
     removeBtn.textContent = '✕';
     removeBtn.title = 'Eliminar';
     removeBtn.onclick = function(){
-        card.remove();
-        renumberQuestions();
+        var confirmMsg = lang === 'en' ? 'Delete this question?' : (lang === 'ca' ? 'Eliminar aquesta pregunta?' : '¿Eliminar esta pregunta?');
+        if(window.confirm(confirmMsg)){
+            card.remove();
+            renumberQuestions();
+        }
     };
     head.appendChild(removeBtn);
 
