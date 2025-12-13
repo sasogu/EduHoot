@@ -35,7 +35,7 @@
 1. `cd src && npm install`
 2. Inicia MongoDB local (`sudo systemctl start mongod`) o define `MONGO_URL`.
 3. Arranca el servidor: `node server/server.js`
-4. Abre: `http://localhost:3000/create/`
+4. Obri: `http://localhost:3000/create/`
 
 ## Funcions clau / Features
 - Importa CSV des de la interfície (o enganxa CSV generat per IA).
