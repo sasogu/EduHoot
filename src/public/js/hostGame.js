@@ -103,6 +103,7 @@ socket.on('questionOver', function(playerData, correct){
     document.getElementById('square4').style.height = answer4 + "px";
     
     document.getElementById('nextQButton').style.display = "block";
+    document.getElementById('skipQButton').style.display = "none";
 
     if (window.hostShowScores !== false) {
         // Update ranking list
@@ -166,6 +167,8 @@ function setMedia(imageUrl, videoUrl){
 
 function nextQuestion(){
     document.getElementById('nextQButton').style.display = "none";
+    document.getElementById('skipQButton').style.display = "inline-block";
+    document.getElementById('skipQButton').disabled = false;
     document.getElementById('square1').style.display = "none";
     document.getElementById('square2').style.display = "none";
     document.getElementById('square3').style.display = "none";
@@ -181,6 +184,12 @@ function nextQuestion(){
     document.getElementById('num').innerHTML = " 20";
     setMedia(null, null);
     socket.emit('nextQuestion'); //Tell server to start new question
+}
+
+function skipQuestion(){
+    document.getElementById('skipQButton').disabled = true;
+    clearInterval(timer);
+    socket.emit('skipQuestion');
 }
 
 function updateTimer(){
@@ -232,8 +241,6 @@ socket.on('getTime', function(player){
         time: time
     });
 });
-
-
 
 
 

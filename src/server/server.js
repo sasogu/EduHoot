@@ -952,6 +952,30 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('skipQuestion', async () => {
+    const game = games.getGame(socket.id);
+    if (!game) {
+      socket.emit('noGameFound');
+      return;
+    }
+    game.gameData.questionLive = false;
+    const playerData = players.getPlayers(game.hostId);
+    const gameQuestion = game.gameData.question;
+    try {
+      const questions = game.gameData.questions || [];
+      const current = questions[gameQuestion - 1];
+      if (!current) {
+        socket.emit('noGameFound');
+        return;
+      }
+      const correctAnswer = current.correct;
+      io.to(game.pin).emit('questionOver', playerData, correctAnswer);
+    } catch (err) {
+      console.error('skipQuestion error', err);
+      socket.emit('noGameFound');
+    }
+  });
+
   socket.on('nextQuestion', async () => {
     const playerData = players.getPlayers(socket.id);
     for (let i = 0; i < Object.keys(players.players).length; i++) {

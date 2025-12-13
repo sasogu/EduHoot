@@ -102,7 +102,7 @@ h3[id^="answer"]{
 #square3{ background: linear-gradient(135deg, #3b82f6, #2563eb); }
 #square4{ background: linear-gradient(135deg, #f43f5e, #e11d48); }
 
-#nextQButton, #showRanking{
+#nextQButton, #showRanking, #skipQButton{
     display: none;
     background: #0f172a;
     border: 1px solid var(--card-stroke);
@@ -116,7 +116,7 @@ h3[id^="answer"]{
     transition: transform 0.18s ease, filter 0.18s ease;
 }
 #showRanking{ display: inline-block; }
-#nextQButton:hover, #showRanking:hover{ transform: translateY(-2px); filter: brightness(1.05); }
+#nextQButton:hover, #showRanking:hover, #skipQButton:hover{ transform: translateY(-2px); filter: brightness(1.05); }
 
 #winnerTitle, #winner1, #winner2, #winner3, #winner4, #winner5{
     text-align: center;
