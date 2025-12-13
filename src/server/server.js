@@ -204,7 +204,8 @@ function createSession(user) {
   sessions.set(sessionId, {
     userId: user._id ? user._id.toString() : user.id,
     role: user.role || 'editor',
-    email: user.email
+    email: user.email,
+    nickname: user.nickname || ''
   });
   return sessionId;
 }
@@ -412,6 +413,7 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
       allowClone,
       ownerId: req.user.id,
       ownerEmail: req.user.email,
+      ownerNickname: req.user.nickname || '',
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -1155,7 +1157,7 @@ io.on('connection', (socket) => {
   socket.on('requestDbNames', async () => {
     try {
       const collection = await getGamesCollection();
-      const res = await collection.find().project({ questions: 0 }).toArray();
+    const res = await collection.find().project({ questions: 0 }).toArray();
       const filtered = selectQuizzesForUser(res, socket.user);
       socket.emit('gameNamesData', filtered);
     } catch (err) {
@@ -1177,6 +1179,7 @@ io.on('connection', (socket) => {
         allowClone: normalizeAllowClone(data.allowClone),
         ownerId: (socket.user && socket.user.id) || GLOBAL_OWNER_ID,
         ownerEmail: (socket.user && socket.user.email) || GLOBAL_OWNER_EMAIL,
+        ownerNickname: (socket.user && socket.user.nickname) || '',
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -1211,6 +1214,7 @@ app.get('/api/quizzes', async (req, res) => {
       allowClone: normalizeAllowClone(quiz.allowClone),
       ownerId: quiz.ownerId,
       ownerEmail: quiz.ownerEmail || '',
+      ownerNickname: quiz.ownerNickname || '',
       sourceQuizId: quiz.sourceQuizId
     }));
     return res.json(quizzes);
@@ -1282,6 +1286,7 @@ app.post('/api/quizzes/local', async (req, res) => {
       allowClone,
       ownerId: GLOBAL_OWNER_ID,
       ownerEmail: GLOBAL_OWNER_EMAIL,
+      ownerNickname: '',
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -1389,6 +1394,25 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/auth/me', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'No autorizado' });
   return res.json({ id: req.user.id, email: req.user.email, role: req.user.role || 'editor', nickname: req.user.nickname || '' });
+});
+
+app.patch('/api/auth/profile', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'No autorizado' });
+  try {
+    const nickname = (req.body.nickname || '').trim();
+    const users = await getUsersCollection();
+    await users.updateOne({ _id: new ObjectId(req.user.id) }, { $set: { nickname } });
+    // Update session data
+    for (const [sid, session] of sessions.entries()) {
+      if (session.userId === req.user.id) {
+        sessions.set(sid, { ...session, nickname });
+      }
+    }
+    return res.json({ ok: true, nickname });
+  } catch (err) {
+    console.error('update-nick error', err);
+    return res.status(500).json({ error: 'No se pudo actualizar el perfil.' });
+  }
 });
 
 // Solicitar token de reseteo (se guarda en BD y se muestra en logs)

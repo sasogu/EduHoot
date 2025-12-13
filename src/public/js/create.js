@@ -31,6 +31,7 @@ var i18n = {
         labelEmail: 'Email',
         labelPass: 'Contraseña',
         labelRole: 'Rol',
+        btnSaveNick: 'Guardar nombre visible',
         btnLogin: 'Entrar',
         btnLogout: 'Cerrar sesión',
         forgotPass: '¿Olvidaste la contraseña?',
@@ -121,6 +122,7 @@ var i18n = {
         labelEmail: 'Email',
         labelPass: 'Password',
         labelRole: 'Role',
+        btnSaveNick: 'Save display name',
         btnLogin: 'Log in',
         btnLogout: 'Log out',
         forgotPass: 'Forgot your password?',
@@ -211,6 +213,7 @@ var i18n = {
         labelEmail: 'Email',
         labelPass: 'Contrasenya',
         labelRole: 'Rol',
+        btnSaveNick: 'Desar nom visible',
         btnLogin: 'Entrar',
         btnLogout: 'Tancar sessió',
         forgotPass: 'Has oblidat la contrasenya?',
@@ -416,7 +419,7 @@ function renderGames(data){
         var meta = document.createElement('div');
         meta.className = 'game-meta';
         var visibilityLabel = quiz.visibility === 'private' ? t('visibilityPrivate') : (quiz.visibility === 'unlisted' ? t('visibilityUnlisted') : t('visibilityPublic'));
-        var creatorText = quiz.ownerEmail ? t('creatorHidden') : t('creatorUnknown');
+        var creatorText = quiz.ownerNickname ? quiz.ownerNickname : t('creatorUnknown');
         meta.textContent = creatorText + ' · ' + visibilityLabel;
         if(quiz.sourceQuizId){
             meta.textContent += ' · ' + (lang === 'en' ? 'Based on ' : (lang === 'ca' ? 'Basat en ' : 'Basado en ')) + 'ID ' + quiz.sourceQuizId;
@@ -753,6 +756,7 @@ var authStatus = document.getElementById('auth-status');
 var authMsg = document.getElementById('auth-message');
 var authLoginBtn = document.getElementById('auth-login');
 var authLogoutBtn = document.getElementById('auth-logout');
+var authSaveNickBtn = document.getElementById('auth-save-nick');
 var adminPanel = document.getElementById('user-admin');
 var newUserEmail = document.getElementById('new-user-email');
 var newUserPass = document.getElementById('new-user-pass');
@@ -880,6 +884,30 @@ async function createUser(){
     }
 }
 
+async function saveNickname(){
+    if(!authState.user) return;
+    if(!authNick) return;
+    var nick = authNick.value.trim();
+    authMsg.textContent = 'Guardando nombre visible...';
+    try{
+        var res = await fetch('/api/auth/profile', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ nickname: nick })
+        });
+        var body = {};
+        try { body = await res.json(); } catch(e){}
+        if(!res.ok){
+            authMsg.textContent = body.error || 'No se pudo guardar.';
+            return;
+        }
+        authMsg.textContent = 'Nombre visible actualizado.';
+        fetchMe();
+    }catch(err){
+        authMsg.textContent = 'No se pudo guardar.';
+    }
+}
 async function resetPasswordAsAdmin(){
     if(!authState.user || authState.user.role !== 'admin') return;
     if(!resetAdminEmail || !resetAdminPass) return;
@@ -918,6 +946,9 @@ if(authLogoutBtn){
 }
 if(createUserBtn){
     createUserBtn.addEventListener('click', createUser);
+}
+if(authSaveNickBtn){
+    authSaveNickBtn.addEventListener('click', saveNickname);
 }
 if(resetAdminBtn){
     resetAdminBtn.addEventListener('click', resetPasswordAsAdmin);
