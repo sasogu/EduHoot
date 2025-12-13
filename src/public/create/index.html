@@ -8,7 +8,7 @@
     <body>
         <a id = "back"href = "../">Volver</a>
         <div class="page-shell">
-            <h1 id = "title">Crea y lanza tu kahoot</h1>
+            <h1 id = "title">Crea y lanza tu EduHoot</h1>
             <h4 id = "subtitle">Elige un juego importado o <a id = "link" href = "quiz-creator/">crea uno desde cero</a></h4>
 
             <div id="auth-panel" class="panel">
@@ -33,6 +33,28 @@
                     <button id="auth-logout" class="btn btn-ghost">Cerrar sesión</button>
                 </div>
                 <p class="subtext" id="auth-message"></p>
+                <div id="user-admin" class="subpanel hidden">
+                    <p class="eyebrow">Solo admins</p>
+                    <h4>Crea un usuario nuevo</h4>
+                    <div class="auth-grid">
+                        <label>Email
+                            <input id="new-user-email" type="email" placeholder="nuevo@centro.es">
+                        </label>
+                        <label>Contraseña
+                            <input id="new-user-pass" type="password" placeholder="••••••••">
+                        </label>
+                        <label>Rol
+                            <select id="new-user-role">
+                                <option value="editor">Editor</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="actions-row">
+                        <button id="create-user-btn" class="btn btn-ghost">Crear usuario</button>
+                        <span id="create-user-status" class="subtext"></span>
+                    </div>
+                </div>
             </div>
 
             <div id="ia-box" class="panel">
@@ -107,6 +129,7 @@
                 <div id="filter-bar" class="filter-bar">
                     <div class="pill pill-muted" id="filter-info">Sin filtros</div>
                 </div>
+                <p class="subtext">Modo <strong>Solo yo</strong> = privado. <strong>Por enlace</strong> permite jugar si conocen el ID. <strong>Público</strong> aparece para todos. Puedes permitir o no las copias.</p>
                 <div id="game-list" class="game-grid">
                 </div>
             </div>

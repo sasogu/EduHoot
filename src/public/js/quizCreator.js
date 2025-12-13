@@ -6,6 +6,8 @@ function updateDatabase(){
     var questions = [];
     var name = document.getElementById('name').value;
     var tags = parseTagsInput();
+    var visibility = document.getElementById('visibility') ? document.getElementById('visibility').value : 'private';
+    var allowClone = document.getElementById('allow-clone') ? document.getElementById('allow-clone').checked : false;
     for(var i = 1; i <= questionNum; i++){
         var question = document.getElementById('q' + i).value;
         var answer1 = document.getElementById(i + 'a1').value;
@@ -20,6 +22,8 @@ function updateDatabase(){
     }
     
     var quiz = {id: editingId || 0, "name": name, "questions": questions};
+    quiz.visibility = visibility;
+    quiz.allowClone = allowClone;
 
     if(editingId){
         quiz.tags = tags;
@@ -183,7 +187,13 @@ async function saveExistingQuiz(id, quiz){
         var res = await fetch('/api/quizzes/' + id, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: quiz.name, questions: quiz.questions })
+            body: JSON.stringify({
+                name: quiz.name,
+                questions: quiz.questions,
+                tags: quiz.tags,
+                visibility: quiz.visibility,
+                allowClone: quiz.allowClone
+            })
         });
         var result = await res.json();
         if(!res.ok){
@@ -209,6 +219,12 @@ async function loadQuiz(id){
         document.getElementById('name').value = quiz.name || '';
         if(quiz.tags && quiz.tags.length){
             document.getElementById('tags').value = quiz.tags.join(', ');
+        }
+        if(document.getElementById('visibility')){
+            document.getElementById('visibility').value = quiz.visibility || 'public';
+        }
+        if(document.getElementById('allow-clone')){
+            document.getElementById('allow-clone').checked = !!quiz.allowClone;
         }
         var container = document.getElementById('allQuestions');
         container.innerHTML = '';

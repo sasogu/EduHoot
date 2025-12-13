@@ -92,6 +92,23 @@ function renderGames(data){
         subtitle.className = 'game-subtitle';
         subtitle.textContent = 'Listo para jugar';
 
+        var meta = document.createElement('div');
+        meta.className = 'game-meta';
+        var visibilityLabel = quiz.visibility === 'private' ? 'Solo yo' : (quiz.visibility === 'unlisted' ? 'Por enlace' : 'Público');
+        meta.textContent = (quiz.ownerEmail ? ('Creado por ' + quiz.ownerEmail) : 'Creador desconocido') + ' · ' + visibilityLabel;
+        if(quiz.sourceQuizId){
+            meta.textContent += ' · Basado en ID ' + quiz.sourceQuizId;
+        }
+
+        var canEdit = false;
+        if(authState.user){
+            if(authState.user.role === 'admin') canEdit = true;
+            else if(!quiz.ownerId) canEdit = true;
+            else if(authState.user.id && quiz.ownerId && authState.user.id === quiz.ownerId.toString()) canEdit = true;
+        }
+        var canStart = quiz.visibility !== 'private' || canEdit;
+        var canClone = authState.user && (quiz.allowClone || canEdit);
+
         var tagWrap = document.createElement('div');
         tagWrap.className = 'tag-wrap';
         var tags = Array.isArray(quiz.tags) ? quiz.tags : [];
@@ -112,6 +129,10 @@ function renderGames(data){
         playBtn.className = 'btn btn-primary';
         playBtn.textContent = 'Iniciar juego';
         playBtn.onclick = function(){ startGame(quiz.id); };
+        playBtn.disabled = !canStart;
+        if(!canStart){
+            playBtn.title = 'Solo el propietario puede usar un quiz privado.';
+        }
 
         var editBtn = document.createElement('button');
         editBtn.className = 'btn btn-ghost';
@@ -119,6 +140,7 @@ function renderGames(data){
         editBtn.onclick = function(){
             window.location.href = '/create/quiz-creator/?id=' + quiz.id;
         };
+        editBtn.disabled = !canEdit;
 
         var downloadBtn = document.createElement('button');
         downloadBtn.className = 'btn btn-ghost';
@@ -136,6 +158,7 @@ function renderGames(data){
                 renameQuiz(quiz.id, newName.trim());
             }
         };
+        renameBtn.disabled = !canEdit;
 
         var deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn btn-danger';
@@ -145,6 +168,7 @@ function renderGames(data){
                 deleteQuiz(quiz.id);
             }
         };
+        deleteBtn.disabled = !canEdit;
 
         actions.appendChild(playBtn);
         actions.appendChild(editBtn);
@@ -152,9 +176,68 @@ function renderGames(data){
         actions.appendChild(renameBtn);
         actions.appendChild(deleteBtn);
 
+        if(canClone){
+            var cloneBtn = document.createElement('button');
+            cloneBtn.className = 'btn btn-ghost';
+            cloneBtn.textContent = 'Hacer una copia';
+            cloneBtn.onclick = function(){
+                cloneQuiz(quiz.id);
+            };
+            actions.appendChild(cloneBtn);
+        }
+
+        var share = document.createElement('div');
+        share.className = 'share-controls';
+        var shareTitle = document.createElement('div');
+        shareTitle.className = 'share-row';
+        shareTitle.innerHTML = '<strong>Permisos de uso y copias</strong>';
+
+        var shareRow = document.createElement('div');
+        shareRow.className = 'share-row';
+        var select = document.createElement('select');
+        var optPrivate = document.createElement('option');
+        optPrivate.value = 'private';
+        optPrivate.textContent = 'Solo yo (privado)';
+        var optUnlisted = document.createElement('option');
+        optUnlisted.value = 'unlisted';
+        optUnlisted.textContent = 'Por enlace/ID';
+        var optPublic = document.createElement('option');
+        optPublic.value = 'public';
+        optPublic.textContent = 'Público';
+        select.appendChild(optPrivate);
+        select.appendChild(optUnlisted);
+        select.appendChild(optPublic);
+        select.value = quiz.visibility || 'public';
+        select.disabled = !canEdit;
+
+        var cloneLabel = document.createElement('label');
+        cloneLabel.className = 'checkbox-label';
+        var cloneCheck = document.createElement('input');
+        cloneCheck.type = 'checkbox';
+        cloneCheck.checked = !!quiz.allowClone;
+        cloneCheck.disabled = !canEdit;
+        cloneLabel.appendChild(cloneCheck);
+        cloneLabel.appendChild(document.createTextNode('Permitir que otros hagan una copia'));
+
+        var shareBtn = document.createElement('button');
+        shareBtn.className = 'btn btn-ghost';
+        shareBtn.textContent = 'Guardar permisos';
+        shareBtn.disabled = !canEdit;
+        shareBtn.onclick = function(){
+            updateSharing(quiz.id, select.value, cloneCheck.checked);
+        };
+
+        shareRow.appendChild(select);
+        shareRow.appendChild(cloneLabel);
+        shareRow.appendChild(shareBtn);
+        share.appendChild(shareTitle);
+        share.appendChild(shareRow);
+
         card.appendChild(head);
         card.appendChild(subtitle);
+        card.appendChild(meta);
         card.appendChild(tagWrap);
+        card.appendChild(share);
         card.appendChild(actions);
         div.appendChild(card);
     });
@@ -169,6 +252,7 @@ async function renameQuiz(id, name){
         var res = await fetch('/api/quizzes/' + id, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ name: name })
         });
         var result = await res.json();
@@ -184,7 +268,7 @@ async function renameQuiz(id, name){
 
 async function deleteQuiz(id){
     try{
-        var res = await fetch('/api/quizzes/' + id, { method: 'DELETE' });
+        var res = await fetch('/api/quizzes/' + id, { method: 'DELETE', credentials: 'include' });
         var result = await res.json();
         if(!res.ok){
             alert(result.error || 'No se pudo eliminar.');
@@ -193,6 +277,48 @@ async function deleteQuiz(id){
         socket.emit('requestDbNames');
     }catch(err){
         alert('No se pudo eliminar.');
+    }
+}
+
+async function updateSharing(id, visibility, allowClone){
+    try{
+        var res = await fetch('/api/quizzes/' + id + '/sharing', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ visibility: visibility, allowClone: allowClone })
+        });
+        var result = await res.json();
+        if(!res.ok){
+            alert(result.error || 'No se pudieron guardar los permisos.');
+            return;
+        }
+        socket.emit('requestDbNames');
+    }catch(err){
+        alert('No se pudieron guardar los permisos.');
+    }
+}
+
+async function cloneQuiz(id){
+    if(!authState.user){
+        alert('Inicia sesión para clonar un quiz.');
+        return;
+    }
+    try{
+        var res = await fetch('/api/quizzes/' + id + '/clone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        var result = await res.json();
+        if(!res.ok){
+            alert(result.error || 'No se pudo clonar.');
+            return;
+        }
+        alert('Copia creada en tu biblioteca.');
+        socket.emit('requestDbNames');
+    }catch(err){
+        alert('No se pudo clonar.');
     }
 }
 
@@ -304,6 +430,12 @@ var authStatus = document.getElementById('auth-status');
 var authMsg = document.getElementById('auth-message');
 var authLoginBtn = document.getElementById('auth-login');
 var authLogoutBtn = document.getElementById('auth-logout');
+var adminPanel = document.getElementById('user-admin');
+var newUserEmail = document.getElementById('new-user-email');
+var newUserPass = document.getElementById('new-user-pass');
+var newUserRole = document.getElementById('new-user-role');
+var createUserBtn = document.getElementById('create-user-btn');
+var createUserStatus = document.getElementById('create-user-status');
 var authState = { user: null };
 
 function updateAuthUI(){
@@ -314,6 +446,13 @@ function updateAuthUI(){
     }else{
         authStatus.textContent = 'No has iniciado sesión';
         authStatus.classList.add('pill-muted');
+    }
+    if(adminPanel){
+        if(authState.user && authState.user.role === 'admin'){
+            adminPanel.classList.remove('hidden');
+        }else{
+            adminPanel.classList.add('hidden');
+        }
     }
 }
 
@@ -370,11 +509,46 @@ function logout(){
         .catch(function(){});
 }
 
+async function createUser(){
+    if(!authState.user || authState.user.role !== 'admin') return;
+    if(!newUserEmail || !newUserPass || !newUserRole) return;
+    var email = newUserEmail.value.trim();
+    var pass = newUserPass.value;
+    var role = newUserRole.value;
+    if(!email || !pass){
+        if(createUserStatus) createUserStatus.textContent = 'Introduce email y contraseña.';
+        return;
+    }
+    if(createUserStatus) createUserStatus.textContent = 'Creando usuario...';
+    try{
+        var res = await fetch('/api/auth/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email: email, password: pass, role: role })
+        });
+        var body = {};
+        try { body = await res.json(); } catch(e){}
+        if(!res.ok){
+            if(createUserStatus) createUserStatus.textContent = body.error || 'No se pudo crear.';
+            return;
+        }
+        if(createUserStatus) createUserStatus.textContent = 'Usuario creado.';
+        newUserEmail.value = '';
+        newUserPass.value = '';
+    }catch(err){
+        if(createUserStatus) createUserStatus.textContent = 'No se pudo crear.';
+    }
+}
+
 if(authLoginBtn){
     authLoginBtn.addEventListener('click', login);
 }
 if(authLogoutBtn){
     authLogoutBtn.addEventListener('click', logout);
+}
+if(createUserBtn){
+    createUserBtn.addEventListener('click', createUser);
 }
 
 if (iaIdioma) {

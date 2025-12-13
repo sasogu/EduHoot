@@ -198,6 +198,62 @@ function shuffleArray(list) {
   return arr;
 }
 
+function normalizeVisibility(value, fallback = 'private') {
+  const allowed = ['private', 'unlisted', 'public'];
+  if (!value) return fallback;
+  const val = value.toString().toLowerCase();
+  return allowed.includes(val) ? val : fallback;
+}
+
+function currentVisibility(quiz) {
+  // legacy quizzes without visibility are treated as public
+  return normalizeVisibility(quiz && quiz.visibility, 'public');
+}
+
+function normalizeAllowClone(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  return fallback;
+}
+
+function canManageQuiz(quiz, user) {
+  if (!quiz) return false;
+  if (user && user.role === 'admin') return true;
+  const ownerId = quiz.ownerId || quiz.owner_id || quiz.owner;
+  if (!ownerId) return true; // legacy quizzes without owner can be gestionated by anyone logged in
+  if (!user) return false;
+  return ownerId.toString() === user.id;
+}
+
+function canUseQuiz(quiz, user) {
+  const visibility = currentVisibility(quiz);
+  if (visibility === 'public') return true;
+  if (visibility === 'unlisted') return true;
+  return canManageQuiz(quiz, user);
+}
+
+function canCloneQuiz(quiz, user) {
+  if (!quiz) return false;
+  if (quiz.allowClone) {
+    return canUseQuiz(quiz, user);
+  }
+  return canManageQuiz(quiz, user);
+}
+
+function selectQuizzesForUser(quizzes, user, opts = {}) {
+  const includeUnlistedForAll = opts.includeUnlistedForAll === true;
+  return (quizzes || []).filter((quiz) => {
+    const visibility = currentVisibility(quiz);
+    if (visibility === 'public') return true;
+    if (visibility === 'unlisted') {
+      if (includeUnlistedForAll) return true;
+      return canManageQuiz(quiz, user);
+    }
+    return canManageQuiz(quiz, user);
+  });
+}
+
 function shuffleQuestions(originalQuestions = []) {
   const ordered = shuffleArray(originalQuestions);
   return ordered;
@@ -262,7 +318,18 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
     const collection = await getGamesCollection();
     const newId = await nextGameId(collection);
     const tags = normalizeTags(req.body.tags ? [].concat(req.body.tags) : []);
-    const quiz = { id: newId, name: quizName, tags, questions };
+    const quiz = {
+      id: newId,
+      name: quizName,
+      tags,
+      questions,
+      visibility: normalizeVisibility(req.body.visibility),
+      allowClone: normalizeAllowClone(req.body.allowClone),
+      ownerId: req.user.id,
+      ownerEmail: req.user.email,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
     await collection.insertOne(quiz);
     logEvent('upload-csv:success', { filename: req.file.originalname, newId, count: questions.length });
@@ -284,7 +351,20 @@ app.get('/api/quizzes/:id', async (req, res) => {
     if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
-    return res.json({ id: quiz.id, name: quiz.name, tags: quiz.tags || [], questions: quiz.questions || [] });
+    if (!canUseQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado para ver este quiz.' });
+    }
+    return res.json({
+      id: quiz.id,
+      name: quiz.name,
+      tags: quiz.tags || [],
+      questions: quiz.questions || [],
+      visibility: currentVisibility(quiz),
+      allowClone: normalizeAllowClone(quiz.allowClone),
+      ownerId: quiz.ownerId,
+      ownerEmail: quiz.ownerEmail || '',
+      sourceQuizId: quiz.sourceQuizId
+    });
   } catch (err) {
     console.error('get-quiz error', err);
     return res.status(500).json({ error: 'No se pudo obtener el quiz.' });
@@ -301,6 +381,9 @@ app.get('/api/quizzes/:id/csv', async (req, res) => {
     const quiz = await findGameById(quizId);
     if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
+    }
+    if (!canUseQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado para descargar este quiz.' });
     }
     const csv = quizToCsv(quiz);
     const fileName = `${(quiz.name || 'quiz').replace(/[^a-z0-9-_]+/gi, '_')}.csv`;
@@ -325,10 +408,14 @@ app.patch('/api/quizzes/:id', async (req, res) => {
   }
   try {
     const collection = await getGamesCollection();
-    const result = await collection.updateOne({ id: quizId }, { $set: { name: newName } });
-    if (result.matchedCount === 0) {
+    const quiz = await collection.findOne({ id: quizId });
+    if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
+    if (!canManageQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    const result = await collection.updateOne({ id: quizId }, { $set: { name: newName, updatedAt: new Date() } });
     return res.json({ ok: true, id: quizId, name: newName });
   } catch (err) {
     console.error('rename-quiz error', err);
@@ -348,6 +435,8 @@ app.put('/api/quizzes/:id', async (req, res) => {
   const name = (req.body.name || '').trim();
   const questions = normalizeQuestions(req.body.questions || []);
   const tags = normalizeTags(req.body.tags || []);
+  const visibility = normalizeVisibility(req.body.visibility);
+  const allowClone = normalizeAllowClone(req.body.allowClone);
   if (!name) {
     return res.status(400).json({ error: 'Falta nombre.' });
   }
@@ -356,10 +445,26 @@ app.put('/api/quizzes/:id', async (req, res) => {
   }
   try {
     const collection = await getGamesCollection();
-    const result = await collection.updateOne({ id: quizId }, { $set: { name, questions, tags } });
-    if (result.matchedCount === 0) {
+    const quiz = await collection.findOne({ id: quizId });
+    if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
+    if (!canManageQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    const result = await collection.updateOne(
+      { id: quizId },
+      {
+        $set: {
+          name,
+          questions,
+          tags,
+          visibility,
+          allowClone,
+          updatedAt: new Date()
+        }
+      }
+    );
     return res.json({ ok: true, id: quizId, name });
   } catch (err) {
     console.error('update-quiz error', err);
@@ -378,14 +483,49 @@ app.delete('/api/quizzes/:id', async (req, res) => {
   }
   try {
     const collection = await getGamesCollection();
-    const result = await collection.deleteOne({ id: quizId });
-    if (result.deletedCount === 0) {
+    const quiz = await collection.findOne({ id: quizId });
+    if (!quiz) {
       return res.status(404).json({ error: 'Quiz no encontrado.' });
     }
+    if (!canManageQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    const result = await collection.deleteOne({ id: quizId });
     return res.json({ ok: true, id: quizId });
   } catch (err) {
     console.error('delete-quiz error', err);
     return res.status(500).json({ error: 'No se pudo eliminar.' });
+  }
+});
+
+// Update visibility and clone permission
+app.patch('/api/quizzes/:id/sharing', async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  const quizId = parseInt(req.params.id, 10);
+  if (!quizId) {
+    return res.status(400).json({ error: 'Falta id.' });
+  }
+  const visibility = normalizeVisibility(req.body.visibility);
+  const allowClone = normalizeAllowClone(req.body.allowClone);
+  try {
+    const collection = await getGamesCollection();
+    const quiz = await collection.findOne({ id: quizId });
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz no encontrado.' });
+    }
+    if (!canManageQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    await collection.updateOne(
+      { id: quizId },
+      { $set: { visibility, allowClone, updatedAt: new Date() } }
+    );
+    return res.json({ ok: true, visibility, allowClone });
+  } catch (err) {
+    console.error('update-sharing error', err);
+    return res.status(500).json({ error: 'No se pudo actualizar permisos.' });
   }
 });
 
@@ -399,7 +539,7 @@ io.on('connection', (socket) => {
     try {
       const kahoot = await findGameById(data.id);
 
-      if (kahoot) {
+      if (kahoot && canUseQuiz(kahoot, socket.user)) {
         const gamePin = Math.floor(Math.random() * 90000) + 10000; // new pin for game
 
         games.addGame(gamePin, socket.id, false, {
@@ -810,8 +950,9 @@ io.on('connection', (socket) => {
   socket.on('requestDbNames', async () => {
     try {
       const collection = await getGamesCollection();
-      const res = await collection.find().toArray();
-      socket.emit('gameNamesData', res);
+      const res = await collection.find().project({ questions: 0 }).toArray();
+      const filtered = selectQuizzesForUser(res, socket.user);
+      socket.emit('gameNamesData', filtered);
     } catch (err) {
       console.error('requestDbNames error', err);
       socket.emit('gameNamesData', []);
@@ -830,7 +971,13 @@ io.on('connection', (socket) => {
         id: newId,
         name: (data.name || '').trim() || `Quiz ${newId}`,
         questions: normalizeQuestions(data.questions || []),
-        tags: normalizeTags(data.tags || [])
+        tags: normalizeTags(data.tags || []),
+        visibility: normalizeVisibility(data.visibility),
+        allowClone: normalizeAllowClone(data.allowClone),
+        ownerId: socket.user.id,
+        ownerEmail: socket.user.email,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       if (quiz.questions.length === 0) {
         socket.emit('noGameFound');
@@ -853,12 +1000,62 @@ app.get('/api/quizzes', async (req, res) => {
       : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
     const normalized = normalizeTags(tags);
     const collection = await getGamesCollection();
-    const query = normalized.length ? { tags: { $all: normalized } } : {};
-    const quizzes = await collection.find(query).project({ questions: 0 }).toArray();
+    const baseQuery = normalized.length ? { tags: { $all: normalized } } : {};
+    const quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
+    const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
+      id: quiz.id,
+      name: quiz.name,
+      tags: quiz.tags || [],
+      visibility: currentVisibility(quiz),
+      allowClone: normalizeAllowClone(quiz.allowClone),
+      ownerId: quiz.ownerId,
+      ownerEmail: quiz.ownerEmail || '',
+      sourceQuizId: quiz.sourceQuizId
+    }));
     return res.json(quizzes);
   } catch (err) {
     console.error('list-quizzes error', err);
     return res.status(500).json({ error: 'No se pudo obtener la lista.' });
+  }
+});
+
+// Clone quiz (when permitted)
+app.post('/api/quizzes/:id/clone', async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Debes iniciar sesión para clonar.' });
+  }
+  const quizId = parseInt(req.params.id, 10);
+  if (!quizId) {
+    return res.status(400).json({ error: 'Falta id.' });
+  }
+  try {
+    const collection = await getGamesCollection();
+    const original = await collection.findOne({ id: quizId });
+    if (!original) {
+      return res.status(404).json({ error: 'Quiz no encontrado.' });
+    }
+    if (!canCloneQuiz(original, req.user)) {
+      return res.status(403).json({ error: 'No se puede clonar este quiz.' });
+    }
+    const newId = await nextGameId(collection);
+    const cloned = {
+      id: newId,
+      name: `${original.name || 'Quiz'} (copia)`,
+      questions: normalizeQuestions(original.questions || []),
+      tags: normalizeTags(original.tags || []),
+      visibility: 'private',
+      allowClone: false,
+      ownerId: req.user.id,
+      ownerEmail: req.user.email,
+      sourceQuizId: original.id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    await collection.insertOne(cloned);
+    return res.json({ ok: true, id: newId });
+  } catch (err) {
+    console.error('clone-quiz error', err);
+    return res.status(500).json({ error: 'No se pudo clonar.' });
   }
 });
 // Auth endpoints
@@ -893,10 +1090,30 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const sid = createSession(user);
     res.cookie('sessionId', sid, { httpOnly: true, sameSite: 'lax' });
-    return res.json({ ok: true, email: user.email, role: user.role || 'editor' });
+    return res.json({ ok: true, id: (user._id || user.id || '').toString(), email: user.email, role: user.role || 'editor' });
   } catch (err) {
     console.error('login error', err);
     return res.status(500).json({ error: 'No se pudo iniciar sesión.' });
+  }
+});
+
+app.post('/api/auth/users', requireRole('admin'), async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    const password = req.body.password || '';
+    const role = (req.body.role || 'editor').toLowerCase();
+    if (!email || !password) return res.status(400).json({ error: 'Faltan email o contraseña.' });
+    if (!['editor', 'admin'].includes(role)) return res.status(400).json({ error: 'Rol no válido.' });
+    const users = await getUsersCollection();
+    const exists = await users.findOne({ email });
+    if (exists) return res.status(409).json({ error: 'Ya existe un usuario con ese email.' });
+    const { salt, hash } = hashPassword(password);
+    const user = { email, passwordSalt: salt, passwordHash: hash, role, createdAt: new Date() };
+    await users.insertOne(user);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('create-user error', err);
+    return res.status(500).json({ error: 'No se pudo crear el usuario.' });
   }
 });
 
@@ -910,5 +1127,5 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'No autorizado' });
-  return res.json({ email: req.user.email, role: req.user.role || 'editor' });
+  return res.json({ id: req.user.id, email: req.user.email, role: req.user.role || 'editor' });
 });

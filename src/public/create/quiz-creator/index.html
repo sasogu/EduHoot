@@ -27,6 +27,19 @@
                     <label for="tags">Etiquetas (separadas por comas)</label>
                     <input id="tags" type="text" name="tags" placeholder="ej: física, 2ºESO, energía">
                 </div>
+                <div class="form-field">
+                    <label for="visibility">Visibilidad del quiz</label>
+                    <select id="visibility" name="visibility">
+                        <option value="private">Solo yo (privado)</option>
+                        <option value="unlisted">Por enlace/ID</option>
+                        <option value="public">Público en la biblioteca</option>
+                    </select>
+                </div>
+                <div class="form-field inline">
+                    <label for="allow-clone" class="checkbox-label">
+                        <input id="allow-clone" type="checkbox"> Permitir que otras personas hagan una copia
+                    </label>
+                </div>
             </div>
 
             <div class="panel">
