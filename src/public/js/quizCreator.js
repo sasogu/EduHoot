@@ -129,6 +129,10 @@ function t(key){
 function applyI18n(){
     document.querySelectorAll('[data-i18n]').forEach(function(el){
         var key = el.getAttribute('data-i18n');
+        // skip labels with form controls to avoid hiding inputs
+        if(el.tagName === 'LABEL' && el.querySelector('input,select,textarea,textarea')){
+            return;
+        }
         if(key === 'subtitle' || key === 'localInfo'){
             el.innerHTML = t(key);
         }else{

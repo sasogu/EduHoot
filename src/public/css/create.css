@@ -122,6 +122,18 @@ body {
 }
 .auth-grid input{
     width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    box-sizing: border-box;
+}
+.auth-grid input::placeholder{
+    color: rgba(255,255,255,0.8);
+}
+.auth-grid input{
+    width: 100%;
 }
 .subpanel{
     margin-top: 12px;
