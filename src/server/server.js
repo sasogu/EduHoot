@@ -621,7 +621,7 @@ app.put('/api/quizzes/:id', async (req, res) => {
         }
       }
     );
-    return res.json({ ok: true, id: quizId, name });
+    return res.json({ ok: true, id: quiz.id, name });
   } catch (err) {
     console.error('update-quiz error', err);
     return res.status(500).json({ error: 'No se pudo actualizar.' });
