@@ -87,6 +87,7 @@ function updatePlayerRank(playerData){
 }
 
 socket.on('questionOver', function(playerData){
+    setMedia(null, null);
     if(correct == true){
         document.body.style.backgroundColor = "#4CAF50";
         document.getElementById('message').style.display = "block";
@@ -112,6 +113,7 @@ socket.on('newScore', function(data){
 socket.on('nextQuestionPlayer', function(){
     correct = false;
     playerAnswered = false;
+    setMedia(null, null);
     
     document.getElementById('answer1').style.visibility = "visible";
     document.getElementById('answer2').style.visibility = "visible";

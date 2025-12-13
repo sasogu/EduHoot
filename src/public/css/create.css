@@ -375,6 +375,11 @@ body {
     font-size: 14px;
     opacity: 0.85;
 }
+.game-stats{
+    font-size: 13px;
+    opacity: 0.8;
+    margin-top: -4px;
+}
 .game-subtitle{
     margin: 0;
     font-size: 13px;

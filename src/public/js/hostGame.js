@@ -1,6 +1,7 @@
 var socket = io();
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
+var lastHostKey = 'lastHostId';
 
 var timer;
 
@@ -79,6 +80,9 @@ socket.on('connect', function() {
     
     //Tell server that it is host connection from game view
     socket.emit('host-join-game', params);
+    if(params.id){
+        try{ localStorage.setItem(lastHostKey, params.id); }catch(e){}
+    }
 });
 
 socket.on('noGameFound', function(){
@@ -332,6 +336,7 @@ socket.on('GameOver', function(data){
     document.getElementById('winner3').innerHTML = "3. " + data.num3;
     document.getElementById('winner4').innerHTML = "4. " + data.num4; 
     document.getElementById('winner5').innerHTML = "5. " + data.num5;
+    try{ localStorage.removeItem(lastHostKey); }catch(e){}
 });
 
 

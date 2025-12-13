@@ -1,5 +1,24 @@
 var socket = io();
 var params = jQuery.deparam(window.location.search);
+var lastHostKey = 'lastHostId';
+var resumeBtn = document.getElementById('resume-last');
+
+function resumeLast(){
+    try{
+        var saved = localStorage.getItem(lastHostKey);
+        if(saved){
+            window.location.href = "/host/game/?id=" + encodeURIComponent(saved);
+        }
+    }catch(e){}
+}
+
+// Mostrar botón de reanudar si hay partida activa guardada
+try{
+    var savedHost = localStorage.getItem(lastHostKey);
+    if(savedHost && resumeBtn){
+        resumeBtn.style.display = 'inline-block';
+    }
+}catch(e){}
 
 //When host connects to server
 socket.on('connect', function() {
@@ -43,6 +62,7 @@ function endGame(){
 //When server starts the game
 socket.on('gameStarted', function(id){
     console.log('Game Started!');
+    try{ localStorage.setItem(lastHostKey, id); }catch(e){}
     window.location.href="/host/game/" + "?id=" + id;
 });
 

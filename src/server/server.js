@@ -41,6 +41,8 @@ function saveEphemeralQuiz(quiz) {
     name: quiz.name || 'Quiz local',
     questions: normalizeQuestions(quiz.questions || []),
     tags: normalizeTags(quiz.tags || []),
+    playsCount: 0,
+    playersCount: 0,
     visibility,
     allowClone,
     sourceQuizId: quiz.sourceQuizId,
@@ -339,6 +341,21 @@ function buildQuestions(questions = [], opts = {}) {
   });
 }
 
+async function incrementQuizStats(gameId, playersInGame) {
+  try {
+    const collection = await getGamesCollection();
+    const numericId = parseInt(gameId, 10);
+    if (Number.isNaN(numericId)) return;
+    const playersCount = Math.max(playersInGame || 0, 0);
+    await collection.updateOne(
+      { id: numericId },
+      { $inc: { playsCount: 1, playersCount } }
+    );
+  } catch (err) {
+    console.error('incrementQuizStats error', err);
+  }
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(publicPath));
@@ -385,16 +402,18 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
       }
       const collection = await getGamesCollection();
       const newId = await nextGameId(collection);
-      const quiz = {
-        id: newId,
-        name: quizName,
-        tags,
-        questions,
-        visibility,
-        allowClone,
-        ownerId: GLOBAL_OWNER_ID,
-        ownerEmail: GLOBAL_OWNER_EMAIL,
-        createdAt: new Date(),
+    const quiz = {
+      id: newId,
+      name: quizName,
+      tags,
+      questions,
+      playsCount: 0,
+      playersCount: 0,
+      visibility,
+      allowClone,
+      ownerId: GLOBAL_OWNER_ID,
+      ownerEmail: GLOBAL_OWNER_EMAIL,
+      createdAt: new Date(),
         updatedAt: new Date()
       };
       await collection.insertOne(quiz);
@@ -409,6 +428,8 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
       name: quizName,
       tags,
       questions,
+      playsCount: 0,
+      playersCount: 0,
       visibility,
       allowClone,
       ownerId: req.user.id,
@@ -437,6 +458,8 @@ async function buildQuizDoc({ name, tags, questions, visibility, allowClone, use
     questions,
     visibility,
     allowClone,
+    playsCount: 0,
+    playersCount: 0,
     ownerId: user && user.id ? user.id : GLOBAL_OWNER_ID,
     ownerEmail: user && user.email ? user.email : GLOBAL_OWNER_EMAIL,
     createdAt: new Date(),
@@ -520,6 +543,8 @@ app.get('/api/quizzes/:id', async (req, res) => {
       id: quiz.id,
       name: quiz.name,
       tags: quiz.tags || [],
+      playsCount: quiz.playsCount || 0,
+      playersCount: quiz.playersCount || 0,
       questions: quiz.questions || [],
       visibility: currentVisibility(quiz),
       allowClone: normalizeAllowClone(quiz.allowClone),
@@ -1132,6 +1157,8 @@ io.on('connection', (socket) => {
           num4: fourth.name,
           num5: fifth.name
         });
+        const uniquePlayers = Array.isArray(playersInGame) ? playersInGame.length : 0;
+        await incrementQuizStats(game.gameData.gameid, uniquePlayers);
       }
     } catch (err) {
       console.error('nextQuestion error', err);
@@ -1173,16 +1200,18 @@ io.on('connection', (socket) => {
     try {
       const collection = await getGamesCollection();
       const newId = await nextGameId(collection);
-      const quiz = {
-        id: newId,
-        name: (data.name || '').trim() || `Quiz ${newId}`,
-        questions: normalizeQuestions(data.questions || []),
-        tags: normalizeTags(data.tags || []),
-        visibility: normalizeVisibility(data.visibility),
-        allowClone: normalizeAllowClone(data.allowClone),
-        ownerId: (socket.user && socket.user.id) || GLOBAL_OWNER_ID,
-        ownerEmail: (socket.user && socket.user.email) || GLOBAL_OWNER_EMAIL,
-        ownerNickname: (socket.user && socket.user.nickname) || '',
+    const quiz = {
+      id: newId,
+      name: (data.name || '').trim() || `Quiz ${newId}`,
+      questions: normalizeQuestions(data.questions || []),
+      tags: normalizeTags(data.tags || []),
+      playsCount: 0,
+      playersCount: 0,
+      visibility: normalizeVisibility(data.visibility),
+      allowClone: normalizeAllowClone(data.allowClone),
+      ownerId: (socket.user && socket.user.id) || GLOBAL_OWNER_ID,
+      ownerEmail: (socket.user && socket.user.email) || GLOBAL_OWNER_EMAIL,
+      ownerNickname: (socket.user && socket.user.nickname) || '',
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -1217,6 +1246,8 @@ app.get('/api/quizzes', async (req, res) => {
       id: quiz.id,
       name: quiz.name,
       tags: quiz.tags || [],
+      playsCount: quiz.playsCount || 0,
+      playersCount: quiz.playersCount || 0,
       visibility: currentVisibility(quiz),
       allowClone: normalizeAllowClone(quiz.allowClone),
       ownerId: quiz.ownerId,
@@ -1271,6 +1302,8 @@ app.post('/api/quizzes/:id/clone', async (req, res) => {
       name: `${original.name || 'Quiz'} (copia)`,
       questions: normalizeQuestions(original.questions || []),
       tags: normalizeTags(original.tags || []),
+      playsCount: 0,
+      playersCount: 0,
       visibility: 'private',
       allowClone: false,
       ownerId: req.user.id,
@@ -1309,6 +1342,8 @@ app.post('/api/quizzes/local', async (req, res) => {
       name,
       questions,
       tags,
+      playsCount: 0,
+      playersCount: 0,
       visibility,
       allowClone,
       ownerId: GLOBAL_OWNER_ID,

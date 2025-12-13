@@ -76,6 +76,8 @@ var i18n = {
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
+        playsShort: 'partidas',
+        playersShort: 'jugadores',
         play: 'Iniciar juego',
         edit: 'Editar',
         download: 'Descargar CSV',
@@ -168,6 +170,8 @@ var i18n = {
         suggestedTags: 'Suggested tags (tap to filter)',
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
+        playsShort: 'plays',
+        playersShort: 'players',
         play: 'Start game',
         edit: 'Edit',
         download: 'Download CSV',
@@ -260,6 +264,8 @@ var i18n = {
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
+        playsShort: 'partides',
+        playersShort: 'jugadors',
         play: 'Iniciar joc',
         edit: 'Editar',
         download: 'Descarregar CSV',
@@ -465,6 +471,11 @@ function renderGames(data){
         if(quiz.sourceQuizId){
             meta.textContent += ' · ' + (lang === 'en' ? 'Based on ' : (lang === 'ca' ? 'Basat en ' : 'Basado en ')) + 'ID ' + quiz.sourceQuizId;
         }
+        var stats = document.createElement('div');
+        stats.className = 'game-stats';
+        var plays = quiz.playsCount || 0;
+        var players = quiz.playersCount || 0;
+        stats.textContent = plays + ' ' + t('playsShort') + ' · ' + players + ' ' + t('playersShort');
 
         var canEdit = false;
         if(authState.user){
@@ -602,6 +613,7 @@ function renderGames(data){
         card.appendChild(head);
         card.appendChild(subtitle);
         card.appendChild(meta);
+        card.appendChild(stats);
         card.appendChild(tagWrap);
         card.appendChild(share);
         card.appendChild(actions);
