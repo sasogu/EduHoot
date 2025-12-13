@@ -1304,7 +1304,9 @@ app.post('/api/auth/bootstrap', async (req, res) => {
     const password = req.body.password || '';
     if (!email || !password) return res.status(400).json({ error: 'Faltan email o contraseña.' });
     const { salt, hash } = hashPassword(password);
+    const nickname = (req.body.nickname || '').trim();
     const user = { email, passwordSalt: salt, passwordHash: hash, role: 'admin', createdAt: new Date() };
+    if (nickname) user.nickname = nickname;
     await users.insertOne(user);
     return res.json({ ok: true });
   } catch (err) {
@@ -1324,7 +1326,13 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const sid = createSession(user);
     res.cookie('sessionId', sid, { httpOnly: true, sameSite: 'lax' });
-    return res.json({ ok: true, id: (user._id || user.id || '').toString(), email: user.email, role: user.role || 'editor' });
+    return res.json({
+      ok: true,
+      id: (user._id || user.id || '').toString(),
+      email: user.email,
+      role: user.role || 'editor',
+      nickname: user.nickname || ''
+    });
   } catch (err) {
     console.error('login error', err);
     return res.status(500).json({ error: 'No se pudo iniciar sesión.' });
@@ -1336,6 +1344,7 @@ app.post('/api/auth/users', requireRole('admin'), async (req, res) => {
     const email = (req.body.email || '').toLowerCase().trim();
     const password = req.body.password || '';
     const role = (req.body.role || 'editor').toLowerCase();
+    const nickname = (req.body.nickname || '').trim();
     if (!email || !password) return res.status(400).json({ error: 'Faltan email o contraseña.' });
     if (!['editor', 'admin'].includes(role)) return res.status(400).json({ error: 'Rol no válido.' });
     const users = await getUsersCollection();
@@ -1343,6 +1352,7 @@ app.post('/api/auth/users', requireRole('admin'), async (req, res) => {
     if (exists) return res.status(409).json({ error: 'Ya existe un usuario con ese email.' });
     const { salt, hash } = hashPassword(password);
     const user = { email, passwordSalt: salt, passwordHash: hash, role, createdAt: new Date() };
+    if (nickname) user.nickname = nickname;
     await users.insertOne(user);
     return res.json({ ok: true });
   } catch (err) {
@@ -1378,7 +1388,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'No autorizado' });
-  return res.json({ id: req.user.id, email: req.user.email, role: req.user.role || 'editor' });
+  return res.json({ id: req.user.id, email: req.user.email, role: req.user.role || 'editor', nickname: req.user.nickname || '' });
 });
 
 // Solicitar token de reseteo (se guarda en BD y se muestra en logs)

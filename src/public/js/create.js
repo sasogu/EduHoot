@@ -87,6 +87,8 @@ var i18n = {
         visibilityUnlisted: 'Por enlace/ID',
         visibilityPublic: 'Público',
         creatorUnknown: 'Creador desconocido',
+        creatorHidden: 'Creador',
+        labelNick: 'Nombre visible (opcional)',
         noGames: 'No hay juegos importados aún.',
         noGamesHint: 'Sube un CSV o crea uno nuevo para verlo aquí.',
         importSuccess: 'Importado',
@@ -175,6 +177,8 @@ var i18n = {
         visibilityUnlisted: 'By link/ID',
         visibilityPublic: 'Public',
         creatorUnknown: 'Unknown creator',
+        creatorHidden: 'Creator',
+        labelNick: 'Display name (optional)',
         noGames: 'No games yet.',
         noGamesHint: 'Upload a CSV or create one to see it here.',
         importSuccess: 'Imported',
@@ -263,6 +267,8 @@ var i18n = {
         visibilityUnlisted: 'Per enllaç/ID',
         visibilityPublic: 'Públic',
         creatorUnknown: 'Creador desconegut',
+        creatorHidden: 'Creador',
+        labelNick: 'Nom visible (opcional)',
         noGames: 'Encara no hi ha jocs.',
         noGamesHint: 'Puja un CSV o crea\'n un per veure\'l aquí.',
         importSuccess: 'Importat',
@@ -410,7 +416,7 @@ function renderGames(data){
         var meta = document.createElement('div');
         meta.className = 'game-meta';
         var visibilityLabel = quiz.visibility === 'private' ? t('visibilityPrivate') : (quiz.visibility === 'unlisted' ? t('visibilityUnlisted') : t('visibilityPublic'));
-        var creatorText = quiz.ownerEmail ? ((lang === 'en' ? 'Created by ' : (lang === 'ca' ? 'Creat per ' : 'Creado por ')) + quiz.ownerEmail) : t('creatorUnknown');
+        var creatorText = quiz.ownerEmail ? t('creatorHidden') : t('creatorUnknown');
         meta.textContent = creatorText + ' · ' + visibilityLabel;
         if(quiz.sourceQuizId){
             meta.textContent += ' · ' + (lang === 'en' ? 'Based on ' : (lang === 'ca' ? 'Basat en ' : 'Basado en ')) + 'ID ' + quiz.sourceQuizId;
@@ -742,6 +748,7 @@ var iaIdiomaCustom = document.getElementById('ia-idioma-custom');
 // --- Auth ---
 var authEmail = document.getElementById('auth-email');
 var authPass = document.getElementById('auth-pass');
+var authNick = document.getElementById('auth-nick');
 var authStatus = document.getElementById('auth-status');
 var authMsg = document.getElementById('auth-message');
 var authLoginBtn = document.getElementById('auth-login');
@@ -750,6 +757,7 @@ var adminPanel = document.getElementById('user-admin');
 var newUserEmail = document.getElementById('new-user-email');
 var newUserPass = document.getElementById('new-user-pass');
 var newUserRole = document.getElementById('new-user-role');
+var newUserNick = document.getElementById('new-user-nick');
 var createUserBtn = document.getElementById('create-user-btn');
 var createUserStatus = document.getElementById('create-user-status');
 var resetAdminEmail = document.getElementById('reset-admin-email');
@@ -806,12 +814,13 @@ function login(){
     if(!authEmail || !authPass) return;
     var email = authEmail.value.trim();
     var pass = authPass.value;
+    var nick = authNick ? authNick.value.trim() : '';
     authMsg.textContent = 'Iniciando sesión...';
     fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: email, password: pass })
+        body: JSON.stringify({ email: email, password: pass, nickname: nick })
     }).then(async function(res){
         var body = {};
         try { body = await res.json(); } catch(e){}
@@ -821,6 +830,7 @@ function login(){
         }
         authMsg.textContent = 'Sesión iniciada.';
         authPass.value = '';
+        if(authNick) authNick.value = '';
         fetchMe();
     }).catch(function(){
         authMsg.textContent = 'Error al iniciar sesión.';
@@ -843,6 +853,7 @@ async function createUser(){
     var email = newUserEmail.value.trim();
     var pass = newUserPass.value;
     var role = newUserRole.value;
+    var nick = newUserNick ? newUserNick.value.trim() : '';
     if(!email || !pass){
         if(createUserStatus) createUserStatus.textContent = 'Introduce email y contraseña.';
         return;
@@ -853,7 +864,7 @@ async function createUser(){
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ email: email, password: pass, role: role })
+            body: JSON.stringify({ email: email, password: pass, role: role, nickname: nick })
         });
         var body = {};
         try { body = await res.json(); } catch(e){}
