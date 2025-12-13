@@ -276,8 +276,8 @@ function canManageQuiz(quiz, user) {
   if (user && user.role === 'admin') return true;
   const ownerId = quiz.ownerId || quiz.owner_id || quiz.owner;
   if (!ownerId) {
-    // Legacy quizzes sin dueño: solo admin los gestiona; no se tratan como "solo yo"
-    return false;
+    // Quizzes heredados sin dueño: permite gestionarlos a usuarios autenticados
+    return !!user;
   }
   if (!user) return false;
   return ownerId.toString() === user.id;
