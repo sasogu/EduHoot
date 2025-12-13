@@ -278,6 +278,16 @@ function buildQuestionCard(num, data){
     pill.className = 'pill pill-muted';
     pill.textContent = (lang === 'en' ? 'Question ' : (lang === 'ca' ? 'Pregunta ' : 'Pregunta ')) + String(num);
     head.appendChild(pill);
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-ghost btn-small';
+    removeBtn.type = 'button';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Eliminar';
+    removeBtn.onclick = function(){
+        card.remove();
+        renumberQuestions();
+    };
+    head.appendChild(removeBtn);
 
     var questionLabel = document.createElement('label');
     questionLabel.textContent = t('questionLabel');
@@ -402,6 +412,33 @@ function addQuestion(prefill){
     var card = buildQuestionCard(questionNum, prefill);
     questionsDiv.appendChild(card);
     card.querySelector('.question').focus();
+}
+
+function renumberQuestions(){
+    var cards = document.querySelectorAll('.question-card');
+    questionNum = 0;
+    cards.forEach(function(card, idx){
+        var num = idx + 1;
+        questionNum = num;
+        card.setAttribute('data-question', String(num));
+        var pill = card.querySelector('.pill');
+        if(pill){
+            pill.textContent = (lang === 'en' ? 'Question ' : (lang === 'ca' ? 'Pregunta ' : 'Pregunta ')) + String(num);
+        }
+        // update ids to keep order consistent
+        var qField = card.querySelector('.question');
+        if(qField) qField.id = 'q' + num;
+        ['a1','a2','a3','a4'].forEach(function(suffix, idxAns){
+            var inp = card.querySelector('input[id$="'+suffix+'"]');
+            if(inp) inp.id = num + suffix;
+        });
+        var correct = card.querySelector('.correct');
+        if(correct) correct.id = 'correct' + num;
+        var img = card.querySelector('input[id^="img"]');
+        if(img) img.id = 'img' + num;
+        var vid = card.querySelector('input[id^="vid"]');
+        if(vid) vid.id = 'vid' + num;
+    });
 }
 
 //Called when user wants to exit quiz creator
