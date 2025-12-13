@@ -1,0 +1,62 @@
+Server started on port 3000
+Connecting to MongoDB at mongodb://127.0.0.1:27017/
+Connected to MongoDB at mongodb://127.0.0.1:27017/
+[disconnect] Active games: none
+[upload-csv:start] { filename: 'cuestionario_generado.csv', size: 8560, quizName: 'asdf' }
+[upload-csv:success] { filename: 'cuestionario_generado.csv', newId: 2, count: 15 }
+[disconnect] Active games: none
+[upload-csv:start] {
+  filename: 'cuestionario_generado.csv',
+  size: 8560,
+  quizName: 'asdfasdf'
+}
+[upload-csv:success] { filename: 'cuestionario_generado.csv', newId: 3, count: 15 }
+[disconnect] Active games: none
+Game Created with pin: 45246
+[host-join] Active games: 45246(host:yE2WT8B7xs7pyvsSAAAD)
+[player-join] params: { name: '45246', icon: '🐧', pin: '45246' }
+[player-join] Active games: 45246(host:yE2WT8B7xs7pyvsSAAAD)
+Player connected to game pin 45246
+[player-join] joined pin: 45246 playerId: SAGoGgrVxS8m63nzAAAE
+[disconnect] Active games: 45246(host:yE2WT8B7xs7pyvsSAAAD)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+[player-join] params: { name: 'sdafd', icon: '🐰', pin: '45246' }
+[player-join] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+Player connected to game pin 45246
+[player-join] joined pin: 45246 playerId: pWFKSicFQyoUdN7XAAAI
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+[player-join] params: { name: 'sdafd', icon: '🐰', pin: '45246' }
+[player-join] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+Player connected to game pin 45246
+[player-join] joined pin: 45246 playerId: wS9Arl936t30lVCjAAAJ
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF)
+Game Created with pin: 10389
+[host-join] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+[player-join] params: { name: 'sdafd', icon: '🐰', pin: '45246' }
+[player-join] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+Player connected to game pin 45246
+[player-join] joined pin: 45246 playerId: WinEX5QY1vKeI97LAAAQ
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+[player-join] params: { name: 'sdafd', icon: '🐰', pin: '10389' }
+[player-join] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+Player connected to game pin 10389
+[player-join] joined pin: 10389 playerId: ur_MFI4WZ5X1ZQ64AAAR
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:zTsCCZxIS750ZAFaAAAP)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+Game Created with pin: 20143
+[host-join] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS), 20143(host:p8fWy0CYQNxIK4wrAAAW)
+Game ended with pin: 20143
+[host-disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)
+[disconnect] Active games: 45246(host:iKoKSdoyn9tLEICKAAAF), 10389(host:d4AQvzG2EI4OkKMOAAAS)

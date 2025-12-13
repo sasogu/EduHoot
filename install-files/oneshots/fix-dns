@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+
+
+import xmlrpc.client
+import os
+import os.path
+import shutil
+import ssl
+
+
+
+def get_n4d_key():
+	
+	f=open("/etc/n4d/key")
+	key=f.readline().strip("\n")
+	f.close()
+	return key
+	
+#def get_n4d_key
+
+def get_variables():
+	
+	try:
+		context=ssl._create_unverified_context()
+		c=xmlrpc.client.ServerProxy("https://localhost:9779",allow_none=True,context=context)
+		return c.get_variable_list(["INTERNAL_DOMAIN","HOSTNAME"]).get('return',None)
+		
+	except:
+		return None
+
+#def get_variables
+
+
+try:
+	
+	DNS_FILE="/var/lib/dnsmasq/config/cname-server"
+	TMP_FILE="/tmp/cname-server"
+	
+	OLD_FILE="/var/lib/dnsmasq/config/eduhoot"
+	
+	letsgo=True
+	old_file_found=False
+	vars=get_variables()
+	
+	if os.path.exists(OLD_FILE):
+		print("OLD FILE FOUND!")
+		if vars!=None:
+			line="cname=eduhoot.%s,%s.%s\n"%(vars["INTERNAL_DOMAIN"],vars["HOSTNAME"],vars["INTERNAL_DOMAIN"])
+			f=open(OLD_FILE,"w")
+			f.write(line)
+			f.close()
+			print("OLD FILE FIXED")
+			old_file_found=True
+			letsgo=False
+		else:
+			os.remove(OLD_FILE)
+		
+	
+
+	if os.path.exists(DNS_FILE):
+		f=open(DNS_FILE)
+		lines=f.readlines()
+		f.close()
+
+		new_lines=[]
+		
+		for line in lines:
+			line=line.strip("\n")+"\n"
+			if  line.find("cname=eduhoot")==0:
+				if old_file_found:
+					continue
+				else:
+					new_lines.append(line)
+					letsgo=False
+			
+			elif line.find("#cname=eduhoot")==0:
+				pass
+			else:
+				
+				new_lines.append(line)
+				
+					
+				
+		lines=new_lines
+	
+		if letsgo:
+			if vars!=None:
+				line="cname=eduhoot.%s,%s.%s\n"%(vars["INTERNAL_DOMAIN"],vars["HOSTNAME"],vars["INTERNAL_DOMAIN"])
+				lines.append(line)
+		
+		f=open(TMP_FILE,"w")
+		f.writelines(lines)
+		f.close()
+		shutil.move(TMP_FILE,DNS_FILE)
+		os.system("systemctl restart dnsmasq.service")
+		
+		
+	
+except Exception as e:
+	
+	print(e)
+	
+	
+
+
+

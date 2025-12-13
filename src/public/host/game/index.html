@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Game | Eduhoot</title>
+        <link rel = "stylesheet" href = "../../css/hostGameView.css">
+        <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Tajawal" rel="stylesheet">
+    </head>
+    <body>
+        <h4 id = "questionNum">Question 1 / x</h4>
+        <h4 id = "playersAnswered">Players Answered: 0 / x</h4>
+        <h3 id = "timerText">Time Left:<span id = "num"> 20</span></h3>
+        
+        
+        <div class = "square" id = "square1"></div>
+        <div class = "square" id = "square2"></div>
+        <div class = "square" id = "square3"></div>
+        <div class = "square" id = "square4"></div>
+        
+        <h2 id = "question">Question</h2>
+        <div id="imageWrap">
+            <img id="questionImage" alt="Question image">
+            <video id="questionVideo" controls></video>
+        </div>
+        <h3 id = "answer1">Answer</h3>
+        <br>
+        <h3 id = "answer2">Answer</h3>
+        <br>
+        <h3 id = "answer3">Answer</h3>
+        <br>
+        <h3 id = "answer4">Answer</h3>
+        
+        <br>
+        <button onclick = "nextQuestion()" id = "nextQButton">Next Question</button>
+
+        <div id="rankingModal" class="modal">
+            <div class="modal-content">
+                <span id="closeRanking" class="close">&times;</span>
+                <h3>Top 10</h3>
+                <ol id="rankingList"></ol>
+            </div>
+        </div>
+        <button onclick="toggleRanking()" id="showRanking">Mostrar Top 10</button>
+        
+        <h2 id = "winnerTitle">Top 5 Players</h4>
+        <h3 id = "winner1">1.</h3>
+        <h3 id = "winner2">2.</h3>
+        <h3 id = "winner3">3.</h3>
+        <h3 id = "winner4">4.</h3>
+        <h3 id = "winner5">5.</h3>
+        
+        <script src = "../../socket.io/socket.io.js"></script>
+        <script src = "../../js/libs/jqueryLibrary.js"></script>
+        <script src = "../../js/libs/deparam.js"></script>
+        <script src = "../../js/hostGame.js"></script>
+    </body>
+</html>

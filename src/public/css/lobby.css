@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@500;700&display=swap');
+
+:root{
+    --grad-1: #6c2bd9;
+    --grad-2: #b83280;
+    --grad-3: #ff6b00;
+    --grad-4: #2c89d9;
+    --text-main: #e9eefb;
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+body{
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(120deg, var(--grad-1), var(--grad-2), var(--grad-3), var(--grad-4));
+    background-size: 400% 400%;
+    animation: gradientMove 16s ease infinite;
+    font-family: 'Inter', 'Poppins', sans-serif;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    text-align: center;
+}
+
+#title1{
+    font-size: 34px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+}
+#title2{
+    font-size: 16px;
+    margin: 0 0 18px;
+    opacity: 0.9;
+}
+
+.loader{
+    border: 8px solid rgba(255,255,255,0.25);
+    border-radius: 50%;
+    border-top: 8px solid #22c55e;
+    width: 64px;
+    height: 64px;
+    animation: spin 1.4s linear infinite;
+    box-shadow: 0 14px 35px rgba(0,0,0,0.28);
+}

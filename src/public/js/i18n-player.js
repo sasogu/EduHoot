@@ -1,0 +1,96 @@
+// Lightweight i18n for player-facing screens (join, lobby, game)
+(function () {
+  const translations = {
+    es: {
+      join_title: 'Únete a un juego',
+      join_name: 'Nombre',
+      join_pin: 'PIN de la partida',
+      join_button: 'Entrar',
+      join_host: 'Haz clic aquí para crear una partida',
+      lobby_wait: 'Esperando a que el anfitrión inicie la partida',
+      lobby_check: '¿Ves tu nombre en pantalla?',
+      correct: '¡Correcto!',
+      incorrect: 'Incorrecto',
+      submitted: 'Respuesta enviada. Espera al resto...',
+      score: 'Puntuación:',
+      name: 'Nombre:',
+      game_over: 'PARTIDA TERMINADA',
+      rank_top: 'Top 10 - Puesto',
+      rank_out: 'Fuera del Top 10'
+    },
+    ca: {
+      join_title: 'Uneix-te a una partida',
+      join_name: 'Nom',
+      join_pin: 'PIN de la partida',
+      join_button: 'Entrar',
+      join_host: 'Fes clic aquí per crear una partida',
+      lobby_wait: 'Esperant que l\'amfitrió iniciï la partida',
+      lobby_check: 'Veus el teu nom a la pantalla?',
+      correct: 'Correcte!',
+      incorrect: 'Incorrecte',
+      submitted: 'Resposta enviada. Espera la resta...',
+      score: 'Puntuació:',
+      name: 'Nom:',
+      game_over: 'PARTIDA ACABADA',
+      rank_top: 'Top 10 - Posició',
+      rank_out: 'Fora del Top 10'
+    },
+    en: {
+      join_title: 'Join a Game',
+      join_name: 'Display Name',
+      join_pin: 'Game Pin',
+      join_button: 'Join',
+      join_host: 'Click here to host a Kahoot!',
+      lobby_wait: 'Waiting on host to start game',
+      lobby_check: 'Do you see your name on the screen?',
+      correct: 'Correct!',
+      incorrect: 'Incorrect!',
+      submitted: 'Answer Submitted! Waiting on other players...',
+      score: 'Score:',
+      name: 'Name:',
+      game_over: 'GAME OVER',
+      rank_top: 'Top 10 - Rank',
+      rank_out: 'Outside Top 10'
+    }
+  };
+
+  function detectLang() {
+    const stored = window.localStorage.getItem('lang-player');
+    if (stored && translations[stored]) return stored;
+    const nav = (navigator.language || navigator.userLanguage || 'es').toLowerCase();
+    if (nav.startsWith('ca')) return 'ca';
+    if (nav.startsWith('es')) return 'es';
+    return 'en';
+  }
+
+  const lang = detectLang();
+  const dict = translations[lang] || translations.en;
+
+  function t(key) {
+    return dict[key] || translations.en[key] || key;
+  }
+
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n');
+      const txt = t(key);
+      if (txt) el.textContent = txt;
+    });
+    const selector = document.getElementById('lang-switcher');
+    if (selector) {
+      selector.querySelectorAll('button[data-lang]').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+      });
+    }
+  }
+
+  function setLang(newLang) {
+    if (translations[newLang]) {
+      window.localStorage.setItem('lang-player', newLang);
+      window.location.reload();
+    }
+  }
+
+  window.i18nPlayer = { t, lang, setLang };
+  document.addEventListener('DOMContentLoaded', applyTranslations);
+})();

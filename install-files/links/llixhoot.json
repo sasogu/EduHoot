@@ -1,0 +1,19 @@
+{
+    "linkid":"eduhoot",
+    "link":"http://eduhoot",
+    "icon":"eduhoot.svg",
+    "fonticon":"icon-headphones",
+	"order": 100,
+	"editable": false,
+	"visibility":true,
+	"name": {
+        "default":"Eduhoot: Kahoot like app",
+        "valencia":"Eduhoot: Aplicaciò tipus kahoot",
+        "es":"Eduhoot: Aplicación tipo kahoot"
+    },
+    "description": {
+        "default":"Eduhoot: Kahoot like app",
+        "valencia":"Eduhoot: Aplicaciò tipus kahoot",
+        "es":"Eduhoot: Aplicación tipo kahoot"
+    }
+}

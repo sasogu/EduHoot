@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Join | Eduhoot</title>
+        <link rel = "stylesheet" href = "css/index.css">
+        <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <div id="lang-switcher">
+            <button type="button" data-lang="es" onclick="window.i18nPlayer && window.i18nPlayer.setLang('es')">ES</button>
+            <button type="button" data-lang="ca" onclick="window.i18nPlayer && window.i18nPlayer.setLang('ca')">CA</button>
+            <button type="button" data-lang="en" onclick="window.i18nPlayer && window.i18nPlayer.setLang('en')">EN</button>
+        </div>
+        <h1 id="title">Eduhoot</h1>
+        <form action="/player/">
+                <div class="form-field">
+                    <label id = "label" data-i18n="join_name">Display Name</label>
+                    <input id = "name" type = "text" name="name" autofocus/>
+                </div>
+                <div class="form-field">
+                    <label id="label">Icono / Icona</label>
+                    <input type="hidden" id="icon" name="icon">
+                    <div id="icon-picker">
+                        <button type="button" data-icon="🦊">🦊</button>
+                        <button type="button" data-icon="🐱">🐱</button>
+                        <button type="button" data-icon="🐶">🐶</button>
+                        <button type="button" data-icon="🐼">🐼</button>
+                        <button type="button" data-icon="🐧">🐧</button>
+                        <button type="button" data-icon="🐸">🐸</button>
+                        <button type="button" data-icon="🦉">🦉</button>
+                        <button type="button" data-icon="🦄">🦄</button>
+                        <button type="button" data-icon="🐰">🐰</button>
+                        <button type="button" data-icon="🐢">🐢</button>
+                        <button type="button" data-icon="🐙">🐙</button>
+                        <button type="button" data-icon="🦁">🦁</button>
+                        <button type="button" data-icon="🐨">🐨</button>
+                        <button type="button" data-icon="🐝">🐝</button>
+                        <button type="button" data-icon="🐯">🐯</button>
+                        <button type="button" data-icon="🐸">🐸</button>
+                        <button type="button" data-icon="🐻">🐻</button>
+                        <button type="button" data-icon="🦕">🦕</button>
+                        <button type="button" data-icon="🦖">🦖</button>
+                        <button type="button" data-icon="🐉">🐉</button>
+                        <button type="button" data-icon="🚀">🚀</button>
+                        <button type="button" data-icon="🌈">🌈</button>
+                        <button type="button" data-icon="⚽️">⚽️</button>
+                        <button type="button" data-icon="🏀">🏀</button>
+                        <button type="button" data-icon="🏆">🏆</button>
+                        <button type="button" data-icon="🎮">🎮</button>
+                        <button type="button" data-icon="🎧">🎧</button>
+                        <button type="button" data-icon="📚">📚</button>
+                        <button type="button" data-icon="🎨">🎨</button>
+                    </div>
+                    <div id="icon-preview"></div>
+                </div>
+                <br>
+                <div class="form-field">
+                    <label id = "label" data-i18n="join_pin">Game Pin</label>
+                    <input id = "pin" type="number" name="pin"/>
+                </div>
+                <br>
+                <div class="form-field">
+                    <button id = "joinButton" data-i18n="join_button">Join</button>
+                </div>
+        </form>
+        <script src="js/i18n-player.js"></script>
+        <script>
+            (function(){
+                var picker = document.getElementById('icon-picker');
+                var hidden = document.getElementById('icon');
+                var preview = document.getElementById('icon-preview');
+                if (picker && hidden) {
+                    picker.addEventListener('click', function(ev){
+                        if (ev.target && ev.target.dataset.icon) {
+                            hidden.value = ev.target.dataset.icon;
+                            picker.querySelectorAll('button').forEach(function(btn){
+                                btn.classList.toggle('selected', btn === ev.target);
+                            });
+                            if (preview) preview.textContent = ev.target.dataset.icon;
+                        }
+                    });
+                    // default select first
+                    var first = picker.querySelector('button[data-icon]');
+                    if (first) {
+                        first.classList.add('selected');
+                        hidden.value = first.dataset.icon;
+                        if (preview) preview.textContent = first.dataset.icon;
+                    }
+                }
+            })();
+        </script>
+    </body>
+</html>

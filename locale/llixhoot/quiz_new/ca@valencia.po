@@ -1,0 +1,56 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-02-03 11:46+0100\n"
+"PO-Revision-Date: 2020-05-23 08:24+0000\n"
+"Last-Translator: Empar <montoro_mde@gva.es>\n"
+"Language-Team: Valencian <http://172.20.8.37/weblate/projects/eduhoot/"
+"quiznew/ca@valencia/>\n"
+"Language: ca@valencia\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.0.3\n"
+
+msgid "Creator | KahootClone"
+msgstr "Creador | Eduhoot"
+
+msgid "Kahoot Quiz Creator Studio"
+msgstr "Creador de preguntes de Eduhoot"
+
+msgid "Quiz Title"
+msgstr "Títol"
+
+msgid "Question 1: "
+msgstr "Pregunta 1: "
+
+msgid "Answer 1: "
+msgstr "Resposta 1: "
+
+msgid "Answer 2: "
+msgstr "Resposta 2: "
+
+msgid "Answer 3: "
+msgstr "Resposta 3: "
+
+msgid "Answer 4: "
+msgstr "Resposta 4: "
+
+msgid "Correct Answer (1-4) :"
+msgstr "Resposta correcta (1-4) :"
+
+msgid "Add another question"
+msgstr "Afig una altra pregunta"
+
+msgid "Create Quiz"
+msgstr "Crea un qüestionari"
+
+msgid "Cancel quiz and return to quiz selection"
+msgstr "Cancel·la el qüestionari i torna a selecció de qüestionari"

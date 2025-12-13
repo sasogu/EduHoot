@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Create | Eduhoot</title>
+        <link rel="stylesheet" href = "../css/create.css">
+        <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+    </head>
+    <body>
+        <a id = "back"href = "../">Volver</a>
+        <div class="page-shell">
+            <h1 id = "title">Crea y lanza tu kahoot</h1>
+            <h4 id = "subtitle">Elige un juego importado o <a id = "link" href = "quiz-creator/">crea uno desde cero</a></h4>
+
+            <div id="auth-panel" class="panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Acceso</p>
+                        <h3>Usuarios</h3>
+                        <p class="subtext">Inicia sesión para crear, editar o borrar quizzes.</p>
+                    </div>
+                    <div id="auth-status" class="pill pill-muted">No has iniciado sesión</div>
+                </div>
+                <div class="auth-grid">
+                    <label>Email
+                        <input id="auth-email" type="email" placeholder="tupro@centro.es">
+                    </label>
+                    <label>Contraseña
+                        <input id="auth-pass" type="password" placeholder="••••••••">
+                    </label>
+                </div>
+                <div class="actions-row">
+                    <button id="auth-login" class="btn btn-primary">Entrar</button>
+                    <button id="auth-logout" class="btn btn-ghost">Cerrar sesión</button>
+                </div>
+                <p class="subtext" id="auth-message"></p>
+            </div>
+
+            <div id="ia-box" class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Ayuda IA</p>
+                    <h3>Generador IA (CSV)</h3>
+                    <p class="subtext">Rellena los campos y copia el prompt para generar tu cuestionario por IA.</p>
+                </div>
+            </div>
+            <div class="ia-grid">
+                <label>Nombre del quiz (opcional)
+                    <input id="ia-name" type="text" placeholder="Nombre para guardar">
+                </label>
+                <label>Nivel del alumnado
+                    <input id="ia-nivel" type="text" placeholder="Ej: 2º ESO">
+                </label>
+                <label>Tema del cuestionario
+                    <input id="ia-tema" type="text" placeholder="Ej: Energía y calor">
+                </label>
+                <label>Idioma del cuestionario
+                    <select id="ia-idioma">
+                        <option value="Español">Español</option>
+                        <option value="Catalán">Catalán</option>
+                        <option value="Inglés">Inglés</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                    <input id="ia-idioma-custom" class="hidden" type="text" placeholder="Otro idioma">
+                </label>
+                <label>Número de preguntas
+                    <input id="ia-num" type="number" min="1" max="50" value="10">
+                </label>
+                <label>Instrucciones adicionales
+                    <textarea id="ia-extra" rows="2" placeholder="Tono, nivel cognitivo, formato..."></textarea>
+                </label>
+            </div>
+            <button id="ia-generate">Generar prompt</button>
+            <button id="ia-copy" class="secondary">Copiar prompt</button>
+            <pre id="ia-prompt">El prompt aparecerá aquí...</pre>
+            <label>Contenido CSV generado por la IA
+                <textarea id="ia-csv" rows="6" placeholder="Pega aquí el CSV devuelto por la IA"></textarea>
+            </label>
+            <button id="ia-upload">Importar CSV en el juego</button>
+            <p id="ia-status"></p>
+            </div>
+
+            <div id="csv-import" class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Importación</p>
+                    <h3>Importar quiz desde CSV</h3>
+                    <p class="subtext">Sube un archivo CSV con tus preguntas para guardarlo en tu biblioteca.</p>
+                </div>
+            </div>
+            <form id="csv-form">
+                <input id="csv-file" type="file" accept=".csv,text/csv" required>
+                <input id="csv-name" type="text" placeholder="Nombre del quiz (opcional)">
+                <button type="submit">Subir CSV</button>
+            </form>
+            <p id="csv-status"></p>
+            </div>
+
+            <div id="library" class="panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Biblioteca</p>
+                        <h3>Juegos importados</h3>
+                        <p class="subtext">Selecciona un juego para hostearlo o gestiona su nombre y estado.</p>
+                    </div>
+                    <div id="game-count" class="pill pill-muted">0 juegos</div>
+                </div>
+                <div id="filter-bar" class="filter-bar">
+                    <div class="pill pill-muted" id="filter-info">Sin filtros</div>
+                </div>
+                <div id="game-list" class="game-grid">
+                </div>
+            </div>
+        </div>
+        
+        <script src = "../socket.io/socket.io.js"></script>
+        <script src = "../js/create.js"></script>
+    </body>
+</html>

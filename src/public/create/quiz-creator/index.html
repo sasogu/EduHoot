@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Creator | Eduhoot</title>
+        <link rel = "stylesheet" href = "../../css/quizCreator.css">
+        <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+    </head>
+    <body>
+        <a id="back" href="../">Volver</a>
+        <div class="page-shell">
+            <h1 id="title">Creador de quizzes</h1>
+            <h4 id="subtitle">Diseña las preguntas y guarda tu juego para lanzarlo cuando quieras.</h4>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Configuración</p>
+                        <h3>Datos del quiz</h3>
+                        <p class="subtext">Ponle un nombre para identificarlo en la biblioteca.</p>
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label id="quizTitle" for="name">Título del quiz</label>
+                    <input id="name" type="text" name="name" placeholder="Ej: Repaso de energía" autofocus/>
+                </div>
+                <div class="form-field">
+                    <label for="tags">Etiquetas (separadas por comas)</label>
+                    <input id="tags" type="text" name="tags" placeholder="ej: física, 2ºESO, energía">
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Preguntas</p>
+                        <h3>Construye las preguntas</h3>
+                        <p class="subtext">Añade 4 posibles respuestas y marca la correcta (1-4).</p>
+                    </div>
+                    <button class="btn btn-ghost" onclick="addQuestion()">+ Añadir pregunta</button>
+                </div>
+                <div id="allQuestions" class="question-grid"></div>
+            </div>
+
+            <div class="panel actions">
+                <div class="actions-row">
+                    <button class="btn btn-primary" onclick="updateDatabase()">Guardar quiz</button>
+                    <button class="btn btn-ghost" onclick="cancelQuiz()">Cancelar y volver</button>
+                </div>
+            </div>
+        </div>
+
+        <script src = "../../socket.io/socket.io.js"></script>
+        <script src = "../../js/quizCreator.js"></script>
+    </body>
+</html>

@@ -1,0 +1,17 @@
+
+OUTPUT: eduhoot/index/index.pot
+OUTPUT: eduhoot/quiz/quiz.pot
+OUTPUT: eduhoot/quiz_new/quiz_new.pot
+OUTPUT: eduhoot/host/host.pot
+OUTPUT: eduhoot/game/game.pot
+OUTPUT: eduhoot/player/player.pot
+OUTPUT: eduhoot/new_game/new_game.pot
+OUTPUT: eduhoot/node/node.pot
+OUTPUT: eduhoot/index/es_ES.po
+OUTPUT: eduhoot/quiz/es_ES.po
+OUTPUT: eduhoot/quiz_new/es_ES.po
+OUTPUT: eduhoot/host/es_ES.po
+OUTPUT: eduhoot/game/es_ES.po
+OUTPUT: eduhoot/player/es_ES.po
+OUTPUT: eduhoot/new_game/es_ES.po
+OUTPUT: eduhoot/node/es_ES.po

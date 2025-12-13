@@ -1,0 +1,36 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-02-03 11:46+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+msgid "Join | KahootClone"
+msgstr "Únete | LlixHoot"
+
+msgid "Join a Game"
+msgstr "Unirse a una partida"
+
+msgid "Display Name"
+msgstr "Nombre a mostrar"
+
+msgid "Game Pin"
+msgstr "Pin del juego"
+
+msgid "Join"
+msgstr "Unirse"
+
+msgid "Click here to host a Kahoot!"
+msgstr "¡Pulsa aquí para crear un LlixHoot!"
+

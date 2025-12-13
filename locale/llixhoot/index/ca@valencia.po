@@ -1,0 +1,38 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-02-03 11:46+0100\n"
+"PO-Revision-Date: 2020-05-23 08:24+0000\n"
+"Last-Translator: Empar <montoro_mde@gva.es>\n"
+"Language-Team: Valencian <http://172.20.8.37/weblate/projects/eduhoot/index/"
+"ca@valencia/>\n"
+"Language: ca@valencia\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.0.3\n"
+
+msgid "Join | LlixHoot"
+msgstr "Uneix-te | Eduhoot"
+
+msgid "Join a Game"
+msgstr "Uneix-te a una partida"
+
+msgid "Display Name"
+msgstr "Nom que es mostrarà"
+
+msgid "Game Pin"
+msgstr "PIN del joc"
+
+msgid "Join"
+msgstr "Uneix-te"
+
+msgid "Click here to host a kahoot!"
+msgstr "Fes clic ací per a crear un Eduhoot!"
