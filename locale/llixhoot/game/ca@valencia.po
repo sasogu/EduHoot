@@ -26,7 +26,7 @@ msgid "Question 1 / x"
 msgstr "Pregunta 1 / x"
 
 msgid "Player's answer: 0 / x"
-msgstr "Resposta del jugador: 0 / x"
+msgstr "Han respost: 0 / x"
 
 msgid "Time Left:"
 msgstr "Temps restant:"

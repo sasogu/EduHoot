@@ -14,13 +14,13 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 msgid "Create | KahootClone"
-msgstr "Crear | LlixHoot"
+msgstr "Crear | EduHoot"
 
 msgid "Start a Kahoot Game"
-msgstr "Iniciar un LlixHoot"
+msgstr "Iniciar una partida"
 
 msgid "Back"
 msgstr "Volver"
@@ -30,4 +30,3 @@ msgstr "Elige un juego o "
 
 msgid "Create your Own!"
 msgstr "¡Crea uno propio!"
-

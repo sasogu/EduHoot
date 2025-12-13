@@ -20,10 +20,10 @@ msgstr ""
 "X-Generator: Weblate 4.0.3\n"
 
 msgid "Create | KahootClone"
-msgstr "Crea | LlixHoot"
+msgstr "Crea | EduHoot"
 
 msgid "Start a Kahoot Game"
-msgstr "Comença un LlixHoot"
+msgstr "Comença una partida"
 
 msgid "Back"
 msgstr "Ves arrere"

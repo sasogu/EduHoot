@@ -23,7 +23,7 @@ msgid "Creator | KahootClone"
 msgstr "Creador | EduHoot"
 
 msgid "Kahoot Quiz Creator Studio"
-msgstr "Creador de preguntes de EduHoot"
+msgstr "Creador de qüestionaris d'EduHoot"
 
 msgid "Quiz Title"
 msgstr "Títol"
@@ -53,4 +53,4 @@ msgid "Create Quiz"
 msgstr "Crea un qüestionari"
 
 msgid "Cancel quiz and return to quiz selection"
-msgstr "Cancel·la el qüestionari i torna a selecció de qüestionari"
+msgstr "Cancel·la el qüestionari i torna a la selecció de qüestionaris"

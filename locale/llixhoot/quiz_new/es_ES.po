@@ -14,16 +14,16 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 msgid "Creator | KahootClone"
-msgstr "Diseñador | LlixHoot"
+msgstr "Creador | EduHoot"
 
 msgid "Kahoot Quiz Creator Studio"
-msgstr "Diseñador de EduHoots"
+msgstr "Creador de cuestionarios de EduHoot"
 
 msgid "Quiz Title"
-msgstr "Título"
+msgstr "Título del cuestionario"
 
 msgid "Question 1: "
 msgstr "Pregunta 1: "
@@ -50,5 +50,4 @@ msgid "Create Quiz"
 msgstr "Crear cuestionario"
 
 msgid "Cancel quiz and return to quiz selection"
-msgstr "Cancelar y volver"
-
+msgstr "Cancelar y volver a la selección de cuestionarios"

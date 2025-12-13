@@ -14,7 +14,7 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 msgid "Name: "
 msgstr "Nombre: "
@@ -32,10 +32,10 @@ msgid "GAME OVER"
 msgstr "FIN de la PARTIDA"
 
 msgid "Players Answered 0 / "
-msgstr "Respondidas: 0 / "
+msgstr "Han respondido: 0 / "
 
 msgid "Players Answered "
-msgstr "Respondidas: "
+msgstr "Han respondido "
 
 msgid "Answer Submitted! Waiting on other players..."
 msgstr "Respuesta enviada. Esperando al resto de jugadores..."
@@ -59,8 +59,7 @@ msgid " Answer 4: "
 msgstr "Respuesta 4: "
 
 msgid "Correct Answer (1-4): "
-msgstr "Respuesta correcta (1-4) : "
+msgstr "Respuesta correcta (1-4): "
 
 msgid "Are you sure you want to exit? All work will be DELETED!"
-msgstr "¿Salir? Todo el trabajo se perderá"
-
+msgstr "¿Seguro que quieres salir? Todo el trabajo se eliminará."

@@ -19,7 +19,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 4.0.3\n"
 
-msgid "Join | LlixHoot"
+msgid "Join | EduHoot"
 msgstr "Uneix-te | EduHoot"
 
 msgid "Join a Game"
@@ -29,10 +29,10 @@ msgid "Display Name"
 msgstr "Nom que es mostrarà"
 
 msgid "Game Pin"
-msgstr "PIN del joc"
+msgstr "PIN de la partida"
 
 msgid "Join"
 msgstr "Uneix-te"
 
 msgid "Click here to host a kahoot!"
-msgstr "Fes clic ací per a crear un EduHoot!"
+msgstr "Fes clic ací per crear una partida"

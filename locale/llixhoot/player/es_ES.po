@@ -14,14 +14,13 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 msgid "Lobby | KahootClone"
-msgstr "Lobby | LlixHoot"
+msgstr "Sala de espera | EduHoot"
 
 msgid "Waiting on host to start game"
-msgstr "Esperando al servidor para empezar..."
+msgstr "Esperando a que el anfitrión inicie la partida"
 
 msgid "Do you see your name on the screen?"
 msgstr "¿Ves tu nombre en la pantalla?"
-

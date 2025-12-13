@@ -35,10 +35,10 @@ msgid "GAME OVER"
 msgstr "FINAL DE LA PARTIDA"
 
 msgid "Players Answered 0 / "
-msgstr "Contestades 0 / "
+msgstr "Han contestat 0 / "
 
 msgid "Players Answered "
-msgstr "Els jugadors han contestat "
+msgstr "Han contestat "
 
 msgid "Answer Submitted! Waiting on other players..."
 msgstr "Resposta enviada! En espera dels altres jugadors..."

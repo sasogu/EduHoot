@@ -14,17 +14,16 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 msgid "Host | KahootClone"
-msgstr "Host | LlixHoot"
+msgstr "Anfitrión | EduHoot"
 
 msgid "Join this Game using the Game Pin: "
-msgstr "Introduce el pin para unirte: "
+msgstr "Únete usando el PIN de la partida: "
 
 msgid "Cancel Game"
-msgstr "Cancelar"
+msgstr "Cancelar partida"
 
 msgid "Start Game"
-msgstr "Jugar"
-
+msgstr "Empezar partida"

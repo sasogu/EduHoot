@@ -14,23 +14,22 @@ msgstr ""
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 msgid "Join | KahootClone"
-msgstr "Únete | LlixHoot"
+msgstr "Únete | EduHoot"
 
 msgid "Join a Game"
-msgstr "Unirse a una partida"
+msgstr "Únete a una partida"
 
 msgid "Display Name"
-msgstr "Nombre a mostrar"
+msgstr "Nombre visible"
 
 msgid "Game Pin"
-msgstr "Pin del juego"
+msgstr "PIN de la partida"
 
 msgid "Join"
 msgstr "Unirse"
 
 msgid "Click here to host a Kahoot!"
-msgstr "¡Pulsa aquí para crear un LlixHoot!"
-
+msgstr "Haz clic aquí para crear una partida"
