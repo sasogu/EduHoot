@@ -2,6 +2,21 @@ var socket = io();
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
 var lastHostKey = 'lastHostId';
+var lastPinKey = 'lastGamePin';
+var pinBadge = document.getElementById('pin-badge');
+var rankingNextBtn = document.getElementById('rankingNextBtn');
+
+// Fallback: si faltan id o pin en la URL, usa localStorage
+try{
+    if(!params.id){
+        var storedId = localStorage.getItem(lastHostKey);
+        if(storedId) params.id = storedId;
+    }
+    if(!params.pin){
+        var storedPin = localStorage.getItem(lastPinKey);
+        if(storedPin) params.pin = storedPin;
+    }
+}catch(e){}
 
 var timer;
 
@@ -83,6 +98,10 @@ socket.on('connect', function() {
     if(params.id){
         try{ localStorage.setItem(lastHostKey, params.id); }catch(e){}
     }
+    if(params.pin){
+        try{ localStorage.setItem(lastPinKey, params.pin); }catch(e){}
+    }
+    setPinBadge(params.pin || '');
 });
 
 socket.on('noGameFound', function(){
@@ -107,6 +126,38 @@ socket.on('gameQuestions', function(data){
 
 socket.on('updatePlayersAnswered', function(data){
    document.getElementById('playersAnswered').innerHTML = i18n[lang].playersAnswered(data.playersAnswered, data.playersInGame);
+});
+
+socket.on('gamePin', function(data){
+    if(data && data.pin){
+        setPinBadge(data.pin);
+        try{ localStorage.setItem(lastPinKey, data.pin); }catch(e){}
+    }
+});
+
+socket.on('hostSession', function(data){
+    if(data && data.hostId){
+        try{ localStorage.setItem(lastHostKey, data.hostId); }catch(e){}
+    }
+    if(data && data.pin){
+        setPinBadge(data.pin);
+        try{ localStorage.setItem(lastPinKey, data.pin); }catch(e){}
+    }
+});
+
+// Control: botón y tecla Enter para pasar a la siguiente pregunta desde el modal
+if(rankingNextBtn){
+    rankingNextBtn.addEventListener('click', function(){
+        nextQuestion();
+        toggleRanking();
+    });
+}
+document.addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter' && document.getElementById('rankingModal') && document.getElementById('rankingModal').style.display === 'block'){
+        ev.preventDefault();
+        nextQuestion();
+        toggleRanking();
+    }
 });
 
 socket.on('questionOver', function(playerData, correct){
@@ -336,8 +387,23 @@ socket.on('GameOver', function(data){
     document.getElementById('winner3').innerHTML = "3. " + data.num3;
     document.getElementById('winner4').innerHTML = "4. " + data.num4; 
     document.getElementById('winner5').innerHTML = "5. " + data.num5;
-    try{ localStorage.removeItem(lastHostKey); }catch(e){}
+    try{
+        localStorage.removeItem(lastHostKey);
+        localStorage.removeItem(lastPinKey);
+    }catch(e){}
 });
+
+function setPinBadge(pin){
+    if(pinBadge){
+        if(pin){
+            pinBadge.textContent = 'PIN ' + pin;
+            pinBadge.style.display = 'inline-flex';
+        }else{
+            pinBadge.textContent = '';
+            pinBadge.style.display = 'none';
+        }
+    }
+}
 
 
 

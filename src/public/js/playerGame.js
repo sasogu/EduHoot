@@ -113,7 +113,6 @@ socket.on('newScore', function(data){
 socket.on('nextQuestionPlayer', function(){
     correct = false;
     playerAnswered = false;
-    setMedia(null, null);
     
     document.getElementById('answer1').style.visibility = "visible";
     document.getElementById('answer2').style.visibility = "visible";

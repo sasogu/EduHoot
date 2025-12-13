@@ -760,13 +760,15 @@ io.on('connection', (socket) => {
 
   socket.on('host-join-game', async (data) => {
     const oldHostId = data.id;
-    const game = games.getGame(oldHostId);
+    const pinParam = data.pin ? data.pin.toString() : '';
+    const game = games.getGame(oldHostId) || (pinParam ? games.getGameByPin(pinParam) : null);
     if (game) {
+      const previousHostId = game.hostId;
       game.hostId = socket.id;
       socket.join(game.pin);
-      const playerData = players.getPlayers(oldHostId);
+      const playerData = players.getPlayers(previousHostId);
       for (let i = 0; i < Object.keys(players.players).length; i++) {
-        if (players.players[i].hostId === oldHostId) {
+        if (players.players[i].hostId === previousHostId) {
           players.players[i].hostId = socket.id;
         }
       }
@@ -778,29 +780,32 @@ io.on('connection', (socket) => {
           return;
         }
 
-        const firstQuestion = kahootQuestions[0];
+        const currentIdx = Math.max(0, Math.min((game.gameData.question || 1) - 1, kahootQuestions.length - 1));
+        const currentQuestion = kahootQuestions[currentIdx];
 
         socket.emit('gameQuestions', {
-          q1: firstQuestion.question,
-          a1: firstQuestion.answers[0],
-          a2: firstQuestion.answers[1],
-          a3: firstQuestion.answers[2],
-          a4: firstQuestion.answers[3],
-          correct: firstQuestion.correct,
-          image: firstQuestion.image || '',
-          video: firstQuestion.video || '',
+          q1: currentQuestion.question,
+          a1: currentQuestion.answers[0],
+          a2: currentQuestion.answers[1],
+          a3: currentQuestion.answers[2],
+          a4: currentQuestion.answers[3],
+          correct: currentQuestion.correct,
+          image: currentQuestion.image || '',
+          video: currentQuestion.video || '',
           playersInGame: playerData.length,
           showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
           questionNumber: game.gameData.question,
           totalQuestions: game.gameData.totalQuestions || kahootQuestions.length || 0
         });
-        io.to(game.pin).emit('questionMedia', { image: firstQuestion.image || '', video: firstQuestion.video || '' });
+        socket.emit('gamePin', { pin: game.pin });
+        socket.emit('hostSession', { hostId: game.hostId, pin: game.pin });
+        io.to(game.pin).emit('questionMedia', { image: currentQuestion.image || '', video: currentQuestion.video || '' });
         if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
           io.to(game.pin).emit('playerQuestion', {
-            question: firstQuestion.question,
-            answers: firstQuestion.answers,
-            image: firstQuestion.image || '',
-            video: firstQuestion.video || ''
+            question: currentQuestion.question,
+            answers: currentQuestion.answers,
+            image: currentQuestion.image || '',
+            video: currentQuestion.video || ''
           });
         }
       } catch (err) {
@@ -837,6 +842,9 @@ io.on('connection', (socket) => {
             const playersInGame = players.getPlayers(hostId);
             io.to(params.pin).emit('updatePlayerLobby', playersInGame);
             socket.emit('playerRejoin', { ok: true });
+            if (games.games[i].gameLive) {
+              socket.emit('gameStartedPlayer');
+            }
             gameFound = true;
             break;
           }
@@ -849,6 +857,9 @@ io.on('connection', (socket) => {
         const playersInGame = players.getPlayers(hostId);
 
         io.to(params.pin).emit('updatePlayerLobby', playersInGame);
+        if (games.games[i].gameLive) {
+          socket.emit('gameStartedPlayer');
+        }
         gameFound = true;
       }
     }
@@ -882,8 +893,10 @@ io.on('connection', (socket) => {
         socket.emit('playerQuestion', {
           question: current.question,
           answers: current.answers,
-          image: current.image || ''
+          image: current.image || '',
+          video: current.video || ''
         });
+        socket.emit('questionMedia', { image: current.image || '', video: current.video || '' });
       }
     } else {
       socket.emit('noGameFound');

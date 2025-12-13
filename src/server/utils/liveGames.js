@@ -18,6 +18,9 @@ class LiveGames {
     getGame(hostId){
         return this.games.filter((game) => game.hostId === hostId)[0]
     }
+    getGameByPin(pin){
+        return this.games.filter((game) => game.pin.toString() === pin.toString())[0]
+    }
 }
 
 module.exports = {LiveGames};

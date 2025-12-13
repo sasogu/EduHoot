@@ -1,13 +1,19 @@
 var socket = io();
 var params = jQuery.deparam(window.location.search);
 var lastHostKey = 'lastHostId';
+var lastPinKey = 'lastGamePin';
 var resumeBtn = document.getElementById('resume-last');
 
 function resumeLast(){
     try{
         var saved = localStorage.getItem(lastHostKey);
-        if(saved){
-            window.location.href = "/host/game/?id=" + encodeURIComponent(saved);
+        var pin = localStorage.getItem(lastPinKey);
+        if(saved || pin){
+            var url = "/host/game/?";
+            var parts = [];
+            if(saved) parts.push('id=' + encodeURIComponent(saved));
+            if(pin) parts.push('pin=' + encodeURIComponent(pin));
+            window.location.href = url + parts.join('&');
         }
     }catch(e){}
 }
@@ -15,7 +21,7 @@ function resumeLast(){
 // Mostrar botón de reanudar si hay partida activa guardada
 try{
     var savedHost = localStorage.getItem(lastHostKey);
-    if(savedHost && resumeBtn){
+    if((savedHost || localStorage.getItem(lastPinKey)) && resumeBtn){
         resumeBtn.style.display = 'inline-block';
     }
 }catch(e){}
@@ -31,6 +37,7 @@ socket.on('connect', function() {
 
 socket.on('showGamePin', function(data){
    document.getElementById('gamePinText').innerHTML = data.pin;
+   try{ localStorage.setItem(lastPinKey, data.pin); }catch(e){}
 });
 
 //Adds player's name to screen and updates player count
@@ -63,7 +70,11 @@ function endGame(){
 socket.on('gameStarted', function(id){
     console.log('Game Started!');
     try{ localStorage.setItem(lastHostKey, id); }catch(e){}
-    window.location.href="/host/game/" + "?id=" + id;
+    var pin = null;
+    try{ pin = localStorage.getItem(lastPinKey); }catch(e){}
+    var qs = '?id=' + encodeURIComponent(id);
+    if(pin) qs += '&pin=' + encodeURIComponent(pin);
+    window.location.href="/host/game/" + qs;
 });
 
 socket.on('noGameFound', function(){
