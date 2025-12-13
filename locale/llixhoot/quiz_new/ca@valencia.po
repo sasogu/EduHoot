@@ -20,10 +20,10 @@ msgstr ""
 "X-Generator: Weblate 4.0.3\n"
 
 msgid "Creator | KahootClone"
-msgstr "Creador | Eduhoot"
+msgstr "Creador | EduHoot"
 
 msgid "Kahoot Quiz Creator Studio"
-msgstr "Creador de preguntes de Eduhoot"
+msgstr "Creador de preguntes de EduHoot"
 
 msgid "Quiz Title"
 msgstr "Títol"

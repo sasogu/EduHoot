@@ -20,7 +20,7 @@ msgid "Creator | KahootClone"
 msgstr "Diseñador | LlixHoot"
 
 msgid "Kahoot Quiz Creator Studio"
-msgstr "Diseñador de Eduhoots"
+msgstr "Diseñador de EduHoots"
 
 msgid "Quiz Title"
 msgstr "Título"

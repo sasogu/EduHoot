@@ -3,6 +3,7 @@ var questionNum = 0; // Se incrementa cuando se añaden tarjetas
 var editingId = null;
 var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
+var knownTags = [];
 var i18n = {
     es: {
         back: 'Volver',
@@ -19,6 +20,7 @@ var i18n = {
         visibilityUnlisted: 'Por enlace/ID',
         visibilityPublic: 'Público en la biblioteca',
         allowCloneLabel: 'Permitir que otras personas hagan una copia',
+        suggestedTags: 'Etiquetas usadas (toca para añadir)',
         questionsEyebrow: 'Preguntas',
         questionsTitle: 'Construye las preguntas',
         questionsDesc: 'Añade 4 posibles respuestas y marca la correcta (1-4).',
@@ -37,6 +39,7 @@ var i18n = {
         tagsPlaceholder: 'ej: física, 2ºESO, energía',
         urlPlaceholder: 'https://...',
         playErrorName: 'Ponle un nombre',
+        playErrorTags: 'Añade al menos una etiqueta',
         playErrorQuestions: 'Añade preguntas',
         loadError: 'No se pudo cargar el quiz.',
         saveError: 'No se pudo guardar el quiz.',
@@ -58,6 +61,7 @@ var i18n = {
         visibilityUnlisted: 'By link/ID',
         visibilityPublic: 'Public in library',
         allowCloneLabel: 'Allow others to make a copy',
+        suggestedTags: 'Suggested tags (tap to add)',
         questionsEyebrow: 'Questions',
         questionsTitle: 'Build the questions',
         questionsDesc: 'Add 4 possible answers and mark the correct one (1-4).',
@@ -76,6 +80,7 @@ var i18n = {
         tagsPlaceholder: 'e.g. physics, grade8, energy',
         urlPlaceholder: 'https://...',
         playErrorName: 'Give it a name',
+        playErrorTags: 'Add at least one tag',
         playErrorQuestions: 'Add questions',
         loadError: 'Could not load quiz.',
         saveError: 'Could not save quiz.',
@@ -97,6 +102,7 @@ var i18n = {
         visibilityUnlisted: 'Per enllaç/ID',
         visibilityPublic: 'Públic a la biblioteca',
         allowCloneLabel: 'Permetre que altres en facin una còpia',
+        suggestedTags: 'Etiquetes usades (toca per afegir)',
         questionsEyebrow: 'Preguntes',
         questionsTitle: 'Construeix les preguntes',
         questionsDesc: 'Afegeix 4 respostes i marca la correcta (1-4).',
@@ -115,6 +121,7 @@ var i18n = {
         tagsPlaceholder: 'ex: física, 2nESO, energia',
         urlPlaceholder: 'https://...',
         playErrorName: 'Posa-li un nom',
+        playErrorTags: 'Afegeix almenys una etiqueta',
         playErrorQuestions: 'Afegeix preguntes',
         loadError: 'No s\'ha pogut carregar el quiz.',
         saveError: 'No s\'ha pogut desar el quiz.',
@@ -146,11 +153,15 @@ function applyI18n(){
     if(tagsInput) tagsInput.placeholder = t('tagsPlaceholder');
     var langSelect = document.getElementById('lang-select');
     if(langSelect) langSelect.value = lang;
+    renderTagSuggestions();
 }
 
 function updateDatabase(){
     var quiz = buildQuizPayload();
     quiz.id = editingId || 0;
+    if(!validateQuizBasics(quiz)){
+        return;
+    }
 
     if(editingId){
         saveExistingQuiz(editingId, quiz);
@@ -164,7 +175,6 @@ function updateDatabase(){
             return res.json();
         })
         .then(function(){
-            quiz.tags = quiz.tags || parseTagsInput();
             socket.emit('newQuiz', quiz);
         })
         .catch(function(){
@@ -199,14 +209,25 @@ function buildQuizPayload(){
     };
 }
 
-async function saveLocal(){
-    var quiz = buildQuizPayload();
-    if(!quiz.name){
+function validateQuizBasics(quiz){
+    if(!quiz.name || !quiz.name.trim()){
         alert(t('playErrorName'));
-        return;
+        return false;
+    }
+    if(!quiz.tags || !quiz.tags.length){
+        alert(t('playErrorTags'));
+        return false;
     }
     if(!quiz.questions.length){
         alert(t('playErrorQuestions'));
+        return false;
+    }
+    return true;
+}
+
+async function saveLocal(){
+    var quiz = buildQuizPayload();
+    if(!validateQuizBasics(quiz)){
         return;
     }
     try{
@@ -494,6 +515,11 @@ socket.on('startGameFromCreator', function(data){
     window.location.href = "../../host/?id=" + data;
 });
 
+socket.on('quizValidationError', function(payload){
+    var message = payload && payload.error ? payload.error : t('saveError');
+    alert(message);
+});
+
 async function saveExistingQuiz(id, quiz){
     try{
         var res = await fetch('/api/quizzes/' + id, {
@@ -532,6 +558,7 @@ async function loadQuiz(id){
         document.getElementById('name').value = quiz.name || '';
         if(quiz.tags && quiz.tags.length){
             document.getElementById('tags').value = quiz.tags.join(', ');
+            renderTagSuggestions();
         }
         if(document.getElementById('visibility')){
             document.getElementById('visibility').value = quiz.visibility || 'public';
@@ -570,11 +597,55 @@ function initQuizCreator(){
 }
 
 initQuizCreator();
+fetchKnownTags();
 
 function parseTagsInput(){
     var raw = document.getElementById('tags') ? document.getElementById('tags').value : '';
     if(!raw) return [];
     return raw.split(',').map(function(t){ return t.trim().toLowerCase(); }).filter(function(t){ return t.length; });
+}
+
+function addTagToInput(tag){
+    var input = document.getElementById('tags');
+    if(!input) return;
+    var tags = parseTagsInput();
+    if(tags.indexOf(tag) !== -1) return;
+    tags.push(tag);
+    input.value = tags.join(', ');
+}
+
+function renderTagSuggestions(){
+    var wrap = document.getElementById('tag-suggestions');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    if(!knownTags.length){
+        return;
+    }
+    var label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = t('suggestedTags');
+    wrap.appendChild(label);
+    knownTags.forEach(function(tag){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tag' + (parseTagsInput().indexOf(tag) !== -1 ? ' active' : '');
+        btn.textContent = tag;
+        btn.onclick = function(){ addTagToInput(tag); renderTagSuggestions(); };
+        wrap.appendChild(btn);
+    });
+}
+
+function fetchKnownTags(){
+    return fetch('/api/tags', { credentials: 'include' })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+            knownTags = Array.isArray(data.tags) ? data.tags : [];
+            renderTagSuggestions();
+        })
+        .catch(function(){
+            knownTags = [];
+            renderTagSuggestions();
+        });
 }
 
 var langSelector = document.getElementById('lang-select');
@@ -584,6 +655,12 @@ if(langSelector){
         lang = langSelector.value;
         localStorage.setItem('lang', lang);
         applyI18n();
+    });
+}
+var tagsInputEl = document.getElementById('tags');
+if(tagsInputEl){
+    tagsInputEl.addEventListener('input', function(){
+        renderTagSuggestions();
     });
 }
 applyI18n();

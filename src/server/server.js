@@ -227,7 +227,7 @@ async function sessionMiddleware(req, res, next) {
   const sessionId = cookies.sessionId;
   if (sessionId && sessions.has(sessionId)) {
     const session = sessions.get(sessionId);
-    req.user = { id: session.userId, email: session.email, role: session.role };
+    req.user = { id: session.userId, email: session.email, role: session.role, nickname: session.nickname || '' };
   }
   next();
 }
@@ -595,6 +595,9 @@ app.put('/api/quizzes/:id', async (req, res) => {
   const allowClone = normalizeAllowClone(req.body.allowClone);
   if (!name) {
     return res.status(400).json({ error: 'Falta nombre.' });
+  }
+  if (!tags.length) {
+    return res.status(400).json({ error: 'Añade al menos una etiqueta.' });
   }
   if (!questions.length) {
     return res.status(400).json({ error: 'Añade al menos una pregunta.' });
@@ -1157,7 +1160,7 @@ io.on('connection', (socket) => {
   socket.on('requestDbNames', async () => {
     try {
       const collection = await getGamesCollection();
-    const res = await collection.find().project({ questions: 0 }).toArray();
+      const res = await collection.find().project({ questions: 0 }).toArray();
       const filtered = selectQuizzesForUser(res, socket.user);
       socket.emit('gameNamesData', filtered);
     } catch (err) {
@@ -1183,6 +1186,10 @@ io.on('connection', (socket) => {
         createdAt: new Date(),
         updatedAt: new Date()
       };
+      if (!quiz.tags.length) {
+        socket.emit('quizValidationError', { error: 'Añade al menos una etiqueta.' });
+        return;
+      }
       if (quiz.questions.length === 0) {
         socket.emit('noGameFound');
         return;
@@ -1221,6 +1228,25 @@ app.get('/api/quizzes', async (req, res) => {
   } catch (err) {
     console.error('list-quizzes error', err);
     return res.status(500).json({ error: 'No se pudo obtener la lista.' });
+  }
+});
+
+app.get('/api/tags', async (req, res) => {
+  try {
+    const collection = await getGamesCollection();
+    const quizzesRaw = await collection
+      .find({}, { projection: { tags: 1, visibility: 1, ownerId: 1, allowClone: 1 } })
+      .toArray();
+    const quizzes = selectQuizzesForUser(quizzesRaw, req.user);
+    const set = new Set();
+    quizzes.forEach((quiz) => {
+      const normalized = normalizeTags(quiz.tags || []);
+      normalized.forEach((t) => set.add(t));
+    });
+    return res.json({ tags: Array.from(set).sort() });
+  } catch (err) {
+    console.error('list-tags error', err);
+    return res.status(500).json({ error: 'No se pudieron obtener etiquetas.' });
   }
 });
 
@@ -1270,6 +1296,7 @@ app.post('/api/quizzes/local', async (req, res) => {
     const visibility = normalizeVisibility(req.body.visibility);
     const allowClone = normalizeAllowClone(req.body.allowClone);
     if (!name) return res.status(400).json({ error: 'Falta nombre.' });
+    if (!tags.length) return res.status(400).json({ error: 'Añade al menos una etiqueta.' });
     if (!questions.length) return res.status(400).json({ error: 'Añade preguntas.' });
     if (visibility === 'private') {
       const saved = saveEphemeralQuiz({ name, questions, tags, visibility, allowClone });

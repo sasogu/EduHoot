@@ -128,6 +128,31 @@ textarea{
     min-height: 80px;
 }
 
+.tag-suggestions{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 4px 0 12px;
+}
+.tag-suggestions .label{
+    font-size: 14px;
+    opacity: 0.85;
+}
+.tag-suggestions .tag{
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.12);
+    cursor: pointer;
+    color: inherit;
+}
+.tag-suggestions .tag.active{
+    background: #fff;
+    color: #0f162a;
+    border-color: #fff;
+}
+
 label{
     font-weight: 700;
     font-size: 14px;

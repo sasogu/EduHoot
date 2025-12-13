@@ -7,13 +7,13 @@
 	"editable": false,
 	"visibility":true,
 	"name": {
-        "default":"Eduhoot: Kahoot like app",
-        "valencia":"Eduhoot: Aplicaciò tipus kahoot",
-        "es":"Eduhoot: Aplicación tipo kahoot"
+        "default":"EduHoot: Kahoot like app",
+        "valencia":"EduHoot: Aplicaciò tipus kahoot",
+        "es":"EduHoot: Aplicación tipo kahoot"
     },
     "description": {
-        "default":"Eduhoot: Kahoot like app",
-        "valencia":"Eduhoot: Aplicaciò tipus kahoot",
-        "es":"Eduhoot: Aplicación tipo kahoot"
+        "default":"EduHoot: Kahoot like app",
+        "valencia":"EduHoot: Aplicaciò tipus kahoot",
+        "es":"EduHoot: Aplicación tipo kahoot"
     }
 }

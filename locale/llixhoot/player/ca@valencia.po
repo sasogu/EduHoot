@@ -20,7 +20,7 @@ msgstr ""
 "X-Generator: Weblate 4.0.3\n"
 
 msgid "Lobby | KahootClone"
-msgstr "Sala d'espera | Eduhoot"
+msgstr "Sala d'espera | EduHoot"
 
 msgid "Waiting on host to start game"
 msgstr "En espera de l'amfitrió per a començar"

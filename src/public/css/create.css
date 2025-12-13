@@ -299,6 +299,25 @@ body {
     gap: 10px;
     margin-bottom: 12px;
 }
+.tag-suggestions{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 10px 0;
+    align-items: center;
+}
+.tag-suggestions .label{
+    font-size: 14px;
+    opacity: 0.85;
+}
+.tag-suggestions .tag{
+    background: rgba(255,255,255,0.1);
+}
+.tag-suggestions .tag.active{
+    background: #fff;
+    color: #0f162a;
+    border-color: #fff;
+}
 
 .game-grid{
     display: grid;

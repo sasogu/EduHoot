@@ -20,7 +20,7 @@ msgstr ""
 "X-Generator: Weblate 4.0.3\n"
 
 msgid "Game | KahootClone"
-msgstr "Partida | Eduhoot"
+msgstr "Partida | EduHoot"
 
 msgid "Name: "
 msgstr "Nom: "

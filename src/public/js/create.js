@@ -10,11 +10,13 @@ socket.on('gameNamesData', function(data){
     }else{
         renderGames(data || []);
     }
+    fetchTags();
 });
 
 var currentFilters = {
     tags: []
 };
+var knownTags = [];
 
 var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
@@ -71,6 +73,7 @@ var i18n = {
         libraryEyebrow: 'Biblioteca',
         libraryTitle: 'Juegos importados',
         libraryDesc: 'Selecciona un juego para hostearlo o gestiona su nombre y estado.',
+        suggestedTags: 'Etiquetas usadas (toca para filtrar)',
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
         play: 'Iniciar juego',
@@ -162,6 +165,7 @@ var i18n = {
         libraryEyebrow: 'Library',
         libraryTitle: 'Imported games',
         libraryDesc: 'Pick a game to host or manage its name and status.',
+        suggestedTags: 'Suggested tags (tap to filter)',
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
         play: 'Start game',
@@ -253,6 +257,7 @@ var i18n = {
         libraryEyebrow: 'Biblioteca',
         libraryTitle: 'Jocs importats',
         libraryDesc: 'Selecciona un joc per hostatjar-lo o gestiona el seu nom i estat.',
+        suggestedTags: 'Etiquetes usades (toca per filtrar)',
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
         play: 'Iniciar joc',
@@ -333,6 +338,7 @@ function setLang(newLang){
     lang = newLang;
     localStorage.setItem('lang', lang);
     applyStaticTranslations();
+    renderTagSuggestions();
     socket.emit('requestDbNames');
 }
 
@@ -359,7 +365,42 @@ function toggleTagFilter(tag){
     }else{
         currentFilters.tags.splice(idx, 1);
     }
+    renderTagSuggestions();
     fetchWithFilters();
+}
+
+function renderTagSuggestions(){
+    var wrap = document.getElementById('tag-suggestions');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    if(!knownTags.length){
+        return;
+    }
+    var label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = t('suggestedTags');
+    wrap.appendChild(label);
+    knownTags.forEach(function(tag){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tag' + (currentFilters.tags.indexOf(tag) !== -1 ? ' active' : '');
+        btn.textContent = tag;
+        btn.onclick = function(){ toggleTagFilter(tag); };
+        wrap.appendChild(btn);
+    });
+}
+
+function fetchTags(){
+    return fetch('/api/tags', { credentials: 'include' })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+            knownTags = Array.isArray(data.tags) ? data.tags : [];
+            renderTagSuggestions();
+        })
+        .catch(function(){
+            knownTags = [];
+            renderTagSuggestions();
+        });
 }
 
 function renderGames(data){
@@ -742,6 +783,29 @@ function buildPrompt(params){
     return JSON.stringify(prompt, null, 2);
 }
 
+function buildIaTags(){
+    var tags = new Set();
+    function addTag(text){
+        var clean = (text || '').toString().trim().toLowerCase();
+        if(clean) tags.add(clean);
+    }
+    function addFromList(text){
+        (text || '').split(/[,;]+/).forEach(function(part){
+            addTag(part);
+        });
+    }
+    addFromList(document.getElementById('ia-tema') ? document.getElementById('ia-tema').value : '');
+    addFromList(document.getElementById('ia-nivel') ? document.getElementById('ia-nivel').value : '');
+    addFromList(document.getElementById('ia-name') ? document.getElementById('ia-name').value : '');
+    var idiomaVal = '';
+    if(iaIdioma){
+        idiomaVal = iaIdioma.value === 'otro' && iaIdiomaCustom ? iaIdiomaCustom.value : iaIdioma.value;
+    }
+    addTag(idiomaVal);
+    addTag('generado-ia');
+    return Array.from(tags).filter(Boolean).slice(0, 8);
+}
+
 var iaGenerate = document.getElementById('ia-generate');
 var iaCopy = document.getElementById('ia-copy');
 var iaPrompt = document.getElementById('ia-prompt');
@@ -781,10 +845,11 @@ var authState = { user: null };
 function updateAuthUI(){
     if(!authStatus) return;
     if(authState.user){
-        authStatus.textContent = authState.user.email + ' (' + authState.user.role + ')';
+        var nickPart = authState.user.nickname ? ' · ' + authState.user.nickname : '';
+        authStatus.textContent = authState.user.email + nickPart + ' (' + authState.user.role + ')';
         authStatus.classList.remove('pill-muted');
     }else{
-        authStatus.textContent = 'No has iniciado sesión';
+        authStatus.textContent = t('authStatus');
         authStatus.classList.add('pill-muted');
     }
     if(adminPanel){
@@ -1013,6 +1078,7 @@ if(resetConfirmBtn){
 
 // Start auth check on load
 fetchMe();
+fetchTags();
 
 if (iaIdioma) {
     iaIdioma.addEventListener('change', function(){
@@ -1064,6 +1130,10 @@ if (iaUpload) {
             var formData = new FormData();
             formData.append('file', file);
             if (quizName) formData.append('name', quizName);
+            var iaTags = buildIaTags();
+            iaTags.forEach(function(tag){
+                formData.append('tags', tag);
+            });
 
             var response = await fetch('/api/upload-csv', { method: 'POST', body: formData });
             var result = await response.json();

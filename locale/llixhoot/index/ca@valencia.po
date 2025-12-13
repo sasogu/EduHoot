@@ -20,7 +20,7 @@ msgstr ""
 "X-Generator: Weblate 4.0.3\n"
 
 msgid "Join | LlixHoot"
-msgstr "Uneix-te | Eduhoot"
+msgstr "Uneix-te | EduHoot"
 
 msgid "Join a Game"
 msgstr "Uneix-te a una partida"
@@ -35,4 +35,4 @@ msgid "Join"
 msgstr "Uneix-te"
 
 msgid "Click here to host a kahoot!"
-msgstr "Fes clic ací per a crear un Eduhoot!"
+msgstr "Fes clic ací per a crear un EduHoot!"

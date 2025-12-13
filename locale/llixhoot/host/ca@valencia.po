@@ -20,7 +20,7 @@ msgstr ""
 "X-Generator: Weblate 4.0.3\n"
 
 msgid "Host | KahootClone"
-msgstr "Amfitrió | Eduhoot"
+msgstr "Amfitrió | EduHoot"
 
 msgid "Join this Game using the Game Pin: "
 msgstr "Uneix-te al joc introduint el PIN: "
