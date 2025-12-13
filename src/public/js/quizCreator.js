@@ -353,7 +353,12 @@ function buildQuestionCard(num, data){
     var videoTag = document.createElement('video');
     videoTag.controls = true;
     videoTag.className = 'video-thumb hidden';
+    var videoFrame = document.createElement('iframe');
+    videoFrame.className = 'video-thumb hidden';
+    videoFrame.allowFullscreen = true;
+    videoFrame.loading = 'lazy';
     videoPreview.appendChild(videoTag);
+    videoPreview.appendChild(videoFrame);
 
     imageField.addEventListener('input', function(){
         updateImagePreview(imageField, imageTag);
@@ -361,9 +366,9 @@ function buildQuestionCard(num, data){
     // set initial preview
     updateImagePreview(imageField, imageTag);
     videoField.addEventListener('input', function(){
-        updateVideoPreview(videoField, videoTag);
+        updateVideoPreview(videoField, videoTag, videoFrame);
     });
-    updateVideoPreview(videoField, videoTag);
+    updateVideoPreview(videoField, videoTag, videoFrame);
 
     card.appendChild(head);
     card.appendChild(questionLabel);
@@ -394,19 +399,53 @@ function updateImagePreview(inputEl, imgEl){
     imgEl.onerror = function(){ imgEl.classList.add('hidden'); };
 }
 
-function updateVideoPreview(inputEl, videoEl){
+function updateVideoPreview(inputEl, videoEl, iframeEl){
     if(!inputEl || !videoEl) return;
     var url = (inputEl.value || '').trim();
     if(!url){
         videoEl.classList.add('hidden');
         videoEl.removeAttribute('src');
         videoEl.load();
+        if(iframeEl){
+            iframeEl.classList.add('hidden');
+            iframeEl.removeAttribute('src');
+        }
         return;
     }
-    videoEl.src = url;
-    videoEl.load();
-    videoEl.onloadeddata = function(){ videoEl.classList.remove('hidden'); };
-    videoEl.onerror = function(){ videoEl.classList.add('hidden'); };
+    var ytId = parseYouTubeId(url);
+    if(ytId && iframeEl){
+        videoEl.classList.add('hidden');
+        videoEl.removeAttribute('src');
+        videoEl.pause();
+        iframeEl.src = 'https://www.youtube-nocookie.com/embed/' + ytId;
+        iframeEl.classList.remove('hidden');
+    }else{
+        if(iframeEl){
+            iframeEl.classList.add('hidden');
+            iframeEl.removeAttribute('src');
+        }
+        videoEl.src = url;
+        videoEl.load();
+        videoEl.onloadeddata = function(){ videoEl.classList.remove('hidden'); };
+        videoEl.onerror = function(){ videoEl.classList.add('hidden'); };
+    }
+}
+
+function parseYouTubeId(url){
+    if(!url) return null;
+    try{
+        var u = new URL(url);
+        if(u.hostname.includes('youtube.com') || u.hostname.includes('youtu.be')){
+            if(u.hostname.includes('youtu.be')){
+                return u.pathname.replace('/','');
+            }
+            if(u.searchParams.get('v')) return u.searchParams.get('v');
+            var parts = u.pathname.split('/');
+            var last = parts[parts.length-1];
+            if(last) return last;
+        }
+    }catch(e){}
+    return null;
 }
 
 function addQuestion(prefill){
