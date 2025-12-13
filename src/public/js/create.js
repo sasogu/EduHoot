@@ -16,7 +16,8 @@ var currentFilters = {
     tags: []
 };
 
-var lang = localStorage.getItem('lang') || 'es';
+var browserLang = (navigator.language || 'es').slice(0,2);
+var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 var i18n = {
     es: {
         back: 'Volver',

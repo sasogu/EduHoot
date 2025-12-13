@@ -759,7 +759,9 @@ io.on('connection', (socket) => {
           image: firstQuestion.image || '',
           video: firstQuestion.video || '',
           playersInGame: playerData.length,
-          showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true
+          showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
+          questionNumber: game.gameData.question,
+          totalQuestions: game.gameData.totalQuestions || kahootQuestions.length || 0
         });
         io.to(game.pin).emit('questionMedia', { image: firstQuestion.image || '', video: firstQuestion.video || '' });
         if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
@@ -787,6 +789,7 @@ io.on('connection', (socket) => {
     logGames('player-join');
     let gameFound = false;
     const pinParam = params.pin ? params.pin.toString() : '';
+    const token = params.token;
 
     for (let i = 0; i < games.games.length; i++) {
       if (pinParam === games.games[i].pin.toString()) {
@@ -794,7 +797,21 @@ io.on('connection', (socket) => {
 
         const hostId = games.games[i].hostId;
 
-        players.addPlayer(hostId, socket.id, params.name, { score: 0, answer: 0 }, params.icon || '');
+        let existing = null;
+        if (token) {
+          existing = players.getByToken(token);
+          if (existing && existing.hostId === hostId) {
+            existing.playerId = socket.id;
+            socket.join(params.pin);
+            const playersInGame = players.getPlayers(hostId);
+            io.to(params.pin).emit('updatePlayerLobby', playersInGame);
+            socket.emit('playerRejoin', { ok: true });
+            gameFound = true;
+            break;
+          }
+        }
+
+        players.addPlayer(hostId, socket.id, params.name, { score: 0, answer: 0 }, params.icon || '', token);
 
         socket.join(params.pin);
 
@@ -814,7 +831,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-join-game', (data) => {
-    const player = players.getPlayer(data.id);
+    let player = players.getPlayer(data.id);
+    if (!player && data.token) {
+      player = players.getByToken(data.token);
+      if (player) {
+        player.playerId = socket.id;
+      }
+    }
     if (player) {
       const game = games.getGame(player.hostId);
       socket.join(game.pin);
@@ -858,13 +881,17 @@ io.on('connection', (socket) => {
       if (player) {
         const hostId = player.hostId;
         const hostGame = games.getGame(hostId);
-        const pin = hostGame.pin;
-
-        if (hostGame.gameLive === false) {
-          players.removePlayer(socket.id);
-          const playersInGame = players.getPlayers(hostId);
-
-          io.to(pin).emit('updatePlayerLobby', playersInGame);
+        if (hostGame) {
+          const pin = hostGame.pin;
+          // gracia: no expulsar al instante, esperar unos segundos por si reanuda
+          setTimeout(() => {
+            const stillMissing = players.getPlayer(socket.id);
+            if (stillMissing) {
+              players.removePlayer(socket.id);
+              const playersInGame = players.getPlayers(hostId);
+              io.to(pin).emit('updatePlayerLobby', playersInGame);
+            }
+          }, 15000);
           socket.leave(pin);
         }
       }
@@ -1014,7 +1041,9 @@ io.on('connection', (socket) => {
           image,
           video,
           playersInGame: playerData.length,
-          showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true
+          showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
+          questionNumber: game.gameData.question,
+          totalQuestions: game.gameData.totalQuestions || questions.length
         });
         io.to(game.pin).emit('questionMedia', { image, video });
         if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
@@ -1117,6 +1146,7 @@ io.on('connection', (socket) => {
     game.gameData.options = options;
     // build question set based on options
     game.gameData.questions = buildQuestions(game.gameData.originalQuestions || [], options);
+    game.gameData.totalQuestions = (game.gameData.questions || []).length;
     game.gameLive = true;
     socket.emit('gameStarted', game.hostId);
   });

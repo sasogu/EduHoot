@@ -59,6 +59,7 @@
                     <label id = "label" data-i18n="join_pin">Game Pin</label>
                     <input id = "pin" type="number" name="pin"/>
                 </div>
+                <input type="hidden" id="token" name="token">
                 <br>
                 <div class="form-field">
                     <button id = "joinButton" data-i18n="join_button">Join</button>
@@ -87,6 +88,41 @@
                         hidden.value = first.dataset.icon;
                         if (preview) preview.textContent = first.dataset.icon;
                     }
+                }
+            })();
+            (function(){
+                var form = document.querySelector('form');
+                var pinInput = document.getElementById('pin');
+                var nameInput = document.getElementById('name');
+                var tokenInput = document.getElementById('token');
+                function loadTokens(){
+                    try{
+                        return JSON.parse(localStorage.getItem('playerTokens') || '{}');
+                    }catch(e){
+                        return {};
+                    }
+                }
+                function saveTokens(obj){
+                    localStorage.setItem('playerTokens', JSON.stringify(obj));
+                }
+                function genToken(){
+                    var arr = new Uint8Array(16);
+                    crypto.getRandomValues(arr);
+                    return Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+                }
+                if(form && pinInput && nameInput && tokenInput){
+                    form.addEventListener('submit', function(){
+                        var pin = (pinInput.value || '').trim();
+                        var name = (nameInput.value || '').trim();
+                        if(!pin) return;
+                        var tokens = loadTokens();
+                        var key = pin + ':' + name;
+                        if(!tokens[key]){
+                            tokens[key] = genToken();
+                            saveTokens(tokens);
+                        }
+                        tokenInput.value = tokens[key];
+                    });
                 }
             })();
         </script>

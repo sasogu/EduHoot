@@ -3,12 +3,24 @@ var playerAnswered = false;
 var correct = false;
 var name;
 var score = 0;
+var token = null;
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
+if(params.token){
+    token = params.token;
+}else{
+    try{
+        var tokens = JSON.parse(localStorage.getItem('playerTokens') || '{}');
+        var key = (params.pin || '') + ':' + (params.name || '');
+        token = tokens[key];
+    }catch(e){}
+}
 
 socket.on('connect', function() {
     //Tell server that it is host connection from game view
-    socket.emit('player-join-game', params);
+    var payload = Object.assign({}, params);
+    if(token) payload.token = token;
+    socket.emit('player-join-game', payload);
     
     document.getElementById('answer1').style.visibility = "visible";
     document.getElementById('answer2').style.visibility = "visible";

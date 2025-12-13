@@ -20,7 +20,12 @@ socket.on('hostDisconnect', function(){
 
 //When the host clicks start game, the player screen changes
 socket.on('gameStartedPlayer', function(){
-    window.location.href="/player/game/" + "?id=" + socket.id;
+    var params = jQuery.deparam(window.location.search);
+    var url = "/player/game/?id=" + socket.id;
+    if(params.pin) url += "&pin=" + encodeURIComponent(params.pin);
+    if(params.token) url += "&token=" + encodeURIComponent(params.token);
+    if(params.name) url += "&name=" + encodeURIComponent(params.name);
+    window.location.href = url;
 });
 
 // Hide language switcher if present once the game starts
@@ -30,4 +35,3 @@ if (langSw) {
         langSw.style.display = 'none';
     });
 }
-

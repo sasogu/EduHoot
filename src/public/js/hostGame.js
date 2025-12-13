@@ -5,6 +5,74 @@ var params = jQuery.deparam(window.location.search); //Gets the id from url
 var timer;
 
 var time = 20;
+var browserLang = (navigator.language || 'es').slice(0,2);
+var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
+var i18n = {
+    es: {
+        questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
+        playersAnswered: function(ans, total){ return 'Han respondido ' + ans + ' / ' + total; },
+        timeLeft: 'Tiempo restante:',
+        skip: 'Saltar pregunta',
+        next: 'Siguiente pregunta',
+        showRanking: 'Mostrar Top 10',
+        rankingTitle: 'Top 10',
+        topPlayers: 'Top 5 jugadores',
+        gameOver: 'FIN DE LA PARTIDA'
+    },
+    en: {
+        questionXofY: function(n, t){ return 'Question ' + n + ' / ' + t; },
+        playersAnswered: function(ans, total){ return 'Players Answered ' + ans + ' / ' + total; },
+        timeLeft: 'Time Left:',
+        skip: 'Skip question',
+        next: 'Next question',
+        showRanking: 'Show Top 10',
+        rankingTitle: 'Top 10',
+        topPlayers: 'Top 5 Players',
+        gameOver: 'GAME OVER'
+    },
+    ca: {
+        questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
+        playersAnswered: function(ans, total){ return 'Han respost ' + ans + ' / ' + total; },
+        timeLeft: 'Temps restant:',
+        skip: 'Saltar pregunta',
+        next: 'Següent pregunta',
+        showRanking: 'Mostrar Top 10',
+        rankingTitle: 'Top 10',
+        topPlayers: 'Top 5 jugadors',
+        gameOver: 'FI DE LA PARTIDA'
+    }
+};
+
+function t(key){
+    return (i18n[lang] && i18n[lang][key]) || i18n.es[key];
+}
+
+function applyStaticText(){
+    var langSelect = document.getElementById('lang-select');
+    if(langSelect){
+        langSelect.value = lang;
+    }
+    var timeLabel = document.querySelector('#timerText span[data-i18n="timeLeft"]');
+    if(timeLabel){
+        timeLabel.textContent = t('timeLeft') + ' ';
+    }
+    var skipBtn = document.getElementById('skipQButton');
+    if(skipBtn) skipBtn.textContent = t('skip');
+    var nextBtn = document.getElementById('nextQButton');
+    if(nextBtn) nextBtn.textContent = t('next');
+    var showRanking = document.getElementById('showRanking');
+    if(showRanking) showRanking.textContent = t('showRanking');
+    var rankingTitle = document.getElementById('rankingTitle');
+    if(rankingTitle) rankingTitle.textContent = t('rankingTitle');
+    var winnerTitle = document.getElementById('winnerTitle');
+    if(winnerTitle) winnerTitle.textContent = t('topPlayers');
+}
+
+function setLang(newLang){
+    lang = newLang;
+    localStorage.setItem('lang', lang);
+    applyStaticText();
+}
 
 //When host connects to server
 socket.on('connect', function() {
@@ -26,12 +94,15 @@ socket.on('gameQuestions', function(data){
     window.hostShowScores = data.showScores !== false;
     setMedia(data.image, data.video);
     var correctAnswer = data.correct;
-    document.getElementById('playersAnswered').innerHTML = "Players Answered 0 / " + data.playersInGame;
+    document.getElementById('playersAnswered').innerHTML = i18n[lang].playersAnswered(0, data.playersInGame);
+    if (data.questionNumber && data.totalQuestions) {
+        document.getElementById('questionNum').innerHTML = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
+    }
     updateTimer();
 });
 
 socket.on('updatePlayersAnswered', function(data){
-   document.getElementById('playersAnswered').innerHTML = "Players Answered " + data.playersAnswered + " / " + data.playersInGame; 
+   document.getElementById('playersAnswered').innerHTML = i18n[lang].playersAnswered(data.playersAnswered, data.playersInGame);
 });
 
 socket.on('questionOver', function(playerData, correct){
@@ -214,7 +285,7 @@ socket.on('GameOver', function(data){
     document.getElementById('answer3').style.display = "none";
     document.getElementById('answer4').style.display = "none";
     document.getElementById('timerText').innerHTML = "";
-    document.getElementById('question').innerHTML = "GAME OVER";
+    document.getElementById('question').innerHTML = i18n[lang].gameOver;
     document.getElementById('playersAnswered').innerHTML = "";
     
     
@@ -225,6 +296,7 @@ socket.on('GameOver', function(data){
     document.getElementById('winner4').style.display = "block";
     document.getElementById('winner5').style.display = "block";
     document.getElementById('winnerTitle').style.display = "block";
+    document.getElementById('winnerTitle').textContent = t('topPlayers');
     
     document.getElementById('winner1').innerHTML = "1. " + data.num1;
     document.getElementById('winner2').innerHTML = "2. " + data.num2;
@@ -242,10 +314,12 @@ socket.on('getTime', function(player){
     });
 });
 
-
-
-
-
-
-
+// Lang selector init
+applyStaticText();
+var langSelectEl = document.getElementById('lang-select');
+if(langSelectEl){
+    langSelectEl.addEventListener('change', function(){
+        setLang(langSelectEl.value);
+    });
+}
 
