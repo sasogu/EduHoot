@@ -286,7 +286,8 @@ function canUseQuiz(quiz, user) {
   const visibility = currentVisibility(quiz);
   if (visibility === 'public') return true;
   if (visibility === 'unlisted') return true;
-  return canManageQuiz(quiz, user);
+  // Permitir usar (hostear) aunque sea "solo yo"; se controla por visibilidad solo en lectura/gestión.
+  return true;
 }
 
 function canCloneQuiz(quiz, user) {
