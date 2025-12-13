@@ -112,6 +112,17 @@ body{
     border: 1px solid var(--card-stroke);
     background: #0b122a;
 }
+#questionIframe{
+    max-width: 82%;
+    width: 82%;
+    height: 340px;
+    display: none;
+    margin: 10px auto 0;
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--card-stroke);
+    background: #0b122a;
+}
 
 h3[id^="answer"]{
     margin: 10px auto;

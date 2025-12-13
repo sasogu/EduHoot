@@ -170,6 +170,7 @@ socket.on('GameOver', function(){
 function setMedia(imageUrl, videoUrl){
     var img = document.getElementById('playerQuestionImage');
     var vid = document.getElementById('playerQuestionVideo');
+    var iframe = document.getElementById('playerQuestionIframe');
     if(img){
         if(imageUrl){
             img.src = imageUrl;
@@ -179,14 +180,42 @@ function setMedia(imageUrl, videoUrl){
             img.style.display = 'none';
         }
     }
-    if(vid){
-        if(videoUrl){
+    if(vid && iframe){
+        var ytId = parseYouTubeId(videoUrl);
+        if(ytId){
+            vid.removeAttribute('src');
+            vid.pause();
+            vid.style.display = 'none';
+            iframe.src = 'https://www.youtube-nocookie.com/embed/' + ytId;
+            iframe.style.display = 'block';
+        }else if(videoUrl){
+            iframe.removeAttribute('src');
+            iframe.style.display = 'none';
             vid.src = videoUrl;
             vid.style.display = 'block';
         }else{
+            iframe.removeAttribute('src');
+            iframe.style.display = 'none';
             vid.removeAttribute('src');
             vid.pause();
             vid.style.display = 'none';
         }
     }
+}
+
+function parseYouTubeId(url){
+    if(!url) return null;
+    try{
+        var u = new URL(url);
+        if(u.hostname.includes('youtube.com') || u.hostname.includes('youtu.be')){
+            if(u.hostname.includes('youtu.be')){
+                return u.pathname.replace('/','');
+            }
+            if(u.searchParams.get('v')) return u.searchParams.get('v');
+            var parts = u.pathname.split('/');
+            var last = parts[parts.length-1];
+            if(last) return last;
+        }
+    }catch(e){}
+    return null;
 }
