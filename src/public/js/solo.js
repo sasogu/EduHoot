@@ -5,6 +5,8 @@
         currentQuiz: null,
         quizData: null,
         questions: [],
+        page: 0,
+        pageSize: 12,
         idx: 0,
         score: 0,
         correct: 0,
@@ -270,7 +272,8 @@
         fetch('/api/public-quizzes')
             .then(function(res){ return res.json(); })
             .then(function(data){
-                state.quizzes = Array.isArray(data) ? data : [];
+                state.quizzes = shuffleArray(Array.isArray(data) ? data : []);
+                state.page = 0;
                 renderList();
             })
             .catch(function(){
@@ -290,12 +293,14 @@
             var haystack = (q.name || '') + ' ' + (Array.isArray(q.tags) ? q.tags.join(' ') : '');
             return haystack.toLowerCase().includes(searchVal);
         });
+        var start = state.page * state.pageSize;
+        var pageItems = filtered.slice(start, start + state.pageSize);
         if(filtered.length === 0){
             if(empty) empty.textContent = t('publicEmpty');
             return;
         }
         if(empty) empty.textContent = '';
-        filtered.forEach(function(q){
+        pageItems.forEach(function(q){
             var card = document.createElement('div');
             card.className = 'card';
             var thumb = document.createElement('div');
@@ -362,6 +367,42 @@
             card.appendChild(btn);
             list.appendChild(card);
         });
+        renderPagination(filtered.length);
+    }
+
+    function renderPagination(totalFiltered){
+        var controls = document.getElementById('public-pagination');
+        if(!controls) return;
+        controls.innerHTML = '';
+        var totalPages = Math.max(1, Math.ceil(totalFiltered / state.pageSize));
+        if(totalPages <= 1){
+            controls.classList.add('hidden');
+            return;
+        }
+        controls.classList.remove('hidden');
+        var prev = document.createElement('button');
+        prev.textContent = '<';
+        prev.disabled = state.page === 0;
+        prev.onclick = function(){
+            if(state.page > 0){
+                state.page -= 1;
+                renderList();
+            }
+        };
+        var info = document.createElement('span');
+        info.textContent = (state.page + 1) + ' / ' + totalPages;
+        var next = document.createElement('button');
+        next.textContent = '>';
+        next.disabled = state.page >= totalPages - 1;
+        next.onclick = function(){
+            if(state.page < totalPages - 1){
+                state.page += 1;
+                renderList();
+            }
+        };
+        controls.appendChild(prev);
+        controls.appendChild(info);
+        controls.appendChild(next);
     }
 
     function selectQuiz(id){

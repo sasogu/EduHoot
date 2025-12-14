@@ -160,6 +160,29 @@ input[type="text"]::placeholder{
     gap: 14px;
     margin-top: 12px;
 }
+
+.pagination{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 6px;
+}
+.pagination button{
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+}
+.pagination button:disabled{
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 .card{
     padding: 12px;
     border-radius: 14px;

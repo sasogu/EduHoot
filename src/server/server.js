@@ -11,6 +11,7 @@ const { LiveGames } = require('./utils/liveGames');
 const { Players } = require('./utils/players');
 
 const publicPath = path.join(__dirname, '../public');
+const BODY_LIMIT = '1mb';
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
@@ -442,8 +443,9 @@ async function incrementQuizStats(gameId, playersInGame) {
   }
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsers (bump limit to allow quizzes con recursos más pesados)
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 app.get('/manifest.webmanifest', (req, res) => {
   res.type('application/manifest+json');
   res.sendFile(path.join(publicPath, 'manifest.webmanifest'));
