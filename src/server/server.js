@@ -38,6 +38,7 @@ function saveEphemeralQuiz(quiz) {
   const allowClone = normalizeAllowClone(quiz.allowClone, false);
   // Si se usa para invitados, caduca en 24h
   const expires = Date.now() + 24 * 60 * 60 * 1000;
+  const ownerToken = (quiz.ownerToken || '').toString().trim();
   const sanitized = {
     id,
     name: quiz.name || 'Quiz local',
@@ -52,6 +53,9 @@ function saveEphemeralQuiz(quiz) {
     updatedAt: new Date(),
     expires
   };
+  if (ownerToken) {
+    sanitized.ownerToken = ownerToken;
+  }
   ephemeralQuizzes.set(id, sanitized);
   return sanitized;
 }
@@ -523,9 +527,10 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
   }
 });
 
-async function buildQuizDoc({ name, tags, questions, visibility, allowClone, user }) {
+async function buildQuizDoc({ name, tags, questions, visibility, allowClone, user, ownerToken }) {
   const collection = await getGamesCollection();
   const newId = await nextGameId(collection);
+  const ownerTokenClean = (ownerToken || '').toString().trim();
   const quiz = {
     id: newId,
     name,
@@ -540,6 +545,11 @@ async function buildQuizDoc({ name, tags, questions, visibility, allowClone, use
     createdAt: new Date(),
     updatedAt: new Date()
   };
+  if (!ownerTokenClean) {
+    delete quiz.ownerToken;
+  } else {
+    quiz.ownerToken = ownerTokenClean;
+  }
   await collection.insertOne(quiz);
   return { quiz, collection };
 }
@@ -574,6 +584,7 @@ app.post('/api/import/kahoot', async (req, res) => {
   if (!kahootId) return res.status(400).json({ error: 'Falta URL o id de Kahoot.' });
   const visibility = normalizeVisibility(req.body.visibility || 'public');
   const allowClone = normalizeAllowClone(req.body.allowClone);
+  const ownerToken = (req.body.ownerToken || req.headers['x-owner-token'] || '').toString().trim();
   try {
     const response = await fetch(`https://create.kahoot.it/rest/kahoots/${kahootId}/card/?includeKahoot=true`);
     if (!response.ok) {
@@ -591,11 +602,11 @@ app.post('/api/import/kahoot', async (req, res) => {
 
     // Si no hay usuario y es privado, se guarda en memoria; si es público/unlisted se persiste con owner global
     if (!req.user && visibility === 'private') {
-      const saved = saveEphemeralQuiz({ name, tags, questions, visibility, allowClone, sourceQuizId: kahootId });
+      const saved = saveEphemeralQuiz({ name, tags, questions, visibility, allowClone, ownerToken, sourceQuizId: kahootId });
       return res.json({ id: saved.id, name, count: questions.length, local: true });
     }
 
-    const { quiz } = await buildQuizDoc({ name, tags, questions, visibility, allowClone, user: req.user });
+    const { quiz } = await buildQuizDoc({ name, tags, questions, visibility, allowClone, user: req.user, ownerToken });
     return res.json({ id: quiz.id, name, count: questions.length, local: false });
   } catch (err) {
     console.error('import-kahoot error', err);
@@ -1427,25 +1438,29 @@ io.on('connection', (socket) => {
 });
 app.get('/api/quizzes', async (req, res) => {
   try {
-  const tagParam = req.query.tags;
-  const tags = Array.isArray(tagParam)
-    ? tagParam
-    : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
-  const normalized = normalizeTags(tags);
-  const mineOnly = req.query.mine === '1';
-  const collection = await getGamesCollection();
-  const baseQuery = normalized.length ? { tags: { $all: normalized } } : {};
-  let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
-  if (mineOnly && req.user) {
-    quizzesRaw = quizzesRaw.filter((q) => {
-      if (q.ownerId && req.user.id && q.ownerId.toString() === req.user.id.toString()) return true;
-      if (req.user.ownerToken && q.ownerToken && q.ownerToken === req.user.ownerToken) return true;
-      return false;
-    });
-  }
-  const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
-    id: quiz.id,
-    name: quiz.name,
+    const ownerToken = ownerTokenFromReq(req);
+    if (ownerToken) {
+      req.user = { ...(req.user || {}), ownerToken };
+    }
+    const tagParam = req.query.tags;
+    const tags = Array.isArray(tagParam)
+      ? tagParam
+      : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
+    const normalized = normalizeTags(tags);
+    const mineOnly = req.query.mine === '1';
+    const collection = await getGamesCollection();
+    const baseQuery = normalized.length ? { tags: { $all: normalized } } : {};
+    let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
+    if (mineOnly && req.user) {
+      quizzesRaw = quizzesRaw.filter((q) => {
+        if (q.ownerId && req.user.id && q.ownerId.toString() === req.user.id.toString()) return true;
+        if (req.user.ownerToken && q.ownerToken && q.ownerToken === req.user.ownerToken) return true;
+        return false;
+      });
+    }
+    const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
+      id: quiz.id,
+      name: quiz.name,
     tags: quiz.tags || [],
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
@@ -1490,6 +1505,10 @@ app.get('/api/quizzes', async (req, res) => {
 
 app.get('/api/tags', async (req, res) => {
   try {
+    const ownerToken = ownerTokenFromReq(req);
+    if (ownerToken) {
+      req.user = { ...(req.user || {}), ownerToken };
+    }
     const collection = await getGamesCollection();
     const quizzesRaw = await collection
       .find({}, { projection: { tags: 1, visibility: 1, ownerId: 1, allowClone: 1 } })

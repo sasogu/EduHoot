@@ -530,7 +530,12 @@ function fetchWithFilters(){
     if(currentFilters.mineOnly){
         query += (query ? '&' : '?') + 'mine=1';
     }
-    fetch('/api/quizzes' + query)
+    var headers = {};
+    var anonToken = getAnonOwnerToken();
+    if(anonToken){
+        headers['X-Owner-Token'] = anonToken;
+    }
+    fetch('/api/quizzes' + query, { headers: headers })
         .then(function(res){ return res.json(); })
         .then(function(data){
             renderGames(data || []);
@@ -581,7 +586,12 @@ if(mineFilter){
 }
 
 function fetchTags(){
-    return fetch('/api/tags', { credentials: 'include' })
+    var headers = {};
+    var anonToken = getAnonOwnerToken();
+    if(anonToken){
+        headers['X-Owner-Token'] = anonToken;
+    }
+    return fetch('/api/tags', { credentials: 'include', headers: headers })
         .then(function(res){ return res.json(); })
         .then(function(data){
             knownTags = Array.isArray(data.tags) ? data.tags : [];
@@ -1444,18 +1454,24 @@ if(kahootForm){
             return;
         }
         if(kahootStatus) kahootStatus.textContent = t('importing');
-        try{
-            var res = await fetch('/api/import/kahoot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    url: kahootUrlInput.value.trim(),
-                    visibility: kahootVisSelect ? kahootVisSelect.value : 'public'
-                })
-            });
-            var body = {};
-            try { body = await res.json(); } catch(e){}
-            if(!res.ok){
+    try{
+        var res = await fetch('/api/import/kahoot', {
+            method: 'POST',
+            headers: (function(){
+                var base = { 'Content-Type': 'application/json' };
+                var token = getAnonOwnerToken();
+                if(token) base['X-Owner-Token'] = token;
+                return base;
+            })(),
+            body: JSON.stringify({
+                url: kahootUrlInput.value.trim(),
+                visibility: kahootVisSelect ? kahootVisSelect.value : 'public',
+                ownerToken: getAnonOwnerToken()
+            })
+        });
+        var body = {};
+        try { body = await res.json(); } catch(e){}
+        if(!res.ok){
                 if(kahootStatus) kahootStatus.textContent = body.error || t('importError');
                 return;
             }
@@ -1465,6 +1481,15 @@ if(kahootForm){
                 btn.textContent = t('play');
                 btn.onclick = function(){ startGame(body.id); };
                 kahootStatus.appendChild(btn);
+            }
+            if(body.id){
+                try{
+                    var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+                    if(stored.indexOf(body.id) === -1){
+                        stored.push(body.id);
+                        localStorage.setItem('localQuizzes', JSON.stringify(stored));
+                    }
+                }catch(e){}
             }
             socket.emit('requestDbNames');
         }catch(err){
