@@ -12,14 +12,29 @@
             <button type="button" data-lang="ca" onclick="window.i18nPlayer && window.i18nPlayer.setLang('ca')">CA</button>
             <button type="button" data-lang="en" onclick="window.i18nPlayer && window.i18nPlayer.setLang('en')">EN</button>
         </div>
+        <div id="pinModal" class="pin-modal" role="dialog" aria-modal="true">
+            <div class="pin-modal__card">
+                <h2 data-i18n="join_pin_prompt">Ingresa el PIN del juego</h2>
+                <p data-i18n="join_pin_blocked">Necesitas un PIN válido para continuar.</p>
+                <form id="pinModalForm" class="pin-modal__form">
+                    <label for="pinModalInput" data-i18n="join_pin">PIN de la partida</label>
+                    <div class="pin-modal__controls">
+                        <input id="pinModalInput" type="number" inputmode="numeric" placeholder="12345" autofocus>
+                        <button id="pinModalSubmit" type="submit" data-i18n="join_continue">Continuar</button>
+                    </div>
+                    <p id="pinModalError" class="pin-modal__error" aria-live="assertive"></p>
+                </form>
+            </div>
+        </div>
         <h1 id="title">EduHoot</h1>
+        <div id="pin-display" class="pin-display hidden">
+            <span class="pin-display__label">PIN</span>
+            <span id="pin-display-value" class="pin-display__value"></span>
+        </div>
         <form action="/player/">
+                <input type="hidden" id="pin" name="pin"/>
                 <div class="form-field">
-                    <label id = "label" data-i18n="join_name">Display Name</label>
-                    <input id = "name" type = "text" name="name" autofocus/>
-                </div>
-                <div class="form-field">
-                    <label id="label">Icono / Icona</label>
+                    <label id="label" data-i18n="join_icon">Icono</label>
                     <input type="hidden" id="icon" name="icon">
                     <div id="icon-picker">
                         <button type="button" data-icon="🦊">🦊</button>
@@ -54,77 +69,16 @@
                     </div>
                     <div id="icon-preview"></div>
                 </div>
-                <br>
                 <div class="form-field">
-                    <label id = "label" data-i18n="join_pin">Game Pin</label>
-                    <input id = "pin" type="number" name="pin"/>
+                    <label id = "label" data-i18n="join_name">Display Name</label>
+                    <input id = "name" type = "text" name="name" autocomplete="name"/>
                 </div>
                 <input type="hidden" id="token" name="token">
-                <br>
                 <div class="form-field">
-                    <button id = "joinButton" data-i18n="join_button">Join</button>
+                    <button id = "joinButton" data-i18n="join_button" disabled>Join</button>
                 </div>
         </form>
         <script src="js/i18n-player.js"></script>
-        <script>
-            (function(){
-                var picker = document.getElementById('icon-picker');
-                var hidden = document.getElementById('icon');
-                var preview = document.getElementById('icon-preview');
-                if (picker && hidden) {
-                    picker.addEventListener('click', function(ev){
-                        if (ev.target && ev.target.dataset.icon) {
-                            hidden.value = ev.target.dataset.icon;
-                            picker.querySelectorAll('button').forEach(function(btn){
-                                btn.classList.toggle('selected', btn === ev.target);
-                            });
-                            if (preview) preview.textContent = ev.target.dataset.icon;
-                        }
-                    });
-                    // default select first
-                    var first = picker.querySelector('button[data-icon]');
-                    if (first) {
-                        first.classList.add('selected');
-                        hidden.value = first.dataset.icon;
-                        if (preview) preview.textContent = first.dataset.icon;
-                    }
-                }
-            })();
-            (function(){
-                var form = document.querySelector('form');
-                var pinInput = document.getElementById('pin');
-                var nameInput = document.getElementById('name');
-                var tokenInput = document.getElementById('token');
-                function loadTokens(){
-                    try{
-                        return JSON.parse(localStorage.getItem('playerTokens') || '{}');
-                    }catch(e){
-                        return {};
-                    }
-                }
-                function saveTokens(obj){
-                    localStorage.setItem('playerTokens', JSON.stringify(obj));
-                }
-                function genToken(){
-                    var arr = new Uint8Array(16);
-                    crypto.getRandomValues(arr);
-                    return Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-                }
-                if(form && pinInput && nameInput && tokenInput){
-                    form.addEventListener('submit', function(){
-                        var pin = (pinInput.value || '').trim();
-                        var name = (nameInput.value || '').trim();
-                        if(!pin) return;
-                        var tokens = loadTokens();
-                        var key = pin + ':' + name;
-                        if(!tokens[key]){
-                            tokens[key] = genToken();
-                            saveTokens(tokens);
-                        }
-                        tokenInput.value = tokens[key];
-                    });
-                }
-            })();
-        </script>
+        <script src="js/join.js"></script>
     </body>
 </html>

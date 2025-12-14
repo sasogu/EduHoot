@@ -365,6 +365,15 @@ server.listen(3000, () => {
   console.log('Server started on port 3000');
 });
 
+app.get('/api/validate-pin/:pin', (req, res) => {
+  const rawPin = (req.params.pin || '').trim();
+  if (!rawPin) {
+    return res.json({ valid: false });
+  }
+  const game = games.getGameByPin(rawPin);
+  res.json({ valid: !!game });
+});
+
 app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Selecciona un archivo CSV para importar.' });
