@@ -185,8 +185,18 @@
         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
+    function isChromiumBrowser(){
+        var ua = navigator.userAgent || '';
+        var isEdge = ua.includes('Edg/');
+        var isChrome = ua.includes('Chrome/') || ua.includes('CriOS/');
+        var isOpera = ua.includes('OPR/');
+        var isBrave = ua.includes('Brave/');
+        return (isChrome || isEdge || isOpera || isBrave) && !ua.includes('Firefox/');
+    }
+
     function maybeShowInstallPrompt(){
         if(!pinValidated) return;
+        if(!isChromiumBrowser()) return hideInstallCard();
         if(isInstalled()) return hideInstallCard();
         if(localStorage.getItem(installDismissKey) === '1') return;
         if(!deferredPrompt) return;
@@ -197,6 +207,7 @@
 
     window.addEventListener('beforeinstallprompt', function(e){
         e.preventDefault();
+        if(!isChromiumBrowser()) return;
         deferredPrompt = e;
         maybeShowInstallPrompt();
     });

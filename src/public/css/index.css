@@ -176,7 +176,8 @@ body.modal-open{
 .pin-modal{
     position: fixed;
     inset: 0;
-    background: rgba(10, 13, 36, 0.8);
+    background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.12), rgba(12,16,35,0.85)),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08), rgba(12,16,35,0.85));
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -190,8 +191,8 @@ body.modal-open{
 .pin-modal__card{
     width: 100%;
     max-width: 420px;
-    background: #0f172a;
-    border: 1px solid var(--card-stroke);
+    background: linear-gradient(145deg, rgba(108,43,217,0.18), rgba(184,50,128,0.18), rgba(44,137,217,0.18));
+    border: 1px solid rgba(255,255,255,0.18);
     border-radius: 18px;
     padding: 22px;
     box-shadow: var(--shadow);
@@ -213,6 +214,7 @@ body.modal-open{
 }
 .pin-modal__controls{
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 #pinModalInput{
@@ -234,6 +236,8 @@ body.modal-open{
     cursor: pointer;
     box-shadow: var(--shadow);
     transition: transform 0.18s ease, filter 0.18s ease;
+    width: 100%;
+    margin-top: 8px;
 }
 #pinModalSubmit:hover{ transform: translateY(-2px); filter: brightness(1.03); }
 #pinModalSubmit.is-loading{

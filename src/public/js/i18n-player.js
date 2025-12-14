@@ -91,6 +91,14 @@
   }
 
   const lang = detectLang();
+  try {
+    if (!window.localStorage.getItem('lang-player')) {
+      window.localStorage.setItem('lang-player', lang);
+    }
+  } catch (e) {}
+  if (document && document.documentElement) {
+    document.documentElement.setAttribute('lang', lang);
+  }
   const dict = translations[lang] || translations.en;
 
   function t(key) {
