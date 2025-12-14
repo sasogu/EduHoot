@@ -28,6 +28,7 @@ var i18n = {
         btnSave: 'Guardar quiz',
         btnPlayLocal: 'Jugar sin guardar',
         btnExportCsv: 'Exportar CSV',
+        btnExportAiken: 'Exportar AIKEN',
         btnCancel: 'Cancelar y volver',
         localInfo: 'Sin sesión: “Guardar” o “Jugar sin guardar” crean un quiz anónimo. Si es Solo yo caduca en 24h; Por enlace/Público se guarda globalmente. Con sesión se guarda en tu usuario.',
         questionLabel: 'Enunciado',
@@ -69,6 +70,7 @@ var i18n = {
         btnSave: 'Save quiz',
         btnPlayLocal: 'Play without saving',
         btnExportCsv: 'Export CSV',
+        btnExportAiken: 'Export AIKEN',
         btnCancel: 'Cancel and go back',
         localInfo: 'Without session: “Save” or “Play without saving” create an anonymous quiz. "Only me" expires in 24h; "By link/Public" is stored globally. With session, it is saved to your user.',
         questionLabel: 'Question',
@@ -110,6 +112,7 @@ var i18n = {
         btnSave: 'Desar quiz',
         btnPlayLocal: 'Jugar sense desar',
         btnExportCsv: 'Exportar CSV',
+        btnExportAiken: 'Exportar AIKEN',
         btnCancel: 'Cancel·lar i tornar',
         localInfo: 'Sense sessió: “Desar” o “Jugar sense desar” creen un quiz anònim. "Només jo" caduca en 24h; "Per enllaç/Públic" es guarda globalment. Amb sessió, queda al teu usuari.',
         questionLabel: 'Enunciat',
@@ -282,6 +285,38 @@ function exportCsv(){
     var a = document.createElement('a');
     a.href = url;
     a.download = (quiz.name || 'quiz') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function exportAiken(){
+    var quiz = buildQuizPayload();
+    if(!quiz.questions.length){
+        alert('Añade preguntas');
+        return;
+    }
+    var lines = [];
+    quiz.questions.forEach(function(q){
+        if(!q.question) return;
+        var answers = Array.isArray(q.answers) ? q.answers.slice(0,4) : ['', '', '', ''];
+        while(answers.length < 4) answers.push('');
+        lines.push(q.question);
+        var labels = ['A','B','C','D'];
+        answers.forEach(function(ans, idx){
+            lines.push(labels[idx] + '. ' + ans);
+        });
+        var correctIdx = Math.max(0, Math.min(3, (parseInt(q.correct, 10) || 1) - 1));
+        lines.push('ANSWER: ' + labels[correctIdx]);
+        lines.push(''); // blank line between questions
+    });
+    var aiken = lines.join('\n');
+    var blob = new Blob([aiken], { type: 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = (quiz.name || 'quiz') + '.aiken.txt';
     document.body.appendChild(a);
     a.click();
     a.remove();

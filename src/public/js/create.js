@@ -100,6 +100,7 @@ var i18n = {
         play: 'Iniciar juego',
         edit: 'Editar',
         download: 'Descargar CSV',
+        exportAiken: 'Exportar AIKEN (Moodle)',
         rename: 'Renombrar',
         delete: 'Eliminar',
         clone: 'Hacer una copia',
@@ -231,6 +232,7 @@ var i18n = {
         play: 'Start game',
         edit: 'Edit',
         download: 'Download CSV',
+        exportAiken: 'Export AIKEN (Moodle)',
         rename: 'Rename',
         delete: 'Delete',
         clone: 'Make a copy',
@@ -361,6 +363,7 @@ var i18n = {
         play: 'Iniciar joc',
         edit: 'Editar',
         download: 'Descarregar CSV',
+        exportAiken: 'Exportar AIKEN (Moodle)',
         rename: 'Reanomenar',
         delete: 'Eliminar',
         clone: 'Fer una còpia',
@@ -753,17 +756,17 @@ function renderGames(data){
             downloadCsv(quiz.id);
         };
 
-        var renameBtn = document.createElement('button');
-        renameBtn.className = 'btn btn-ghost icon-only';
-        renameBtn.innerHTML = '✎';
-        renameBtn.title = t('rename');
-        renameBtn.onclick = function(){
-            var newName = prompt(t('renamePrompt'), quiz.name);
-            if(newName && newName.trim()){
-                renameQuiz(quiz.id, newName.trim());
-            }
+        var aikenBtn = document.createElement('button');
+        aikenBtn.className = 'btn btn-ghost icon-only';
+        var moodleIcon = document.createElement('img');
+        moodleIcon.src = '/icons/moodle.png';
+        moodleIcon.alt = 'Moodle';
+        moodleIcon.className = 'moodle-icon-img';
+        aikenBtn.appendChild(moodleIcon);
+        aikenBtn.title = t('exportAiken');
+        aikenBtn.onclick = function(){
+            downloadAiken(quiz.id);
         };
-        renameBtn.disabled = !canEdit;
 
         var deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn btn-danger icon-only';
@@ -779,8 +782,7 @@ function renderGames(data){
         actions.appendChild(playBtn);
         actions.appendChild(editBtn);
         actions.appendChild(downloadBtn);
-        actions.appendChild(renameBtn);
-        actions.appendChild(deleteBtn);
+        actions.appendChild(aikenBtn);
 
         if(canClone){
             var cloneBtn = document.createElement('button');
@@ -792,6 +794,7 @@ function renderGames(data){
             };
             actions.appendChild(cloneBtn);
         }
+        actions.appendChild(deleteBtn);
 
         var share = document.createElement('div');
         share.className = 'share-controls';
@@ -983,6 +986,45 @@ function downloadCsv(id){
         })
         .catch(function(){
             // ya se alertó
+        });
+}
+
+function downloadAiken(id){
+    fetch('/api/quizzes/' + id, { credentials: 'include' })
+        .then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+        .then(function(payload){
+            if(!payload.ok){
+                alert(payload.body && payload.body.error ? payload.body.error : t('downloadCsvError'));
+                return;
+            }
+            var quiz = payload.body;
+            var lines = [];
+            (quiz.questions || []).forEach(function(q){
+                if(!q.question) return;
+                var answers = Array.isArray(q.answers) ? q.answers.slice(0,4) : ['', '', '', ''];
+                while(answers.length < 4) answers.push('');
+                lines.push(q.question);
+                var labels = ['A','B','C','D'];
+                answers.forEach(function(ans, idx){
+                    lines.push(labels[idx] + '. ' + ans);
+                });
+                var correctIdx = Math.max(0, Math.min(3, (parseInt(q.correct, 10) || 1) - 1));
+                lines.push('ANSWER: ' + labels[correctIdx]);
+                lines.push('');
+            });
+            var aiken = lines.join('\n');
+            var blob = new Blob([aiken], { type: 'text/plain;charset=utf-8' });
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = (quiz.name || ('quiz-' + id)) + '.aiken.txt';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(function(){
+            alert(t('downloadCsvError'));
         });
 }
 
