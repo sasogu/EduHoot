@@ -190,6 +190,12 @@ body {
 #ia-box{
     margin-top: 10px;
 }
+.checkbox-inline{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+}
 .ia-grid{
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

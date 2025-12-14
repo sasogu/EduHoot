@@ -36,8 +36,8 @@ function saveEphemeralQuiz(quiz) {
   const id = `local-${crypto.randomBytes(6).toString('hex')}`;
   const visibility = normalizeVisibility(quiz.visibility, 'public');
   const allowClone = normalizeAllowClone(quiz.allowClone, false);
-  // Si es público/unlisted no caduca; si es privado caduca en 24h
-  const expires = visibility === 'private' ? (Date.now() + 24 * 60 * 60 * 1000) : null;
+  // Si se usa para invitados, caduca en 24h
+  const expires = Date.now() + 24 * 60 * 60 * 1000;
   const sanitized = {
     id,
     name: quiz.name || 'Quiz local',
@@ -64,6 +64,10 @@ function getEphemeralQuiz(id) {
     return null;
   }
   return quiz;
+}
+
+function isLocalQuizId(id) {
+  return typeof id === 'string' && id.startsWith('local-');
 }
 
 // MongoDB setup (single shared client to avoid legacy OP_QUERY code path)
@@ -122,6 +126,12 @@ async function getDb() {
 async function getGamesCollection() {
   const database = await getDb();
   return database.collection(GAMES_COLLECTION);
+}
+
+function ownerTokenFromReq(req) {
+  const hdr = req.headers['x-owner-token'];
+  if (hdr && typeof hdr === 'string') return hdr.trim();
+  return '';
 }
 
 async function getUsersCollection() {
@@ -321,6 +331,7 @@ function normalizeAllowClone(value, fallback = false) {
 
 function canManageQuiz(quiz, user) {
   if (!quiz) return false;
+  if (user && user.ownerToken && quiz.ownerToken && quiz.ownerToken === user.ownerToken) return true;
   if (user && user.role === 'admin') return true;
   const ownerId = quiz.ownerId || quiz.owner_id || quiz.owner;
   if (!ownerId) {
@@ -451,35 +462,38 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
 
     const questions = rows.map(toQuestion);
     const tags = normalizeTags(req.body.tags ? [].concat(req.body.tags) : []);
+    const ownerToken = (req.body.ownerToken || req.headers['x-owner-token'] || '').toString().trim();
 
-    const visibility = normalizeVisibility(req.body.visibility);
+    const visibility = normalizeVisibility(req.body.visibility, req.user ? 'private' : 'private');
     const allowClone = normalizeAllowClone(req.body.allowClone);
 
     if (!req.user) {
-      if (visibility === 'private') {
-        const saved = saveEphemeralQuiz({ name: quizName, tags, questions, visibility, allowClone });
+      if (visibility === 'public') {
+        const collection = await getGamesCollection();
+        const newId = await nextGameId(collection);
+        const quiz = {
+          id: newId,
+          name: quizName,
+          tags,
+          questions,
+          ownerToken,
+          playsCount: 0,
+          playersCount: 0,
+          visibility,
+          allowClone,
+          ownerId: GLOBAL_OWNER_ID,
+          ownerEmail: GLOBAL_OWNER_EMAIL,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        await collection.insertOne(quiz);
+        logEvent('upload-csv:public-anon', { filename: req.file.originalname, newId, count: questions.length });
+        return res.json({ id: newId, name: quizName, count: questions.length, local: false });
+      } else {
+        const saved = saveEphemeralQuiz({ name: quizName, tags, questions, visibility: 'private', allowClone, ownerToken });
         logEvent('upload-csv:local', { filename: req.file.originalname, id: saved.id, count: questions.length });
         return res.json({ id: saved.id, name: quizName, count: questions.length, local: true });
       }
-      const collection = await getGamesCollection();
-      const newId = await nextGameId(collection);
-    const quiz = {
-      id: newId,
-      name: quizName,
-      tags,
-      questions,
-      playsCount: 0,
-      playersCount: 0,
-      visibility,
-      allowClone,
-      ownerId: GLOBAL_OWNER_ID,
-      ownerEmail: GLOBAL_OWNER_EMAIL,
-      createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      await collection.insertOne(quiz);
-      logEvent('upload-csv:public-anon', { filename: req.file.originalname, newId, count: questions.length });
-      return res.json({ id: newId, name: quizName, count: questions.length, local: false });
     }
 
     const collection = await getGamesCollection();
@@ -643,15 +657,25 @@ app.get('/api/quizzes/:id/csv', async (req, res) => {
 
 // Rename quiz
 app.patch('/api/quizzes/:id', async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
   const quizIdParam = req.params.id;
   const newName = (req.body.name || '').trim();
   if (!quizIdParam || !newName) {
     return res.status(400).json({ error: 'Faltan id o nombre.' });
   }
+  const ownerToken = ownerTokenFromReq(req);
+  if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
   try {
+    // Permitir renombrar quizzes locales sin sesión
+    if (isLocalQuizId(quizIdParam)) {
+      const q = getEphemeralQuiz(quizIdParam);
+      if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
+      q.name = newName;
+      ephemeralQuizzes.set(quizIdParam, { ...q, updatedAt: new Date() });
+      return res.json({ ok: true, id: q.id, name: newName, local: true });
+    }
+    if (!req.user) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
     const collection = await getGamesCollection();
     const quiz = await findGameById(quizIdParam);
     if (!quiz || typeof quiz.id === 'string') {
@@ -670,15 +694,14 @@ app.patch('/api/quizzes/:id', async (req, res) => {
 
 // Replace quiz content
 app.put('/api/quizzes/:id', async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
   const quizIdParam = req.params.id;
   const name = (req.body.name || '').trim();
   const questions = normalizeQuestions(req.body.questions || []);
   const tags = normalizeTags(req.body.tags || []);
   const visibility = normalizeVisibility(req.body.visibility);
   const allowClone = normalizeAllowClone(req.body.allowClone);
+  const ownerToken = ownerTokenFromReq(req);
+  if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
   if (!name) {
     return res.status(400).json({ error: 'Falta nombre.' });
   }
@@ -689,6 +712,23 @@ app.put('/api/quizzes/:id', async (req, res) => {
     return res.status(400).json({ error: 'Añade al menos una pregunta.' });
   }
   try {
+    if (isLocalQuizId(quizIdParam)) {
+      const q = getEphemeralQuiz(quizIdParam);
+      if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
+      ephemeralQuizzes.set(quizIdParam, {
+        ...q,
+        name,
+        tags,
+        questions,
+        visibility,
+        allowClone,
+        updatedAt: new Date()
+      });
+      return res.json({ ok: true, id: quizIdParam, name, local: true });
+    }
+    if (!req.user) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
     const collection = await getGamesCollection();
     const quiz = await findGameById(quizIdParam);
     if (!quiz || typeof quiz.id === 'string') {
@@ -719,11 +759,19 @@ app.put('/api/quizzes/:id', async (req, res) => {
 
 // Delete quiz
 app.delete('/api/quizzes/:id', async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
   const quizIdParam = req.params.id;
+  const ownerToken = ownerTokenFromReq(req);
+  if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
   try {
+    if (isLocalQuizId(quizIdParam)) {
+      const exists = getEphemeralQuiz(quizIdParam);
+      if (!exists) return res.status(404).json({ error: 'Quiz no encontrado.' });
+      ephemeralQuizzes.delete(quizIdParam);
+      return res.json({ ok: true, id: quizIdParam, local: true });
+    }
+    if (!req.user) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
     const collection = await getGamesCollection();
     const quiz = await findGameById(quizIdParam);
     if (!quiz || typeof quiz.id === 'string') {
@@ -742,16 +790,49 @@ app.delete('/api/quizzes/:id', async (req, res) => {
 
 // Update visibility and clone permission
 app.patch('/api/quizzes/:id/sharing', async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'No autorizado' });
-  }
   const quizIdParam = req.params.id;
   if (!quizIdParam) {
     return res.status(400).json({ error: 'Falta id.' });
   }
   const visibility = normalizeVisibility(req.body.visibility);
   const allowClone = normalizeAllowClone(req.body.allowClone);
+  const ownerToken = ownerTokenFromReq(req);
+  if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
   try {
+    if (isLocalQuizId(quizIdParam)) {
+      const q = getEphemeralQuiz(quizIdParam);
+      if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
+      // Permitir marcar como público: se mueve a la colección persistente
+      if (visibility === 'public') {
+        const collection = await getGamesCollection();
+        const newId = await nextGameId(collection);
+        const doc = {
+          id: newId,
+          name: q.name,
+          tags: normalizeTags(q.tags || []),
+          questions: q.questions || [],
+          visibility: 'public',
+          allowClone,
+          ownerToken: q.ownerToken || ownerToken || '',
+          playsCount: 0,
+          playersCount: 0,
+          ownerId: GLOBAL_OWNER_ID,
+          ownerEmail: GLOBAL_OWNER_EMAIL,
+          ownerNickname: '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        await collection.insertOne(doc);
+        ephemeralQuizzes.delete(quizIdParam);
+        return res.json({ ok: true, id: newId, visibility: 'public', migrated: true });
+      }
+      const updated = { ...q, visibility, allowClone, ownerToken: q.ownerToken || ownerToken || '', updatedAt: new Date() };
+      ephemeralQuizzes.set(quizIdParam, updated);
+      return res.json({ ok: true, id: quizIdParam, visibility, allowClone, local: true });
+    }
+    if (!req.user) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
     const collection = await getGamesCollection();
     const quiz = await findGameById(quizIdParam);
     if (!quiz || typeof quiz.id === 'string') {
@@ -1061,6 +1142,10 @@ io.on('connection', (socket) => {
 
   socket.on('getScore', () => {
     const player = players.getPlayer(socket.id);
+    if (!player) {
+      socket.emit('noGameFound');
+      return;
+    }
     socket.emit('newScore', player.gameData.score);
   });
 
@@ -1079,6 +1164,10 @@ io.on('connection', (socket) => {
 
   socket.on('timeUp', async () => {
     const game = games.getGame(socket.id);
+    if (!game) {
+      socket.emit('noGameFound');
+      return;
+    }
     game.gameData.questionLive = false;
     const playerData = players.getPlayers(game.hostId);
 
@@ -1359,7 +1448,32 @@ app.get('/api/quizzes', async (req, res) => {
       ownerNickname: quiz.ownerNickname || '',
       sourceQuizId: quiz.sourceQuizId
     }));
-    return res.json(quizzes);
+    // Añadir quizzes efímeros solicitados
+    const localIdsParam = req.query.localIds;
+    const localIds = Array.isArray(localIdsParam)
+      ? localIdsParam
+      : (typeof localIdsParam === 'string' && localIdsParam.length ? localIdsParam.split(',') : []);
+    const validLocal = [];
+    const now = Date.now();
+    localIds.forEach((id) => {
+      const q = getEphemeralQuiz(id);
+      if (q && (!q.expires || q.expires >= now)) {
+        validLocal.push({
+          id: q.id,
+          name: q.name,
+          tags: q.tags || [],
+          playsCount: 0,
+          playersCount: 0,
+          visibility: currentVisibility(q),
+          allowClone: normalizeAllowClone(q.allowClone),
+          ownerId: null,
+          ownerEmail: '',
+          ownerNickname: '',
+          sourceQuizId: q.sourceQuizId
+        });
+      }
+    });
+    return res.json(quizzes.concat(validLocal));
   } catch (err) {
     console.error('list-quizzes error', err);
     return res.status(500).json({ error: 'No se pudo obtener la lista.' });

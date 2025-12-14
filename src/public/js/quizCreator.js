@@ -522,9 +522,14 @@ socket.on('quizValidationError', function(payload){
 
 async function saveExistingQuiz(id, quiz){
     try{
+        var headers = { 'Content-Type': 'application/json' };
+        try{
+            var token = localStorage.getItem('anonOwnerToken');
+            if(token) headers['X-Owner-Token'] = token;
+        }catch(e){}
         var res = await fetch('/api/quizzes/' + id, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             credentials: 'include',
             body: JSON.stringify({
                 name: quiz.name,
@@ -589,10 +594,7 @@ function initQuizCreator(){
     var params = new URLSearchParams(window.location.search);
     var idParam = params.get('id');
     if(idParam){
-        var numericId = parseInt(idParam, 10);
-        if(!Number.isNaN(numericId)){
-            loadQuiz(numericId);
-        }
+        loadQuiz(idParam);
     }
 }
 

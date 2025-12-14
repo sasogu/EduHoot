@@ -5,11 +5,7 @@ socket.on('connect', function(){
 });
 
 socket.on('gameNamesData', function(data){
-    if(currentFilters.tags.length){
-        fetchWithFilters();
-    }else{
-        renderGames(data || []);
-    }
+    fetchWithFilters();
     fetchTags();
 });
 
@@ -17,6 +13,25 @@ var currentFilters = {
     tags: []
 };
 var knownTags = [];
+function getAnonOwnerToken(){
+    var key = 'anonOwnerToken';
+    var existing = localStorage.getItem(key);
+    if(existing) return existing;
+    var arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    var token = Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    localStorage.setItem(key, token);
+    return token;
+}
+function ownsLocal(id){
+    if(!id || typeof id !== 'string') return false;
+    try{
+        var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+        return stored.indexOf(id) !== -1;
+    }catch(e){
+        return false;
+    }
+}
 
 var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
@@ -59,6 +74,7 @@ var i18n = {
         iaLang: 'Idioma del cuestionario',
         iaNum: 'Número de preguntas',
         iaExtra: 'Instrucciones adicionales',
+        iaPublic: 'Hacer público (guardar en la biblioteca)',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt aparecerá aquí...',
@@ -153,6 +169,7 @@ var i18n = {
         iaLang: 'Quiz language',
         iaNum: 'Number of questions',
         iaExtra: 'Extra instructions',
+        iaPublic: 'Make public (save to library)',
         btnGenPrompt: 'Generate prompt',
         btnCopyPrompt: 'Copy prompt',
         promptPlaceholder: 'Prompt will appear here...',
@@ -247,6 +264,7 @@ var i18n = {
         iaLang: 'Idioma del qüestionari',
         iaNum: 'Nombre de preguntes',
         iaExtra: 'Instruccions addicionals',
+        iaPublic: 'Fer públic (guardar a la biblioteca)',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt apareixerà aquí...',
@@ -354,6 +372,12 @@ function fetchWithFilters(){
         var parts = currentFilters.tags.map(function(t){ return 'tags=' + encodeURIComponent(t); });
         query = '?' + parts.join('&');
     }
+    try{
+        var localIds = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+        if(localIds.length){
+            query += (query ? '&' : '?') + 'localIds=' + localIds.join(',');
+        }
+    }catch(e){}
     fetch('/api/quizzes' + query)
         .then(function(res){ return res.json(); })
         .then(function(data){
@@ -482,6 +506,8 @@ function renderGames(data){
             if(authState.user.role === 'admin') canEdit = true;
             else if(!quiz.ownerId) canEdit = true;
             else if(authState.user.id && quiz.ownerId && authState.user.id === quiz.ownerId.toString()) canEdit = true;
+        }else if(ownsLocal(quiz.id)){
+            canEdit = true;
         }
         var canStart = quiz.visibility !== 'private' || canEdit;
         var canClone = authState.user && (quiz.allowClone || canEdit);
@@ -632,9 +658,13 @@ function startGame(data){
 
 async function renameQuiz(id, name){
     try{
+        var headers = { 'Content-Type': 'application/json' };
+        if(getAnonOwnerToken()){
+            headers['X-Owner-Token'] = getAnonOwnerToken();
+        }
         var res = await fetch('/api/quizzes/' + id, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             credentials: 'include',
             body: JSON.stringify({ name: name })
         });
@@ -651,7 +681,11 @@ async function renameQuiz(id, name){
 
 async function deleteQuiz(id){
     try{
-        var res = await fetch('/api/quizzes/' + id, { method: 'DELETE', credentials: 'include' });
+        var headers = {};
+        if(getAnonOwnerToken()){
+            headers['X-Owner-Token'] = getAnonOwnerToken();
+        }
+        var res = await fetch('/api/quizzes/' + id, { method: 'DELETE', credentials: 'include', headers: headers });
         var result = await res.json();
         if(!res.ok){
             alert(result.error || 'No se pudo eliminar.');
@@ -665,9 +699,13 @@ async function deleteQuiz(id){
 
 async function updateSharing(id, visibility, allowClone){
     try{
+        var headers = { 'Content-Type': 'application/json' };
+        if(getAnonOwnerToken()){
+            headers['X-Owner-Token'] = getAnonOwnerToken();
+        }
         var res = await fetch('/api/quizzes/' + id + '/sharing', {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             credentials: 'include',
             body: JSON.stringify({ visibility: visibility, allowClone: allowClone })
         });
@@ -675,6 +713,19 @@ async function updateSharing(id, visibility, allowClone){
         if(!res.ok){
             alert(result.error || 'No se pudieron guardar los permisos.');
             return;
+        }
+        if(result.migrated && result.id){
+            try{
+                var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+                var idx = stored.indexOf(id);
+                if(idx !== -1){
+                    stored.splice(idx, 1);
+                }
+                if(stored.indexOf(result.id) === -1){
+                    stored.push(result.id);
+                }
+                localStorage.setItem('localQuizzes', JSON.stringify(stored));
+            }catch(e){}
         }
         socket.emit('requestDbNames');
     }catch(err){
@@ -811,9 +862,18 @@ function buildIaTags(){
             addTag(part);
         });
     }
-    addFromList(document.getElementById('ia-tema') ? document.getElementById('ia-tema').value : '');
-    addFromList(document.getElementById('ia-nivel') ? document.getElementById('ia-nivel').value : '');
-    addFromList(document.getElementById('ia-name') ? document.getElementById('ia-name').value : '');
+    var temaVal = document.getElementById('ia-tema') ? document.getElementById('ia-tema').value : '';
+    var nivelVal = document.getElementById('ia-nivel') ? document.getElementById('ia-nivel').value : '';
+    var nameVal = document.getElementById('ia-name') ? document.getElementById('ia-name').value : '';
+    addFromList(temaVal);
+    addFromList(nivelVal);
+    addFromList(nameVal);
+    // combos derivados
+    var composed = [];
+    if(temaVal && nivelVal) composed.push(nivelVal + ' ' + temaVal);
+    composed.push('ia-' + (temaVal || '').replace(/\s+/g, '-'));
+    composed.push('nivel-' + (nivelVal || '').replace(/\s+/g, '-'));
+    composed.forEach(addTag);
     var idiomaVal = '';
     if(iaIdioma){
         idiomaVal = iaIdioma.value === 'otro' && iaIdiomaCustom ? iaIdiomaCustom.value : iaIdioma.value;
@@ -917,6 +977,7 @@ function login(){
         authMsg.textContent = 'Sesión iniciada.';
         authPass.value = '';
         if(authNick) authNick.value = '';
+        reconnectSocket();
         fetchMe();
     }).catch(function(){
         authMsg.textContent = 'Error al iniciar sesión.';
@@ -928,6 +989,7 @@ function logout(){
         .then(function(){
             authState.user = null;
             updateAuthUI();
+            reconnectSocket();
             fetchWithFilters();
         })
         .catch(function(){});
@@ -1131,6 +1193,7 @@ if (iaCopy) {
 }
 
 var iaUpload = document.getElementById('ia-upload');
+var iaPublic = document.getElementById('ia-public');
 if (iaUpload) {
     iaUpload.addEventListener('click', async function(){
         var status = document.getElementById('ia-status');
@@ -1147,6 +1210,8 @@ if (iaUpload) {
             var formData = new FormData();
             formData.append('file', file);
             if (quizName) formData.append('name', quizName);
+            if (iaPublic && iaPublic.checked) formData.append('visibility', 'public');
+            formData.append('ownerToken', getAnonOwnerToken());
             var iaTags = buildIaTags();
             iaTags.forEach(function(tag){
                 formData.append('tags', tag);
@@ -1159,7 +1224,26 @@ if (iaUpload) {
                 return;
             }
             status.textContent = 'Importado: ' + result.name + ' (' + result.count + ' preguntas).';
+            if (result.id) {
+                var startBtn = document.createElement('button');
+                startBtn.className = 'btn btn-primary';
+                startBtn.textContent = t('play');
+                startBtn.style.marginLeft = '8px';
+                startBtn.onclick = function(){ startGame(result.id); };
+                status.appendChild(startBtn);
+                try{
+                    var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+                    if(result.local){
+                        if(stored.indexOf(result.id) === -1){
+                            stored.push(result.id);
+                            localStorage.setItem('localQuizzes', JSON.stringify(stored));
+                        }
+                    }
+                }catch(e){}
+            }
+            currentFilters.tags = [];
             socket.emit('requestDbNames');
+            fetchWithFilters();
         }catch(err){
             status.textContent = 'No se pudo importar el CSV.';
         }
@@ -1177,6 +1261,13 @@ if(langSelector){
     });
 }
 applyStaticTranslations();
+
+function reconnectSocket(){
+    try{
+        socket.disconnect();
+        socket.connect();
+    }catch(e){}
+}
 
 // Importar Kahoot público
 var kahootForm = document.getElementById('kahoot-form');
