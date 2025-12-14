@@ -4,6 +4,8 @@
         <title>Join | EduHoot</title>
         <link rel = "stylesheet" href = "css/index.css">
         <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+        <link rel="manifest" href="manifest.webmanifest">
+        <meta name="theme-color" content="#6c2bd9">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
     <body>
@@ -76,6 +78,16 @@
                 <input type="hidden" id="token" name="token">
                 <div class="form-field">
                     <button id = "joinButton" data-i18n="join_button" disabled>Join</button>
+                </div>
+                <div id="install-card" class="install-card hidden" aria-live="polite">
+                    <div>
+                        <p data-i18n="install_title">Instala EduHoot como app</p>
+                        <small data-i18n="install_subtitle">Acceso directo y pantalla completa desde tu dispositivo.</small>
+                    </div>
+                    <div class="install-card__actions">
+                        <button type="button" id="installNow" class="install-card__btn" data-i18n="install_now">Instalar</button>
+                        <button type="button" id="installSkip" class="install-card__link" data-i18n="install_skip">Ahora no</button>
+                    </div>
                 </div>
         </form>
         <script src="js/i18n-player.js"></script>

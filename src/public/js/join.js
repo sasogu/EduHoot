@@ -13,8 +13,13 @@
     var pinModalError = document.getElementById('pinModalError');
     var pinDisplay = document.getElementById('pin-display');
     var pinDisplayValue = document.getElementById('pin-display-value');
+    var installCard = document.getElementById('install-card');
+    var installNowBtn = document.getElementById('installNow');
+    var installSkipBtn = document.getElementById('installSkip');
     var pinValidated = false;
     var validating = false;
+    var deferredPrompt = null;
+    var installDismissKey = 'pwa-install-dismissed';
 
     function t(key, fallback){
         if(window.i18nPlayer && typeof window.i18nPlayer.t === 'function'){
@@ -107,6 +112,7 @@
         }
         hideModal();
         if(nameInput) nameInput.focus();
+        maybeShowInstallPrompt();
     }
 
     function validatePin(pin){
@@ -166,6 +172,71 @@
                 saveTokens(tokens);
             }
             tokenInput.value = tokens[key];
+        });
+    }
+
+    function hideInstallCard(){
+        if(installCard){
+            installCard.classList.add('hidden');
+        }
+    }
+
+    function isInstalled(){
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function maybeShowInstallPrompt(){
+        if(!pinValidated) return;
+        if(isInstalled()) return hideInstallCard();
+        if(localStorage.getItem(installDismissKey) === '1') return;
+        if(!deferredPrompt) return;
+        if(installCard){
+            installCard.classList.remove('hidden');
+        }
+    }
+
+    window.addEventListener('beforeinstallprompt', function(e){
+        e.preventDefault();
+        deferredPrompt = e;
+        maybeShowInstallPrompt();
+    });
+
+    window.addEventListener('appinstalled', function(){
+        deferredPrompt = null;
+        hideInstallCard();
+        localStorage.setItem(installDismissKey, '1');
+    });
+
+    if(installNowBtn){
+        installNowBtn.addEventListener('click', function(){
+            if(!deferredPrompt) return;
+            installNowBtn.disabled = true;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function(choiceResult){
+                if(choiceResult.outcome === 'accepted'){
+                    hideInstallCard();
+                }else{
+                    localStorage.setItem(installDismissKey, '1');
+                }
+            }).finally(function(){
+                deferredPrompt = null;
+                installNowBtn.disabled = false;
+            });
+        });
+    }
+
+    if(installSkipBtn){
+        installSkipBtn.addEventListener('click', function(){
+            localStorage.setItem(installDismissKey, '1');
+            hideInstallCard();
+        });
+    }
+
+    if('serviceWorker' in navigator){
+        window.addEventListener('load', function(){
+            navigator.serviceWorker.register('/sw.js').catch(function(err){
+                console.warn('SW registration failed', err);
+            });
         });
     }
 

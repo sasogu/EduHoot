@@ -358,6 +358,10 @@ async function incrementQuizStats(gameId, playersInGame) {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.get('/manifest.webmanifest', (req, res) => {
+  res.type('application/manifest+json');
+  res.sendFile(path.join(publicPath, 'manifest.webmanifest'));
+});
 app.use(express.static(publicPath));
 app.use(sessionMiddleware);
 

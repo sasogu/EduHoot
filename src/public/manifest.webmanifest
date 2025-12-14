@@ -1,0 +1,23 @@
+{
+  "name": "EduHoot",
+  "short_name": "EduHoot",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6c2bd9",
+  "description": "Juego educativo estilo quiz para aulas.",
+  "icons": [
+    {
+      "src": "/icons/logo.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
