@@ -305,6 +305,16 @@ body {
     gap: 10px;
     margin-bottom: 12px;
 }
+.filter-bar.extra-gap{
+    gap: 14px;
+}
+.filter-bar input[type="search"]{
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.08);
+    flex: 1;
+    min-width: 220px;
+}
 .filter-bar .checkbox-inline{
     margin: 0;
 }

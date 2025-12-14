@@ -11,7 +11,8 @@ socket.on('gameNamesData', function(data){
 
 var currentFilters = {
     tags: [],
-    mineOnly: false
+    mineOnly: false,
+    search: ''
 };
 var knownTags = [];
 function getAnonOwnerToken(){
@@ -89,6 +90,7 @@ var i18n = {
         libraryEyebrow: 'Biblioteca',
         libraryTitle: 'Juegos importados',
         libraryDesc: 'Selecciona un juego para hostearlo o gestiona su nombre y estado.',
+        searchPlaceholder: 'Buscar por nombre o etiqueta',
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
@@ -219,6 +221,7 @@ var i18n = {
         libraryEyebrow: 'Library',
         libraryTitle: 'Imported games',
         libraryDesc: 'Pick a game to host or manage its name and status.',
+        searchPlaceholder: 'Search by name or tag',
         suggestedTags: 'Suggested tags (tap to filter)',
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
@@ -349,6 +352,7 @@ var i18n = {
         libraryEyebrow: 'Biblioteca',
         libraryTitle: 'Jocs importats',
         libraryDesc: 'Selecciona un joc per hostatjar-lo o gestiona el seu nom i estat.',
+        searchPlaceholder: 'Cerca per nom o etiqueta',
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
@@ -483,11 +487,11 @@ function applyStaticTranslations(){
     if(newUserPass) newUserPass.placeholder = '••••••••';
     var newUserNick = document.getElementById('new-user-nick');
     if(newUserNick) newUserNick.placeholder = t('authNickPlaceholder');
-    var resetAdminEmail = document.getElementById('reset-admin-email');
-    if(resetAdminEmail) resetAdminEmail.placeholder = t('emailPlaceholder');
-    var resetAdminPass = document.getElementById('reset-admin-pass');
-    if(resetAdminPass) resetAdminPass.placeholder = '••••••••';
-    var iaName = document.getElementById('ia-name');
+        var resetAdminEmail = document.getElementById('reset-admin-email');
+        if(resetAdminEmail) resetAdminEmail.placeholder = t('emailPlaceholder');
+        var resetAdminPass = document.getElementById('reset-admin-pass');
+        if(resetAdminPass) resetAdminPass.placeholder = '••••••••';
+        var iaName = document.getElementById('ia-name');
     if(iaName) iaName.placeholder = t('namePlaceholder');
     var iaNivel = document.getElementById('ia-nivel');
     if(iaNivel) iaNivel.placeholder = t('iaLevelPlaceholder');
@@ -505,6 +509,8 @@ function applyStaticTranslations(){
     if(kahootUrl) kahootUrl.placeholder = t('kahootUrlPlaceholder');
     var langSelect = document.getElementById('lang-select');
     if(langSelect) langSelect.value = lang;
+    var libSearch = document.getElementById('library-search');
+    if(libSearch && i18n[lang] && i18n[lang].searchPlaceholder) libSearch.placeholder = t('searchPlaceholder');
 }
 
 function setLang(newLang){
@@ -585,6 +591,14 @@ if(mineFilter){
     });
 }
 
+var librarySearch = document.getElementById('library-search');
+if(librarySearch){
+    librarySearch.addEventListener('input', function(){
+        currentFilters.search = librarySearch.value || '';
+        fetchWithFilters();
+    });
+}
+
 function fetchTags(){
     var headers = {};
     var anonToken = getAnonOwnerToken();
@@ -613,6 +627,17 @@ function renderGames(data){
     var quizzes = [];
     for(var i = 0; i < Object.keys(data || {}).length; i++){
         quizzes.push(data[i]);
+    }
+
+    if(currentFilters.search && currentFilters.search.trim()){
+        var ql = currentFilters.search.trim().toLowerCase();
+        quizzes = quizzes.filter(function(q){
+            var name = (q.name || '').toLowerCase();
+            var tags = Array.isArray(q.tags) ? q.tags.map(function(t){ return (t || '').toLowerCase(); }) : [];
+            var matchName = name.includes(ql);
+            var matchTag = tags.some(function(t){ return t.includes(ql); });
+            return matchName || matchTag;
+        });
     }
 
     if(count){
