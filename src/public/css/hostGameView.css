@@ -196,9 +196,10 @@ h3[id^="answer"]{
     font-size: 32px;
     color: #c7d2fe;
 }
-#winner1{ font-size: 28px; }
-#winner2{ font-size: 22px; }
-#winner3{ font-size: 20px; }
+#winner1{ font-size: 34px; }
+#winner2{ font-size: 28px; }
+#winner3{ font-size: 24px; }
+#winner4, #winner5{ font-size: 22px; }
 
 #ranking{
     margin-top: 20px;
@@ -211,6 +212,13 @@ h3[id^="answer"]{
     text-align: left;
     display: inline-block;
     padding-left: 18px;
+}
+#rankingList li{
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    padding: 4px 0;
 }
 .ranking-next{
     margin-top: 14px;

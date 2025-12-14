@@ -4,6 +4,8 @@ var correct = false;
 var name;
 var score = 0;
 var token = null;
+var lastAnswers = [];
+var rankingTimeout = null;
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
 if(params.token){
@@ -86,7 +88,7 @@ function updatePlayerRank(playerData){
     }
 }
 
-socket.on('questionOver', function(playerData){
+socket.on('questionOver', function(playerData, correctAnswer){
     setMedia(null, null);
     if(correct == true){
         document.body.style.backgroundColor = "#4CAF50";
@@ -95,13 +97,22 @@ socket.on('questionOver', function(playerData){
     }else{
         document.body.style.backgroundColor = "#f94a1e";
         document.getElementById('message').style.display = "block";
-        document.getElementById('message').innerHTML = window.i18nPlayer ? window.i18nPlayer.t('incorrect') : "Incorrect!";
+        var incorrectMsg = window.i18nPlayer ? window.i18nPlayer.t('incorrect') : "Incorrect!";
+        var correctLabel = window.i18nPlayer ? window.i18nPlayer.t('correct_answer') : "Correct answer:";
+        var answerTxt = (lastAnswers && correctAnswer && lastAnswers[correctAnswer - 1]) ? lastAnswers[correctAnswer - 1] : '';
+        document.getElementById('message').innerHTML = incorrectMsg + (answerTxt ? '<span class="player-correct-answer">' + correctLabel + ' ' + answerTxt + '</span>' : '');
     }
     document.getElementById('answer1').style.visibility = "hidden";
     document.getElementById('answer2').style.visibility = "hidden";
     document.getElementById('answer3').style.visibility = "hidden";
     document.getElementById('answer4').style.visibility = "hidden";
     updatePlayerRank(playerData);
+    if(rankingTimeout){
+        clearTimeout(rankingTimeout);
+    }
+    rankingTimeout = setTimeout(function(){
+        showPlayerRanking(playerData);
+    }, 3000);
     socket.emit('getScore');
 });
 
@@ -113,6 +124,10 @@ socket.on('newScore', function(data){
 socket.on('nextQuestionPlayer', function(){
     correct = false;
     playerAnswered = false;
+    if(rankingTimeout){
+        clearTimeout(rankingTimeout);
+        rankingTimeout = null;
+    }
     
     document.getElementById('answer1').style.visibility = "visible";
     document.getElementById('answer2').style.visibility = "visible";
@@ -122,6 +137,7 @@ socket.on('nextQuestionPlayer', function(){
     document.body.style.backgroundColor = "white";
     document.getElementById('rankText').textContent = '';
     document.getElementById('rankText').style.display = 'none';
+    hidePlayerRanking();
     
 });
 
@@ -154,6 +170,7 @@ socket.on('playerQuestion', function(data){
         document.getElementById('answer2').textContent = data.answers[1];
         document.getElementById('answer3').textContent = data.answers[2];
         document.getElementById('answer4').textContent = data.answers[3];
+        lastAnswers = data.answers.slice(0, 4);
     }
     setMedia(data.image, data.video);
 });
@@ -219,4 +236,47 @@ function parseYouTubeId(url){
         }
     }catch(e){}
     return null;
+}
+
+function showPlayerRanking(playerData){
+    var modal = document.getElementById('playerRankingModal');
+    var list = document.getElementById('playerRankingList');
+    var title = document.getElementById('playerRankingTitle');
+    if(!modal || !list){
+        return;
+    }
+    list.innerHTML = '';
+    var sorted = Array.isArray(playerData) ? playerData.slice().sort(function(a, b){
+        return (b.gameData.score || 0) - (a.gameData.score || 0);
+    }) : [];
+    var top = sorted.slice(0, 10);
+    var myId = socket.id;
+    var youLabel = (window.i18nPlayer && window.i18nPlayer.t('player_ranking_you')) || 'You';
+    if(youLabel === 'player_ranking_you') youLabel = 'You';
+    top.forEach(function(p, idx){
+        var icon = p.icon ? p.icon + ' ' : '';
+        var meMark = p.playerId === myId ? ' (' + youLabel + ')' : '';
+        var li = document.createElement('li');
+        li.textContent = icon + p.name + ' - ' + (p.gameData.score || 0) + meMark;
+        list.appendChild(li);
+    });
+    if(window.i18nPlayer && title){
+        var titleText = window.i18nPlayer.t('player_ranking_title');
+        title.textContent = titleText === 'player_ranking_title' ? 'Top 10' : titleText;
+    }
+    modal.classList.add('show');
+}
+
+function hidePlayerRanking(){
+    var modal = document.getElementById('playerRankingModal');
+    if(modal){
+        modal.classList.remove('show');
+    }
+}
+
+var playerRankingClose = document.getElementById('playerRankingClose');
+if(playerRankingClose){
+    playerRankingClose.addEventListener('click', function(){
+        hidePlayerRanking();
+    });
 }

@@ -66,21 +66,34 @@ body{
     font-weight: 600;
 }
 
-#players{
-    display: block;
-    margin: 12px auto;
-    text-align: left;
-    font-size: 18px;
-    resize: none;
+.players-list{
     width: 100%;
-    max-width: 720px;
-    min-height: 360px;
-    padding: 14px;
+    max-width: 960px;
+    margin: 14px auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+.player-item{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
     border-radius: 16px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid var(--card-stroke);
-    color: var(--text-main);
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+}
+.player-icon{
+    font-size: 44px;
+    line-height: 1;
+}
+.player-name{
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-main);
+    word-break: break-word;
 }
 
 #start, #cancel{

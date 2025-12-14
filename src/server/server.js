@@ -1503,6 +1503,56 @@ app.patch('/api/auth/profile', async (req, res) => {
   }
 });
 
+app.get('/api/admin/stats', requireRole('admin'), async (req, res) => {
+  try {
+    const collection = await getGamesCollection();
+    const gamesList = await collection.find({}, { projection: { questions: 1, playsCount: 1, playersCount: 1, visibility: 1 } }).toArray();
+    const totalQuizzes = gamesList.length;
+    const totalQuestions = gamesList.reduce((sum, g) => sum + ((g.questions || []).length), 0);
+    const totalPlays = gamesList.reduce((sum, g) => sum + (g.playsCount || 0), 0);
+    const totalPlayers = gamesList.reduce((sum, g) => sum + (g.playersCount || 0), 0);
+    const visibilityCounts = gamesList.reduce((acc, g) => {
+      const vis = currentVisibility(g);
+      acc[vis] = (acc[vis] || 0) + 1;
+      return acc;
+    }, { public: 0, unlisted: 0, private: 0 });
+
+    const liveGames = games.games.length;
+    const livePlayers = games.games.reduce((acc, g) => acc + players.getPlayers(g.hostId).length, 0);
+
+    const now = Date.now();
+    const ephemeralList = Array.from(ephemeralQuizzes.values()).filter((q) => !q.expires || q.expires >= now);
+    const ephemeralQuestions = ephemeralList.reduce((sum, q) => sum + ((q.questions || []).length), 0);
+
+    const avgQuestionsPerQuiz = totalQuizzes ? Number((totalQuestions / totalQuizzes).toFixed(2)) : 0;
+
+    return res.json({
+      ok: true,
+      data: {
+        totalQuizzes,
+        totalQuestions,
+        totalPlays,
+        totalPlayers,
+        avgQuestionsPerQuiz,
+        visibilityCounts,
+        liveGames,
+        livePlayers,
+        ephemeral: {
+          totalQuizzes: ephemeralList.length,
+          totalQuestions: ephemeralQuestions
+        }
+      }
+    });
+  } catch (err) {
+    console.error('admin-stats error', err);
+    return res.status(500).json({ error: 'No se pudieron obtener las estadísticas.' });
+  }
+});
+
+app.get('/admin/stats', requireRole('admin'), (req, res) => {
+  res.sendFile(path.join(publicPath, 'admin-stats.html'));
+});
+
 // Solicitar token de reseteo (se guarda en BD y se muestra en logs)
 app.post('/api/auth/request-reset', async (req, res) => {
   try {

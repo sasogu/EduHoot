@@ -43,11 +43,22 @@ socket.on('showGamePin', function(data){
 //Adds player's name to screen and updates player count
 socket.on('updatePlayerLobby', function(data){
     
-    document.getElementById('players').value = "";
-    
+    var container = document.getElementById('players');
+    if(!container) return;
+    container.innerHTML = '';
     for(var i = 0; i < data.length; i++){
-        var icon = data[i].icon ? data[i].icon + " " : "";
-        document.getElementById('players').value += icon + data[i].name + "\n";
+        var icon = data[i].icon ? data[i].icon : '';
+        var item = document.createElement('div');
+        item.className = 'player-item';
+        var iconEl = document.createElement('span');
+        iconEl.className = 'player-icon';
+        iconEl.textContent = icon;
+        var nameEl = document.createElement('span');
+        nameEl.className = 'player-name';
+        nameEl.textContent = data[i].name || '';
+        item.appendChild(iconEl);
+        item.appendChild(nameEl);
+        container.appendChild(item);
     }
     
 });

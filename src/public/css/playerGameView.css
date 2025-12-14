@@ -114,6 +114,12 @@ body{
     font-weight: 700;
     margin: 12px 0;
 }
+.player-correct-answer{
+    display: block;
+    margin-top: 12px;
+    font-size: 22px;
+    font-weight: 600;
+}
 
 .button{
     width: calc(50% - 14px);
@@ -160,4 +166,57 @@ body{
 #lang-switcher button.active{
     color: var(--text-main);
     border-color: rgba(255,255,255,0.35);
+}
+
+.player-modal{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(7,12,30,0.75);
+    backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    z-index: 12;
+}
+.player-modal.show{
+    display: flex;
+}
+.player-modal__content{
+    width: 100%;
+    max-width: 420px;
+    background: rgba(13,21,45,0.95);
+    border: 1px solid var(--card-stroke);
+    border-radius: 18px;
+    padding: 16px 18px;
+    color: var(--text-main);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+.player-modal__content h3{
+    margin: 0 0 10px;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+}
+#playerRankingList{
+    text-align: left;
+    padding-left: 20px;
+    margin: 0 0 12px;
+}
+#playerRankingList li{
+    font-size: 18px;
+    font-weight: 700;
+    padding: 4px 0;
+    letter-spacing: -0.01em;
+}
+.player-modal__close{
+    width: 100%;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow);
 }
