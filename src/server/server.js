@@ -80,6 +80,7 @@ const mongoUrl = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/';
 const DB_NAME = 'kahootDB';
 const GAMES_COLLECTION = 'kahootGames';
 const USERS_COLLECTION = 'users';
+const SOLO_SCORES_COLLECTION = 'soloScores';
 const mongoClient = new MongoClient(mongoUrl);
 let db;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
@@ -141,6 +142,28 @@ function ownerTokenFromReq(req) {
 async function getUsersCollection() {
   const database = await getDb();
   return database.collection(USERS_COLLECTION);
+}
+
+async function getSoloScoresCollection() {
+  const database = await getDb();
+  return database.collection(SOLO_SCORES_COLLECTION);
+}
+
+function normalizeSoloName(name) {
+  const clean = (name || '').toString().trim();
+  if (!clean) return 'Anónimo';
+  return clean.slice(0, 40);
+}
+
+async function getTopSoloScores(quizIdKey, limit = 10) {
+  const collection = await getSoloScoresCollection();
+  const top = await collection
+    .find({ quizId: quizIdKey })
+    .sort({ score: -1, createdAt: 1 })
+    .limit(limit)
+    .project({ _id: 0, quizId: 1, quizName: 1, playerName: 1, score: 1, totalQuestions: 1, createdAt: 1 })
+    .toArray();
+  return top;
 }
 
 async function findGameById(gameId) {
@@ -1500,6 +1523,102 @@ app.get('/api/quizzes', async (req, res) => {
   } catch (err) {
     console.error('list-quizzes error', err);
     return res.status(500).json({ error: 'No se pudo obtener la lista.' });
+  }
+});
+
+// Listar solo quizzes públicos (para modo individual)
+app.get('/api/public-quizzes', async (req, res) => {
+  try {
+    const collection = await getGamesCollection();
+    const quizzes = await collection
+      .find({ $or: [{ visibility: 'public' }, { visibility: { $exists: false } }] })
+      .project({
+        id: 1,
+        name: 1,
+        tags: 1,
+        playsCount: 1,
+        playersCount: 1,
+        ownerNickname: 1,
+        questions: 1
+      })
+      .toArray();
+
+    const mapped = (quizzes || []).map((quiz) => {
+      const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+      const mediaQuestions = questions.filter((q) => q && (q.image || q.video));
+      const mediaQuestion = mediaQuestions.length
+        ? mediaQuestions[Math.floor(Math.random() * mediaQuestions.length)]
+        : null;
+      return {
+        id: quiz.id,
+        name: quiz.name,
+        tags: quiz.tags || [],
+        playsCount: quiz.playsCount || 0,
+        playersCount: quiz.playersCount || 0,
+        ownerNickname: quiz.ownerNickname || '',
+        questionsCount: questions.length,
+        coverImage: mediaQuestion ? mediaQuestion.image : '',
+        coverVideo: mediaQuestion ? mediaQuestion.video : ''
+      };
+    });
+    return res.json(mapped);
+  } catch (err) {
+    console.error('list-public-quizzes error', err);
+    return res.status(500).json({ error: 'No se pudo obtener la lista.' });
+  }
+});
+
+// Ranking global para modo individual
+app.get('/api/quizzes/:id/solo-ranking', async (req, res) => {
+  const quizIdParam = req.params.id;
+  try {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz) return res.status(404).json({ error: 'Quiz no encontrado.' });
+    if (currentVisibility(quiz) !== 'public') {
+      return res.status(403).json({ error: 'Solo disponible para quizzes públicos.' });
+    }
+    const quizKey = quiz.id !== undefined && quiz.id !== null ? quiz.id.toString() : quizIdParam.toString();
+    const top = await getTopSoloScores(quizKey, 10);
+    return res.json({ quizId: quiz.id, top });
+  } catch (err) {
+    console.error('solo-ranking error', err);
+    return res.status(500).json({ error: 'No se pudo obtener el ranking.' });
+  }
+});
+
+// Registrar partida individual y devolver top 10
+app.post('/api/quizzes/:id/solo-run', async (req, res) => {
+  const quizIdParam = req.params.id;
+  try {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz) return res.status(404).json({ error: 'Quiz no encontrado.' });
+    if (currentVisibility(quiz) !== 'public') {
+      return res.status(403).json({ error: 'Solo disponible para quizzes públicos.' });
+    }
+    const quizKey = quiz.id !== undefined && quiz.id !== null ? quiz.id.toString() : quizIdParam.toString();
+    const playerName = normalizeSoloName(req.body.name);
+    const rawScore = parseInt(req.body.score, 10);
+    const rawTotal = parseInt(req.body.totalQuestions, 10);
+    if (Number.isNaN(rawScore) || Number.isNaN(rawTotal)) {
+      return res.status(400).json({ error: 'Datos inválidos.' });
+    }
+    const score = Math.max(0, Math.min(rawScore, 1000000));
+    const totalQuestions = Math.max(0, Math.min(rawTotal, 500));
+    const collection = await getSoloScoresCollection();
+    await collection.insertOne({
+      quizId: quizKey,
+      quizName: quiz.name || '',
+      playerName,
+      score,
+      totalQuestions,
+      createdAt: new Date()
+    });
+    const top = await getTopSoloScores(quizKey, 10);
+    const position = top.findIndex((r) => r.playerName === playerName && r.score === score);
+    return res.json({ ok: true, top, position });
+  } catch (err) {
+    console.error('solo-run error', err);
+    return res.status(500).json({ error: 'No se pudo registrar la partida.' });
   }
 });
 

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Modo individual | EduHoot</title>
+        <link rel="stylesheet" href="../css/solo.css">
+        <link href="https://fonts.googleapis.com/css?family=Raleway:400,600,700" rel="stylesheet">
+        <link rel="icon" href="/icons/logo.svg" type="image/svg+xml">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <a class="back-link" href="../" data-i18n="back">← Volver</a>
+        <header class="hero">
+            <div class="hero__text">
+                <p class="eyebrow" data-i18n="eyebrow">Modo individual</p>
+                <h1 data-i18n="title">Juega a los públicos en solitario</h1>
+                <p class="subtext" data-i18n="subtitle">Elige un quiz público, responde las preguntas y entra en el ranking global. El Top 10 solo se muestra al final.</p>
+            </div>
+            <div class="hero__lang">
+                <label class="lang-switch">
+                    <span data-i18n="langLabel">Idioma</span>
+                    <select id="lang-select">
+                        <option value="es">ES</option>
+                        <option value="en">EN</option>
+                        <option value="ca">CA</option>
+                    </select>
+                </label>
+            </div>
+        </header>
+        <main class="grid">
+            <section id="catalog-panel" class="panel">
+                <div class="panel__header">
+                    <div>
+                        <p class="eyebrow"></p>
+                        <h2></h2>
+                    </div>
+                    <div class="panel__actions">
+                        <input id="search" type="search" placeholder="Buscar por nombre o etiqueta" data-i18n-placeholder="searchPlaceholder">
+                    </div>
+                </div>
+                <div id="public-list" class="cards"></div>
+                <p id="public-empty" class="muted"></p>
+            </section>
+
+            <section id="game-panel" class="panel play-panel">
+                <div class="panel__header">
+                    <div>
+                        <p class="eyebrow" data-i18n="soloEyebrow">Modo individual</p>
+                        <h2 id="selected-title" data-i18n="soloTitle">Elige un juego para empezar</h2>
+                    </div>
+                </div>
+
+                <div id="game-area" class="game-area hidden">
+                    <div class="game-progress">
+                        <span id="question-progress" class="pill"></span>
+                        <span id="score-pill" class="pill pill-muted"></span>
+                        <span id="timer-pill" class="pill pill-timer"></span>
+                    </div>
+                    <div class="question-card">
+                        <p id="question-text" class="question-text"></p>
+                        <div id="question-media" class="question-media hidden">
+                            <img id="question-image" alt="">
+                            <video id="question-video" controls playsinline></video>
+                            <iframe id="question-iframe" title="video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        </div>
+                        <div id="answers" class="answers"></div>
+                        <p id="feedback" class="feedback"></p>
+                    </div>
+                </div>
+
+                <div id="result-area" class="result-area hidden">
+                    <h3 data-i18n="finishTitle">Partida terminada</h3>
+                    <p id="result-summary" class="subtext"></p>
+                    <div id="ranking" class="ranking hidden">
+                        <div class="ranking__header">
+                            <h4 data-i18n="rankingTitle">Top 10 global</h4>
+                            <p class="muted" data-i18n="rankingHint">Solo se muestra al finalizar la partida.</p>
+                        </div>
+                        <ol id="ranking-list"></ol>
+                    </div>
+                    <div class="result-actions">
+                        <button id="play-again" class="btn btn-primary" data-i18n="playAgain">Volver a jugar</button>
+                        <button id="pick-another" class="btn btn-ghost" data-i18n="pickAnother">Elegir otro quiz</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <div id="feedback-modal" class="solo-modal">
+            <div class="solo-modal__content">
+                <h3 id="feedback-title"></h3>
+                <p id="feedback-body"></p>
+                <button id="feedback-close" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+
+        <div id="name-modal" class="solo-modal">
+            <div class="solo-modal__content">
+                <h3 data-i18n="nameTitle">Identifícate para el ranking</h3>
+                <p class="muted" data-i18n="nameDesc">Usa 3 letras o números.</p>
+                <input id="player-name" type="text" maxlength="3" pattern="[A-Za-z0-9]{1,3}" placeholder="AAA" data-i18n-placeholder="namePlaceholder" autocomplete="off">
+                <div class="modal-actions">
+                    <button id="name-cancel" class="btn btn-ghost" data-i18n="nameSkip">Omitir</button>
+                    <button id="name-save" class="btn btn-primary" data-i18n="nameSave">Guardar</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="../js/solo.js"></script>
+    </body>
+</html>
