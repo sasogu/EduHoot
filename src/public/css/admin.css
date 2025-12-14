@@ -26,9 +26,47 @@ body{
   margin: 0 0 6px;
   font-size: 28px;
 }
+.admin-header{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .admin-header p{
   margin: 0 0 16px;
   color: var(--muted);
+}
+
+.login-inline{
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--card-stroke);
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+.login-inline input{
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--card-stroke);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.login-inline button{
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.login-inline span{
+  min-width: 120px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .cards{

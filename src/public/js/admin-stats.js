@@ -2,6 +2,10 @@
   var cardsEl = document.getElementById('cards');
   var breakdownEl = document.getElementById('breakdown');
   var errorEl = document.getElementById('stats-error');
+  var loginForm = document.getElementById('login-form');
+  var loginEmail = document.getElementById('login-email');
+  var loginPass = document.getElementById('login-pass');
+  var loginStatus = document.getElementById('login-status');
 
   function renderCards(data){
     if(!cardsEl) return;
@@ -74,18 +78,52 @@
     }
   }
 
-  fetch('/api/admin/stats', { credentials: 'include' })
-    .then(function(res){
-      if(!res.ok) throw new Error('Error HTTP '+res.status);
-      return res.json();
-    })
-    .then(function(payload){
-      if(!payload || !payload.data) throw new Error('Respuesta incompleta');
-      renderCards(payload.data);
-      renderBreakdown(payload.data);
-    })
-    .catch(function(err){
-      console.error(err);
-      showError('No se pudieron cargar las estadísticas. ¿Tienes sesión de admin iniciada?');
+  function loadStats(){
+    fetch('/api/admin/stats', { credentials: 'include' })
+      .then(function(res){
+        if(!res.ok) throw new Error('Error HTTP '+res.status);
+        return res.json();
+      })
+      .then(function(payload){
+        if(!payload || !payload.data) throw new Error('Respuesta incompleta');
+        renderCards(payload.data);
+        renderBreakdown(payload.data);
+        if(errorEl) errorEl.textContent = '';
+      })
+      .catch(function(err){
+        console.error(err);
+        showError('No se pudieron cargar las estadísticas. ¿Tienes sesión de admin iniciada?');
+      });
+  }
+
+  loadStats();
+
+  if(loginForm){
+    loginForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      if(!loginEmail || !loginPass) return;
+      if(loginStatus) loginStatus.textContent = '...';
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: (loginEmail.value || '').trim(),
+          password: loginPass.value
+        })
+      }).then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+      .then(function(result){
+        if(!result.ok){
+          if(loginStatus) loginStatus.textContent = result.body.error || 'Login fallido';
+          return;
+        }
+        if(loginStatus) loginStatus.textContent = 'Ok';
+        loginPass.value = '';
+        loadStats();
+      })
+      .catch(function(){
+        if(loginStatus) loginStatus.textContent = 'Error de red';
+      });
     });
+  }
 })();
