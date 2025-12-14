@@ -1427,18 +1427,26 @@ io.on('connection', (socket) => {
 });
 app.get('/api/quizzes', async (req, res) => {
   try {
-    const tagParam = req.query.tags;
-    const tags = Array.isArray(tagParam)
-      ? tagParam
-      : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
-    const normalized = normalizeTags(tags);
-    const collection = await getGamesCollection();
-    const baseQuery = normalized.length ? { tags: { $all: normalized } } : {};
-    const quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
-    const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
-      id: quiz.id,
-      name: quiz.name,
-      tags: quiz.tags || [],
+  const tagParam = req.query.tags;
+  const tags = Array.isArray(tagParam)
+    ? tagParam
+    : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
+  const normalized = normalizeTags(tags);
+  const mineOnly = req.query.mine === '1';
+  const collection = await getGamesCollection();
+  const baseQuery = normalized.length ? { tags: { $all: normalized } } : {};
+  let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
+  if (mineOnly && req.user) {
+    quizzesRaw = quizzesRaw.filter((q) => {
+      if (q.ownerId && req.user.id && q.ownerId.toString() === req.user.id.toString()) return true;
+      if (req.user.ownerToken && q.ownerToken && q.ownerToken === req.user.ownerToken) return true;
+      return false;
+    });
+  }
+  const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
+    id: quiz.id,
+    name: quiz.name,
+    tags: quiz.tags || [],
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
       visibility: currentVisibility(quiz),

@@ -153,10 +153,6 @@
             <label data-i18n="iaCsvLabel">Contenido CSV generado por la IA
                 <textarea id="ia-csv" rows="6" placeholder="Pega aquí el CSV devuelto por la IA"></textarea>
             </label>
-            <label class="checkbox-inline">
-                <input type="checkbox" id="ia-public">
-                <span data-i18n="iaPublic">Hacer público (guardar en la biblioteca)</span>
-            </label>
             <button id="ia-upload" data-i18n="btnImportIa">Importar CSV en el juego</button>
             <p id="ia-status"></p>
             </div>
@@ -203,6 +199,10 @@
                 </div>
                 <div id="filter-bar" class="filter-bar">
                     <div class="pill pill-muted" id="filter-info" data-i18n="noFilters">Sin filtros</div>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="filter-mine">
+                        <span data-i18n="filterMine">Solo mis juegos</span>
+                    </label>
                 </div>
                 <div id="tag-suggestions" class="tag-suggestions"></div>
                 <p class="subtext">

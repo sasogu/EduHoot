@@ -10,7 +10,8 @@ socket.on('gameNamesData', function(data){
 });
 
 var currentFilters = {
-    tags: []
+    tags: [],
+    mineOnly: false
 };
 var knownTags = [];
 function getAnonOwnerToken(){
@@ -74,7 +75,6 @@ var i18n = {
         iaLang: 'Idioma del cuestionario',
         iaNum: 'Número de preguntas',
         iaExtra: 'Instrucciones adicionales',
-        iaPublic: 'Hacer público (guardar en la biblioteca)',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt aparecerá aquí...',
@@ -92,6 +92,7 @@ var i18n = {
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
+        filterMine: 'Solo mis juegos',
         playsShort: 'partidas',
         playersShort: 'jugadores',
         play: 'Iniciar juego',
@@ -117,8 +118,17 @@ var i18n = {
         importing: 'Importando...',
         uploadCsv: 'Subiendo...',
         uploadCsvError: 'No se pudo importar el CSV.',
+        startNow: 'Iniciar ahora',
+        createUserMissing: 'Introduce email y contraseña.',
+        createUserWorking: 'Creando usuario...',
+        createUserOk: 'Usuario creado.',
+        createUserError: 'No se pudo crear.',
+        savingNick: 'Guardando nombre visible...',
+        nickSaved: 'Nombre visible actualizado.',
+        nickSaveError: 'No se pudo guardar.',
         loginError: 'Error al iniciar sesión.',
         loginWait: 'Iniciando sesión...',
+        loginOk: 'Sesión iniciada.',
         resetWaiting: 'Enviando...',
         resetTokenSent: 'Revisa tu correo (o el log del servidor) para ver el token.',
         resetTokenError: 'No se pudo generar el token.',
@@ -129,7 +139,12 @@ var i18n = {
         notLogged: 'Inicia sesión para clonar un quiz.',
         cloneOk: 'Copia creada en tu biblioteca.',
         cloneError: 'No se pudo clonar.',
-        namePlaceholder: 'Nombre del quiz (opcional)'
+        namePlaceholder: 'Nombre del quiz (opcional)',
+        selectCsv: 'Selecciona un archivo CSV.',
+        downloadCsvError: 'No se pudo descargar el CSV.',
+        renameError: 'No se pudo renombrar.',
+        deleteError: 'No se pudo eliminar.',
+        sharingError: 'No se pudieron guardar los permisos.'
     },
     en: {
         back: 'Back',
@@ -169,7 +184,6 @@ var i18n = {
         iaLang: 'Quiz language',
         iaNum: 'Number of questions',
         iaExtra: 'Extra instructions',
-        iaPublic: 'Make public (save to library)',
         btnGenPrompt: 'Generate prompt',
         btnCopyPrompt: 'Copy prompt',
         promptPlaceholder: 'Prompt will appear here...',
@@ -187,6 +201,7 @@ var i18n = {
         suggestedTags: 'Suggested tags (tap to filter)',
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
+        filterMine: 'Only my games',
         playsShort: 'plays',
         playersShort: 'players',
         play: 'Start game',
@@ -212,8 +227,17 @@ var i18n = {
         importing: 'Importing...',
         uploadCsv: 'Uploading...',
         uploadCsvError: 'Could not import CSV.',
+        startNow: 'Start now',
+        createUserMissing: 'Enter email and password.',
+        createUserWorking: 'Creating user...',
+        createUserOk: 'User created.',
+        createUserError: 'Could not create user.',
+        savingNick: 'Saving display name...',
+        nickSaved: 'Display name updated.',
+        nickSaveError: 'Could not save.',
         loginError: 'Login failed.',
         loginWait: 'Signing in...',
+        loginOk: 'Session started.',
         resetWaiting: 'Sending...',
         resetTokenSent: 'Check your email or server log for the token.',
         resetTokenError: 'Could not generate the token.',
@@ -224,7 +248,12 @@ var i18n = {
         notLogged: 'Sign in to clone a quiz.',
         cloneOk: 'Copy created in your library.',
         cloneError: 'Could not clone.',
-        namePlaceholder: 'Quiz name (optional)'
+        namePlaceholder: 'Quiz name (optional)',
+        selectCsv: 'Select a CSV file.',
+        downloadCsvError: 'Could not download the CSV.',
+        renameError: 'Could not rename.',
+        deleteError: 'Could not delete.',
+        sharingError: 'Could not save permissions.'
     },
     ca: {
         back: 'Tornar',
@@ -264,7 +293,6 @@ var i18n = {
         iaLang: 'Idioma del qüestionari',
         iaNum: 'Nombre de preguntes',
         iaExtra: 'Instruccions addicionals',
-        iaPublic: 'Fer públic (guardar a la biblioteca)',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt apareixerà aquí...',
@@ -307,8 +335,17 @@ var i18n = {
         importing: 'Important...',
         uploadCsv: 'Pujant...',
         uploadCsvError: 'No s\'ha pogut importar el CSV.',
+        startNow: 'Inicia ara',
+        createUserMissing: 'Introdueix email i contrasenya.',
+        createUserWorking: 'Creant usuari...',
+        createUserOk: 'Usuari creat.',
+        createUserError: 'No s\'ha pogut crear.',
+        savingNick: 'Desant nom visible...',
+        nickSaved: 'Nom visible actualitzat.',
+        nickSaveError: 'No s\'ha pogut desar.',
         loginError: 'Error en iniciar sessió.',
         loginWait: 'Iniciant sessió...',
+        loginOk: 'Sessió iniciada.',
         resetWaiting: 'Enviant...',
         resetTokenSent: 'Mira el correu o el log del servidor per al token.',
         resetTokenError: 'No s\'ha pogut generar el token.',
@@ -319,7 +356,12 @@ var i18n = {
         notLogged: 'Inicia sessió per clonar un quiz.',
         cloneOk: 'Còpia creada a la teva biblioteca.',
         cloneError: 'No s\'ha pogut clonar.',
-        namePlaceholder: 'Nom del quiz (opcional)'
+        namePlaceholder: 'Nom del quiz (opcional)',
+        selectCsv: 'Selecciona un fitxer CSV.',
+        downloadCsvError: 'No s\'ha pogut descarregar el CSV.',
+        renameError: 'No s\'ha pogut reanomenar.',
+        deleteError: 'No s\'ha pogut eliminar.',
+        sharingError: 'No s\'han pogut desar els permisos.'
     }
 };
 
@@ -378,6 +420,9 @@ function fetchWithFilters(){
             query += (query ? '&' : '?') + 'localIds=' + localIds.join(',');
         }
     }catch(e){}
+    if(currentFilters.mineOnly){
+        query += (query ? '&' : '?') + 'mine=1';
+    }
     fetch('/api/quizzes' + query)
         .then(function(res){ return res.json(); })
         .then(function(data){
@@ -420,6 +465,14 @@ function renderTagSuggestions(){
     });
 }
 
+var mineFilter = document.getElementById('filter-mine');
+if(mineFilter){
+    mineFilter.addEventListener('change', function(){
+        currentFilters.mineOnly = mineFilter.checked;
+        fetchWithFilters();
+    });
+}
+
 function fetchTags(){
     return fetch('/api/tags', { credentials: 'include' })
         .then(function(res){ return res.json(); })
@@ -453,8 +506,14 @@ function renderGames(data){
         }
     }
     if(filterInfo){
-        var activeTags = currentFilters.tags;
-        filterInfo.textContent = activeTags.length ? (t('filterBy') + activeTags.join(', ')) : t('noFilters');
+        var parts = [];
+        if(currentFilters.tags.length){
+            parts.push(t('filterBy') + currentFilters.tags.join(', '));
+        }
+        if(currentFilters.mineOnly){
+            parts.push(t('filterMine'));
+        }
+        filterInfo.textContent = parts.length ? parts.join(' · ') : t('noFilters');
     }
 
     if(quizzes.length === 0){
@@ -670,12 +729,12 @@ async function renameQuiz(id, name){
         });
         var result = await res.json();
         if(!res.ok){
-            alert(result.error || 'No se pudo renombrar.');
+            alert(result.error || t('renameError') || t('saveError'));
             return;
         }
         socket.emit('requestDbNames');
     }catch(err){
-        alert('No se pudo renombrar.');
+        alert(t('renameError') || t('saveError'));
     }
 }
 
@@ -688,12 +747,12 @@ async function deleteQuiz(id){
         var res = await fetch('/api/quizzes/' + id, { method: 'DELETE', credentials: 'include', headers: headers });
         var result = await res.json();
         if(!res.ok){
-            alert(result.error || 'No se pudo eliminar.');
+            alert(result.error || t('deleteError'));
             return;
         }
         socket.emit('requestDbNames');
     }catch(err){
-        alert('No se pudo eliminar.');
+        alert(t('deleteError'));
     }
 }
 
@@ -711,7 +770,7 @@ async function updateSharing(id, visibility, allowClone){
         });
         var result = await res.json();
         if(!res.ok){
-            alert(result.error || 'No se pudieron guardar los permisos.');
+            alert(result.error || t('sharingError') || t('saveError'));
             return;
         }
         if(result.migrated && result.id){
@@ -729,13 +788,13 @@ async function updateSharing(id, visibility, allowClone){
         }
         socket.emit('requestDbNames');
     }catch(err){
-        alert('No se pudieron guardar los permisos.');
+        alert(t('sharingError') || t('saveError'));
     }
 }
 
 async function cloneQuiz(id){
     if(!authState.user){
-        alert('Inicia sesión para clonar un quiz.');
+        alert(t('notLogged'));
         return;
     }
     try{
@@ -746,13 +805,13 @@ async function cloneQuiz(id){
         });
         var result = await res.json();
         if(!res.ok){
-            alert(result.error || 'No se pudo clonar.');
+            alert(result.error || t('cloneError'));
             return;
         }
-        alert('Copia creada en tu biblioteca.');
+        alert(t('cloneOk'));
         socket.emit('requestDbNames');
     }catch(err){
-        alert('No se pudo clonar.');
+        alert(t('cloneError'));
     }
 }
 
@@ -760,11 +819,11 @@ function downloadCsv(id){
     fetch('/api/quizzes/' + id + '/csv')
         .then(function(res){
             if(!res.ok){
-                return res.json().then(function(body){
-                    alert((body && body.error) || 'No se pudo descargar el CSV.');
+                    return res.json().then(function(body){
+                    alert((body && body.error) || t('downloadCsvError'));
                     throw new Error('Download failed');
                 }).catch(function(){
-                    alert('No se pudo descargar el CSV.');
+                    alert(t('downloadCsvError'));
                     throw new Error('Download failed');
                 });
             }
@@ -796,7 +855,7 @@ if (csvForm) {
         var status = document.getElementById('csv-status');
 
         if (!fileInput.files || fileInput.files.length === 0) {
-            status.textContent = 'Selecciona un archivo CSV.';
+            status.textContent = t('selectCsv');
             return;
         }
 
@@ -806,7 +865,7 @@ if (csvForm) {
             formData.append('name', nameInput.value.trim());
         }
 
-        status.textContent = 'Subiendo...';
+        status.textContent = t('uploadCsv');
         try {
             var response = await fetch('/api/upload-csv', {
                 method: 'POST',
@@ -814,17 +873,17 @@ if (csvForm) {
             });
             var result = await response.json();
             if (!response.ok) {
-                status.textContent = result.error || 'No se pudo importar el CSV.';
+                status.textContent = result.error || t('uploadCsvError');
                 return;
             }
-            status.innerHTML = 'Importado: ' + result.name + ' (' + result.count + ' preguntas). ';
+            status.innerHTML = t('importSuccess') + ': ' + result.name + ' (' + result.count + ') ';
             var startBtn = document.createElement('button');
-            startBtn.textContent = 'Iniciar ahora';
+            startBtn.textContent = t('startNow') || t('play');
             startBtn.onclick = function() { startGame(result.id); };
             status.appendChild(startBtn);
             csvForm.reset();
         } catch (err) {
-            status.textContent = 'No se pudo importar el CSV.';
+            status.textContent = t('uploadCsvError');
         }
     });
 }
@@ -833,7 +892,7 @@ if (csvForm) {
 function buildPrompt(params){
     var idioma = params.idioma === 'otro' && params.idiomaCustom ? params.idiomaCustom : params.idioma;
     var prompt = {
-        objetivo: "Generar un cuestionario en CSV con separador ';' siguiendo el formato: tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen",
+        objetivo: "Generar un cuestionario en CSV con separador ';' siguiendo el formato: tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video",
         nivel: params.nivel || '',
         tema: params.tema || '',
         idioma: idioma || 'Español',
@@ -844,7 +903,8 @@ function buildPrompt(params){
             "Usa el punto y coma ';' como separador.",
             "Columna 'tipo': usa 'quiz' (una correcta).",
             "Columna 'correcta': índice de la respuesta correcta (1-4).",
-            "Columna 'imagen': URL opcional o vacío.",
+            "Columna 'imagen': solo URLs de imagen (png/jpg/webp).",
+            "Columna 'video': URLs de vídeo (YouTube/Vimeo/MP4). Si hay vídeo, deja 'imagen' vacía.",
             "Tiempo: en segundos (ej: 20)."
         ]
     };
@@ -961,7 +1021,7 @@ function login(){
     var email = authEmail.value.trim();
     var pass = authPass.value;
     var nick = authNick ? authNick.value.trim() : '';
-    authMsg.textContent = 'Iniciando sesión...';
+    authMsg.textContent = t('loginWait');
     fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -971,16 +1031,16 @@ function login(){
         var body = {};
         try { body = await res.json(); } catch(e){}
         if(!res.ok){
-            authMsg.textContent = body.error || 'Error al iniciar sesión.';
+            authMsg.textContent = body.error || t('loginError');
             return;
         }
-        authMsg.textContent = 'Sesión iniciada.';
+        authMsg.textContent = t('loginOk') || t('authStatus');
         authPass.value = '';
         if(authNick) authNick.value = '';
         reconnectSocket();
         fetchMe();
     }).catch(function(){
-        authMsg.textContent = 'Error al iniciar sesión.';
+        authMsg.textContent = t('loginError');
     });
 }
 
@@ -1003,10 +1063,10 @@ async function createUser(){
     var role = newUserRole.value;
     var nick = newUserNick ? newUserNick.value.trim() : '';
     if(!email || !pass){
-        if(createUserStatus) createUserStatus.textContent = 'Introduce email y contraseña.';
+        if(createUserStatus) createUserStatus.textContent = t('createUserMissing') || t('resetNeedFields');
         return;
     }
-    if(createUserStatus) createUserStatus.textContent = 'Creando usuario...';
+    if(createUserStatus) createUserStatus.textContent = t('createUserWorking') || t('resetWaiting');
     try{
         var res = await fetch('/api/auth/users', {
             method: 'POST',
@@ -1017,14 +1077,14 @@ async function createUser(){
         var body = {};
         try { body = await res.json(); } catch(e){}
         if(!res.ok){
-            if(createUserStatus) createUserStatus.textContent = body.error || 'No se pudo crear.';
+            if(createUserStatus) createUserStatus.textContent = body.error || t('createUserError') || t('resetUpdateError');
             return;
         }
-        if(createUserStatus) createUserStatus.textContent = 'Usuario creado.';
+        if(createUserStatus) createUserStatus.textContent = t('createUserOk') || t('saveOk');
         newUserEmail.value = '';
         newUserPass.value = '';
     }catch(err){
-        if(createUserStatus) createUserStatus.textContent = 'No se pudo crear.';
+        if(createUserStatus) createUserStatus.textContent = t('createUserError') || t('resetUpdateError');
     }
 }
 
@@ -1032,7 +1092,7 @@ async function saveNickname(){
     if(!authState.user) return;
     if(!authNick) return;
     var nick = authNick.value.trim();
-    authMsg.textContent = 'Guardando nombre visible...';
+    authMsg.textContent = t('savingNick') || t('resetWaiting');
     try{
         var res = await fetch('/api/auth/profile', {
             method: 'PATCH',
@@ -1043,13 +1103,13 @@ async function saveNickname(){
         var body = {};
         try { body = await res.json(); } catch(e){}
         if(!res.ok){
-            authMsg.textContent = body.error || 'No se pudo guardar.';
+            authMsg.textContent = body.error || t('nickSaveError') || t('resetUpdateError');
             return;
         }
-        authMsg.textContent = 'Nombre visible actualizado.';
+        authMsg.textContent = t('nickSaved') || t('saveOk');
         fetchMe();
     }catch(err){
-        authMsg.textContent = 'No se pudo guardar.';
+        authMsg.textContent = t('nickSaveError') || t('resetUpdateError');
     }
 }
 async function resetPasswordAsAdmin(){
@@ -1058,10 +1118,10 @@ async function resetPasswordAsAdmin(){
     var email = resetAdminEmail.value.trim();
     var pass = resetAdminPass.value;
     if(!email || !pass){
-        if(resetAdminStatus) resetAdminStatus.textContent = 'Introduce email y nueva contraseña.';
+        if(resetAdminStatus) resetAdminStatus.textContent = t('resetNeedFields');
         return;
     }
-    if(resetAdminStatus) resetAdminStatus.textContent = 'Actualizando...';
+    if(resetAdminStatus) resetAdminStatus.textContent = t('resetUpdating');
     try{
         var res = await fetch('/api/auth/reset-admin', {
             method: 'POST',
@@ -1072,13 +1132,13 @@ async function resetPasswordAsAdmin(){
         var body = {};
         try { body = await res.json(); } catch(e){}
         if(!res.ok){
-            if(resetAdminStatus) resetAdminStatus.textContent = body.error || 'No se pudo actualizar.';
+            if(resetAdminStatus) resetAdminStatus.textContent = body.error || t('resetUpdateError');
             return;
         }
-        if(resetAdminStatus) resetAdminStatus.textContent = 'Contraseña actualizada.';
+        if(resetAdminStatus) resetAdminStatus.textContent = t('resetUpdated');
         resetAdminPass.value = '';
     }catch(err){
-        if(resetAdminStatus) resetAdminStatus.textContent = 'No se pudo actualizar.';
+        if(resetAdminStatus) resetAdminStatus.textContent = t('resetUpdateError');
     }
 }
 
@@ -1107,10 +1167,10 @@ if(resetRequestBtn){
         if(!resetEmail) return;
         var email = resetEmail.value.trim();
         if(!email){
-            if(resetStatus) resetStatus.textContent = 'Introduce tu email.';
+            if(resetStatus) resetStatus.textContent = t('labelEmail');
             return;
         }
-        if(resetStatus) resetStatus.textContent = 'Enviando...';
+        if(resetStatus) resetStatus.textContent = t('resetWaiting');
         try{
             var res = await fetch('/api/auth/request-reset', {
                 method: 'POST',
@@ -1118,9 +1178,9 @@ if(resetRequestBtn){
                 body: JSON.stringify({ email: email })
             });
             await res.json().catch(function(){});
-            if(resetStatus) resetStatus.textContent = 'Revisa tu correo (o el log del servidor) para ver el token.';
+            if(resetStatus) resetStatus.textContent = t('resetTokenSent');
         }catch(err){
-            if(resetStatus) resetStatus.textContent = 'No se pudo generar el token.';
+            if(resetStatus) resetStatus.textContent = t('resetTokenError');
         }
     });
 }
@@ -1130,10 +1190,10 @@ if(resetConfirmBtn){
         var token = resetToken.value.trim();
         var pass = resetPass.value;
         if(!token || !pass){
-            if(resetStatus) resetStatus.textContent = 'Completa token y nueva contraseña.';
+            if(resetStatus) resetStatus.textContent = t('resetNeedFields');
             return;
         }
-        if(resetStatus) resetStatus.textContent = 'Actualizando...';
+        if(resetStatus) resetStatus.textContent = t('resetUpdating');
         try{
             var res = await fetch('/api/auth/reset', {
                 method: 'POST',
@@ -1143,14 +1203,14 @@ if(resetConfirmBtn){
             var body = {};
             try { body = await res.json(); } catch(e){}
             if(!res.ok){
-                if(resetStatus) resetStatus.textContent = body.error || 'No se pudo actualizar.';
+                if(resetStatus) resetStatus.textContent = body.error || t('resetUpdateError');
                 return;
             }
-            if(resetStatus) resetStatus.textContent = 'Contraseña actualizada. Inicia sesión.';
+            if(resetStatus) resetStatus.textContent = t('resetUpdated');
             resetPass.value = '';
             resetToken.value = '';
         }catch(err){
-            if(resetStatus) resetStatus.textContent = 'No se pudo actualizar.';
+            if(resetStatus) resetStatus.textContent = t('resetUpdateError');
         }
     });
 }
@@ -1193,24 +1253,22 @@ if (iaCopy) {
 }
 
 var iaUpload = document.getElementById('ia-upload');
-var iaPublic = document.getElementById('ia-public');
 if (iaUpload) {
     iaUpload.addEventListener('click', async function(){
         var status = document.getElementById('ia-status');
         var csvText = document.getElementById('ia-csv').value.trim();
         var quizName = document.getElementById('ia-name').value.trim();
         if (!csvText) {
-            status.textContent = 'Pega primero el CSV generado por la IA.';
+            status.textContent = t('selectCsv');
             return;
         }
-        status.textContent = 'Importando...';
+        status.textContent = t('importing');
         try{
             var blob = new Blob([csvText], { type: 'text/csv' });
             var file = new File([blob], 'ia.csv', { type: 'text/csv' });
             var formData = new FormData();
             formData.append('file', file);
             if (quizName) formData.append('name', quizName);
-            if (iaPublic && iaPublic.checked) formData.append('visibility', 'public');
             formData.append('ownerToken', getAnonOwnerToken());
             var iaTags = buildIaTags();
             iaTags.forEach(function(tag){
@@ -1220,10 +1278,10 @@ if (iaUpload) {
             var response = await fetch('/api/upload-csv', { method: 'POST', body: formData });
             var result = await response.json();
             if (!response.ok) {
-                status.textContent = result.error || 'No se pudo importar el CSV.';
+                status.textContent = result.error || t('uploadCsvError');
                 return;
             }
-            status.textContent = 'Importado: ' + result.name + ' (' + result.count + ' preguntas).';
+            status.textContent = t('importSuccess') + ': ' + result.name + ' (' + result.count + ')';
             if (result.id) {
                 var startBtn = document.createElement('button');
                 startBtn.className = 'btn btn-primary';
@@ -1245,7 +1303,7 @@ if (iaUpload) {
             socket.emit('requestDbNames');
             fetchWithFilters();
         }catch(err){
-            status.textContent = 'No se pudo importar el CSV.';
+            status.textContent = t('uploadCsvError');
         }
     });
 }

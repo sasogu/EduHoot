@@ -305,6 +305,9 @@ body {
     gap: 10px;
     margin-bottom: 12px;
 }
+.filter-bar .checkbox-inline{
+    margin: 0;
+}
 .tag-suggestions{
     display: flex;
     flex-wrap: wrap;
