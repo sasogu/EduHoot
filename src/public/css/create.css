@@ -390,6 +390,11 @@ body {
     gap: 8px;
     flex-wrap: wrap;
 }
+.game-actions .icon-only{
+    min-width: 42px;
+    padding: 10px 0;
+    text-align: center;
+}
 .btn{
     border: none;
     border-radius: 10px;

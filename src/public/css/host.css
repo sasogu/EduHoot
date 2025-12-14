@@ -64,6 +64,21 @@ body{
     align-items: center;
     gap: 8px;
     font-weight: 600;
+    flex-wrap: wrap;
+}
+#host-options input[type="checkbox"]{
+    transform: scale(1.05);
+}
+#opt-time{
+    width: 80px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+.opt-inline{
+    justify-content: space-between;
 }
 
 .players-list{

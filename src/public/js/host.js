@@ -93,7 +93,14 @@ function startGame(){
         randomQuestions: document.getElementById('opt-rand-q') ? document.getElementById('opt-rand-q').checked : true,
         randomAnswers: document.getElementById('opt-rand-a') ? document.getElementById('opt-rand-a').checked : true,
         sendToMobile: document.getElementById('opt-send-mobile') ? document.getElementById('opt-send-mobile').checked : true,
-        showScoresBetween: document.getElementById('opt-show-scores') ? document.getElementById('opt-show-scores').checked : true
+        showScoresBetween: document.getElementById('opt-show-scores') ? document.getElementById('opt-show-scores').checked : true,
+        timePerQuestion: (function(){
+            var input = document.getElementById('opt-time');
+            var val = input ? parseInt(input.value, 10) : 20;
+            if(isNaN(val) || val < 5) val = 5;
+            if(val > 120) val = 120;
+            return val;
+        })()
     };
     socket.emit('startGame', opts);
 }

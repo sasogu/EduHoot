@@ -368,6 +368,8 @@ function shuffleQuestions(originalQuestions = []) {
 function buildQuestions(questions = [], opts = {}) {
   const randomQ = opts.randomQuestions !== false;
   const randomA = opts.randomAnswers !== false;
+  const overrideTime = parseInt(opts.timePerQuestion, 10);
+  const useOverrideTime = !Number.isNaN(overrideTime) && overrideTime > 0;
 
   const base = randomQ ? shuffleQuestions(questions) : [...questions];
 
@@ -380,7 +382,7 @@ function buildQuestions(questions = [], opts = {}) {
       question: q.question,
       answers,
       correct: newCorrect,
-      time: q.time || 0,
+      time: useOverrideTime ? overrideTime : (q.time || 0),
       image: q.image || '',
       video: q.video || ''
     };
@@ -794,7 +796,8 @@ io.on('connection', (socket) => {
             randomQuestions: true,
             randomAnswers: true,
             sendToMobile: true,
-            showScoresBetween: true
+            showScoresBetween: true,
+            timePerQuestion: 20
           }
         });
 
@@ -858,7 +861,8 @@ io.on('connection', (socket) => {
           playersInGame: playerData.length,
           showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
           questionNumber: game.gameData.question,
-          totalQuestions: game.gameData.totalQuestions || kahootQuestions.length || 0
+          totalQuestions: game.gameData.totalQuestions || kahootQuestions.length || 0,
+          time: (game.gameData.options && game.gameData.options.timePerQuestion) || currentQuestion.time || 20
         });
         socket.emit('gamePin', { pin: game.pin });
         socket.emit('hostSession', { hostId: game.hostId, pin: game.pin });
@@ -1061,11 +1065,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('time', (data) => {
-    let time = data.time / 20;
-    time *= 100;
     const playerid = data.player;
     const player = players.getPlayer(playerid);
-    player.gameData.score += time;
+    const hostId = player ? player.hostId : null;
+    const game = hostId ? games.getGame(hostId) : null;
+    const limit = (game && game.gameData && game.gameData.options && game.gameData.options.timePerQuestion) || 20;
+    let time = data.time / limit;
+    time *= 100;
+    if (player) {
+      player.gameData.score += time;
+    }
   });
 
   socket.on('timeUp', async () => {
@@ -1157,7 +1166,8 @@ io.on('connection', (socket) => {
           playersInGame: playerData.length,
           showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
           questionNumber: game.gameData.question,
-          totalQuestions: game.gameData.totalQuestions || questions.length
+          totalQuestions: game.gameData.totalQuestions || questions.length,
+          time: (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20
         });
       io.to(game.pin).emit('questionMedia', { image, video });
       if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
@@ -1165,7 +1175,8 @@ io.on('connection', (socket) => {
           question,
           answers: [answer1, answer2, answer3, answer4],
           image,
-          video
+          video,
+          time: (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20
         });
       }
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
@@ -1261,8 +1272,12 @@ io.on('connection', (socket) => {
       randomQuestions: true,
       randomAnswers: true,
       sendToMobile: true,
-      showScoresBetween: true
+      showScoresBetween: true,
+      timePerQuestion: 20
     }, opts || {});
+    if (!options.timePerQuestion || Number.isNaN(parseInt(options.timePerQuestion, 10))) {
+      options.timePerQuestion = 20;
+    }
     game.gameData.options = options;
     // build question set based on options
     game.gameData.questions = buildQuestions(game.gameData.originalQuestions || [], options);

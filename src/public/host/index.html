@@ -25,6 +25,10 @@
             <label><input type="checkbox" id="opt-rand-a" checked> <span data-i18n-host="opt_rand_a">Respuestas aleatorias</span></label>
             <label><input type="checkbox" id="opt-send-mobile" checked> <span data-i18n-host="opt_send_mobile">Enviar pregunta a los móviles</span></label>
             <label><input type="checkbox" id="opt-show-scores" checked> <span data-i18n-host="opt_show_scores">Mostrar puntuaciones entre preguntas</span></label>
+            <label class="opt-inline">
+                <span data-i18n-host="opt_time">Tiempo por pregunta (s)</span>
+                <input type="number" id="opt-time" min="5" max="120" value="20">
+            </label>
         </div>
         <div id="players" class="players-list"></div>
         <br>

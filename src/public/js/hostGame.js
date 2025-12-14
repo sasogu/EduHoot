@@ -21,6 +21,7 @@ try{
 var timer;
 
 var time = 20;
+var defaultTime = 20;
 var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 var i18n = {
@@ -114,6 +115,7 @@ socket.on('gameQuestions', function(data){
     document.getElementById('answer2').innerHTML = data.a2;
     document.getElementById('answer3').innerHTML = data.a3;
     document.getElementById('answer4').innerHTML = data.a4;
+    defaultTime = data.time || defaultTime || 20;
     window.hostShowScores = data.showScores !== false;
     setMedia(data.image, data.video);
     var correctAnswer = data.correct;
@@ -336,7 +338,7 @@ function nextQuestion(){
     
     document.getElementById('playersAnswered').style.display = "block";
     document.getElementById('timerText').style.display = "block";
-    document.getElementById('num').innerHTML = " 20";
+    document.getElementById('num').innerHTML = " " + defaultTime;
     setMedia(null, null);
     socket.emit('nextQuestion'); //Tell server to start new question
 }
@@ -348,7 +350,7 @@ function skipQuestion(){
 }
 
 function updateTimer(){
-    time = 20;
+    time = defaultTime;
     timer = setInterval(function(){
         time -= 1;
         document.getElementById('num').textContent = " " + time;

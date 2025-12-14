@@ -183,6 +183,11 @@ socket.on('playerQuestion', function(data){
         document.getElementById('answer4').textContent = data.answers[3];
         lastAnswers = data.answers.slice(0, 4);
     }
+    if(typeof data.time === 'number'){
+        timerTotal = Math.max(5, Math.min(120, data.time));
+    }else{
+        timerTotal = 20;
+    }
     resetTimer();
     setMedia(data.image, data.video);
 });

@@ -512,23 +512,26 @@ function renderGames(data){
         }
 
         var editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-ghost';
-        editBtn.textContent = t('edit');
+        editBtn.className = 'btn btn-ghost icon-only';
+        editBtn.innerHTML = '✏️';
+        editBtn.title = t('edit');
         editBtn.onclick = function(){
             window.location.href = '/create/quiz-creator/?id=' + quiz.id;
         };
         editBtn.disabled = !canEdit;
 
         var downloadBtn = document.createElement('button');
-        downloadBtn.className = 'btn btn-ghost';
-        downloadBtn.textContent = t('download');
+        downloadBtn.className = 'btn btn-ghost icon-only';
+        downloadBtn.innerHTML = '⬇️';
+        downloadBtn.title = t('download');
         downloadBtn.onclick = function(){
             downloadCsv(quiz.id);
         };
 
         var renameBtn = document.createElement('button');
-        renameBtn.className = 'btn btn-ghost';
-        renameBtn.textContent = t('rename');
+        renameBtn.className = 'btn btn-ghost icon-only';
+        renameBtn.innerHTML = '✎';
+        renameBtn.title = t('rename');
         renameBtn.onclick = function(){
             var newName = prompt(t('renamePrompt'), quiz.name);
             if(newName && newName.trim()){
@@ -538,8 +541,9 @@ function renderGames(data){
         renameBtn.disabled = !canEdit;
 
         var deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-danger';
-        deleteBtn.textContent = t('delete');
+        deleteBtn.className = 'btn btn-danger icon-only';
+        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.title = t('delete');
         deleteBtn.onclick = function(){
             if(confirm(t('confirmDelete'))){
                 deleteQuiz(quiz.id);
@@ -555,8 +559,9 @@ function renderGames(data){
 
         if(canClone){
             var cloneBtn = document.createElement('button');
-            cloneBtn.className = 'btn btn-ghost';
-            cloneBtn.textContent = t('clone');
+            cloneBtn.className = 'btn btn-ghost icon-only';
+            cloneBtn.innerHTML = '📄';
+            cloneBtn.title = t('clone');
             cloneBtn.onclick = function(){
                 cloneQuiz(quiz.id);
             };
