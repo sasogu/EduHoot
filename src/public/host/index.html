@@ -7,24 +7,35 @@
         <link href="https://fonts.googleapis.com/css?family=Tajawal" rel="stylesheet">
     </head>
     <body>
-        <button id = "cancel" onclick = "endGame()">Cancel Game</button>
-        <h2 id = "title">Join this Game using the Game Pin: </h2>
+        <div class="host-top-row">
+            <button id = "cancel" onclick = "endGame()">Cancelar partida</button>
+            <label class="lang-switch host-lang">
+                <span>Idioma</span>
+                <select id="host-lang-select">
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="ca">Català</option>
+                </select>
+            </label>
+        </div>
+        <h2 id = "title" data-i18n-host="join_title">Únete a esta partida con el PIN:</h2>
         <h1 id = "gamePinText"></h1>
         <div id="host-options">
-            <label><input type="checkbox" id="opt-rand-q" checked> Preguntas aleatorias</label>
-            <label><input type="checkbox" id="opt-rand-a" checked> Respuestas aleatorias</label>
-            <label><input type="checkbox" id="opt-send-mobile" checked> Enviar pregunta a los móviles</label>
-            <label><input type="checkbox" id="opt-show-scores" checked> Mostrar puntuaciones entre preguntas</label>
+            <label><input type="checkbox" id="opt-rand-q" checked> <span data-i18n-host="opt_rand_q">Preguntas aleatorias</span></label>
+            <label><input type="checkbox" id="opt-rand-a" checked> <span data-i18n-host="opt_rand_a">Respuestas aleatorias</span></label>
+            <label><input type="checkbox" id="opt-send-mobile" checked> <span data-i18n-host="opt_send_mobile">Enviar pregunta a los móviles</span></label>
+            <label><input type="checkbox" id="opt-show-scores" checked> <span data-i18n-host="opt_show_scores">Mostrar puntuaciones entre preguntas</span></label>
         </div>
         <div id="players" class="players-list"></div>
         <br>
-        <button id = 'start' onclick = "startGame()">Start Game</button>
-        <button id = 'resume-last' style="display:none;" onclick="resumeLast()">Reanudar última partida</button>
+        <button id = 'start' onclick = "startGame()" data-i18n-host="start_btn">Iniciar partida</button>
+        <button id = 'resume-last' style="display:none;" onclick="resumeLast()" data-i18n-host="resume_btn">Reanudar última partida</button>
         <br>
         <br>
         <script src = "../socket.io/socket.io.js"></script>
         <script src = "../js/libs/jqueryLibrary.js"></script>
         <script src = "../js/libs//deparam.js"></script>
+        <script src = "../js/i18n-host.js"></script>
         <script src = "../js/host.js"></script>
     </body>
 </html>

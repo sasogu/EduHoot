@@ -1037,6 +1037,8 @@ io.on('connection', (socket) => {
 
         if (game.gameData.playersAnswered === playerNum.length) {
           game.gameData.questionLive = false;
+          // Agotar tiempo en clientes porque ya contestaron todos
+          io.to(game.pin).emit('time', { player: player.hostId, time: 0 });
           const playerData = players.getPlayers(game.hostId);
           io.to(game.pin).emit('questionOver', playerData, correctAnswer);
         } else {
@@ -1106,6 +1108,7 @@ io.on('connection', (socket) => {
         return;
       }
       const correctAnswer = current.correct;
+      io.to(game.pin).emit('hostSkipped');
       io.to(game.pin).emit('questionOver', playerData, correctAnswer);
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {

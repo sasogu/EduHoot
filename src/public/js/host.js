@@ -3,6 +3,15 @@ var params = jQuery.deparam(window.location.search);
 var lastHostKey = 'lastHostId';
 var lastPinKey = 'lastGamePin';
 var resumeBtn = document.getElementById('resume-last');
+var hostLangSelect = document.getElementById('host-lang-select');
+
+function syncLangStorage(val){
+    if(!val) return;
+    try{
+        localStorage.setItem('lang-host', val);
+        localStorage.setItem('lang', val); // reutiliza la misma clave que usa la vista de juego
+    }catch(e){}
+}
 
 function resumeLast(){
     try{
@@ -24,7 +33,22 @@ try{
     if((savedHost || localStorage.getItem(lastPinKey)) && resumeBtn){
         resumeBtn.style.display = 'inline-block';
     }
+    // inicializar selector de idioma con preferencia previa
+    var storedLang = localStorage.getItem('lang-host') || localStorage.getItem('lang');
+    if(hostLangSelect && storedLang){
+        hostLangSelect.value = storedLang;
+        syncLangStorage(storedLang);
+    }
 }catch(e){}
+
+if(hostLangSelect){
+    hostLangSelect.addEventListener('change', function(){
+        syncLangStorage(hostLangSelect.value);
+        if(window.applyHostTranslations){
+            window.applyHostTranslations(hostLangSelect.value);
+        }
+    });
+}
 
 //When host connects to server
 socket.on('connect', function() {

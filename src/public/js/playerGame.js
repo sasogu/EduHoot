@@ -6,6 +6,9 @@ var score = 0;
 var token = null;
 var lastAnswers = [];
 var rankingTimeout = null;
+var timerTotal = 20;
+var timerLeft = 20;
+var timerInterval = null;
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
 if(params.token){
@@ -32,6 +35,8 @@ socket.on('connect', function() {
     // Hide language switcher once in game view
     var langSw = document.getElementById('lang-switcher');
     if (langSw) langSw.style.display = 'none';
+
+    resetTimer();
 });
 
 socket.on('noGameFound', function(){
@@ -52,6 +57,7 @@ function answerSubmitted(num){
         document.getElementById('message').style.display = "block";
         var submitted = window.i18nPlayer ? window.i18nPlayer.t('submitted') : "Answer Submitted! Waiting on other players...";
         document.getElementById('message').innerHTML = submitted;
+        setAnswerStatus('submitted');
         
     }
 }
@@ -102,11 +108,13 @@ socket.on('questionOver', function(playerData, correctAnswer){
         var answerTxt = (lastAnswers && correctAnswer && lastAnswers[correctAnswer - 1]) ? lastAnswers[correctAnswer - 1] : '';
         document.getElementById('message').innerHTML = incorrectMsg + (answerTxt ? '<span class="player-correct-answer">' + correctLabel + ' ' + answerTxt + '</span>' : '');
     }
+    setAnswerStatus('over');
     document.getElementById('answer1').style.visibility = "hidden";
     document.getElementById('answer2').style.visibility = "hidden";
     document.getElementById('answer3').style.visibility = "hidden";
     document.getElementById('answer4').style.visibility = "hidden";
     updatePlayerRank(playerData);
+    stopTimer();
     if(rankingTimeout){
         clearTimeout(rankingTimeout);
     }
@@ -138,6 +146,9 @@ socket.on('nextQuestionPlayer', function(){
     document.getElementById('rankText').textContent = '';
     document.getElementById('rankText').style.display = 'none';
     hidePlayerRanking();
+    stopTimer();
+    resetTimer();
+    setAnswerStatus('pending');
     
 });
 
@@ -172,6 +183,7 @@ socket.on('playerQuestion', function(data){
         document.getElementById('answer4').textContent = data.answers[3];
         lastAnswers = data.answers.slice(0, 4);
     }
+    resetTimer();
     setMedia(data.image, data.video);
 });
 
@@ -238,6 +250,12 @@ function parseYouTubeId(url){
     return null;
 }
 
+socket.on('hostSkipped', function(){
+    var skipMsg = window.i18nPlayer ? window.i18nPlayer.t('host_skipped') : 'El anfitrión saltó la pregunta';
+    document.getElementById('message').style.display = "block";
+    document.getElementById('message').textContent = skipMsg;
+});
+
 function showPlayerRanking(playerData){
     var modal = document.getElementById('playerRankingModal');
     var list = document.getElementById('playerRankingList');
@@ -279,4 +297,63 @@ if(playerRankingClose){
     playerRankingClose.addEventListener('click', function(){
         hidePlayerRanking();
     });
+}
+
+socket.on('time', function(data){
+    if(typeof data.time === 'number'){
+        timerLeft = Math.max(0, Math.min(timerTotal, data.time));
+        updateTimerUi();
+    }
+});
+
+function resetTimer(){
+    timerLeft = timerTotal;
+    updateTimerUi();
+    if(timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(function(){
+        if(timerLeft > 0){
+            timerLeft -= 1;
+            updateTimerUi();
+        }
+    }, 1000);
+}
+
+function stopTimer(){
+    if(timerInterval){
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+function updateTimerUi(){
+    var bar = document.getElementById('playerTimerFill');
+    var txt = document.getElementById('playerTimerText');
+    var pct = Math.max(0, Math.min(100, (timerLeft / timerTotal) * 100));
+    if(bar){
+        bar.style.width = pct + '%';
+        if(pct < 35){
+            bar.style.background = 'linear-gradient(135deg, #f97316, #ef4444)';
+        }else if(pct < 60){
+            bar.style.background = 'linear-gradient(135deg, #facc15, #f97316)';
+        }else{
+            bar.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+        }
+    }
+    if(txt){
+        txt.textContent = Math.max(0, Math.ceil(timerLeft)) + 's';
+    }
+}
+
+function setAnswerStatus(state){
+    var statusEl = document.getElementById('playerAnswerStatus');
+    if(!statusEl) return;
+    if(state === 'submitted'){
+        statusEl.textContent = (window.i18nPlayer && window.i18nPlayer.t('status_submitted')) || 'Respuesta enviada';
+        statusEl.classList.remove('hidden');
+    }else if(state === 'pending'){
+        statusEl.textContent = (window.i18nPlayer && window.i18nPlayer.t('status_pending')) || 'Responde ahora';
+        statusEl.classList.remove('hidden');
+    }else{
+        statusEl.classList.add('hidden');
+    }
 }

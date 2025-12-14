@@ -121,3 +121,29 @@ body{
     background: linear-gradient(135deg, #f43f5e, #e11d48);
     border: none;
 }
+
+.host-top-row{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.lang-switch.host-lang{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    border: 1px solid var(--card-stroke);
+    font-weight: 600;
+    color: var(--text-main);
+}
+.lang-switch select{
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}

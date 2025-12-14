@@ -121,6 +121,57 @@ body{
     font-weight: 600;
 }
 
+#playerStatusRow{
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 12px;
+}
+#playerTimer{
+    position: relative;
+    flex: 1;
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--card-stroke);
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+#playerTimerFill{
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 100%;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    transition: width 0.2s linear;
+}
+#playerTimerText{
+    position: absolute;
+    right: 10px;
+    top: -4px;
+    font-size: 14px;
+    font-weight: 700;
+}
+#playerAnswerStatus{
+    padding: 6px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid var(--card-stroke);
+    font-weight: 700;
+    color: var(--text-main);
+    box-shadow: var(--shadow);
+}
+#playerAnswerStatus.hidden{
+    display: none;
+}
+.player-correct-answer{
+    display: block;
+    margin-top: 12px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
 .button{
     width: calc(50% - 14px);
     min-height: 64px;
