@@ -144,7 +144,28 @@ var i18n = {
         downloadCsvError: 'No se pudo descargar el CSV.',
         renameError: 'No se pudo renombrar.',
         deleteError: 'No se pudo eliminar.',
-        sharingError: 'No se pudieron guardar los permisos.'
+        sharingError: 'No se pudieron guardar los permisos.',
+        gameSingular: 'juego',
+        gamePlural: 'juegos',
+        idLabel: 'ID',
+        importError: 'Error al importar.',
+        emailPlaceholder: 'tu correo',
+        authNickPlaceholder: 'Tu nick público',
+        resetTokenPlaceholder: 'token del email/log',
+        iaLevelPlaceholder: 'Ej: 2º ESO',
+        iaTopicPlaceholder: 'Ej: Energía y calor',
+        iaLangCustomPlaceholder: 'Otro idioma',
+        iaExtraPlaceholder: 'Tono, nivel cognitivo, formato...',
+        iaCsvPlaceholder: 'Pega aquí el CSV devuelto por la IA',
+        kahootUrlPlaceholder: 'https://create.kahoot.it/details/...',
+        visibilityHelp: '<strong>Solo yo:</strong> si no inicias sesión, el quiz se guarda solo en tu sesión y caduca en 24h.<br><strong>Por enlace / Público:</strong> aunque no tengas cuenta, se guardan de forma global en el servidor y sobreviven a reinicios. Si inicias sesión, quedan ligados a tu usuario. Puedes permitir o no las copias.',
+        langEs: 'Español',
+        langEn: 'English',
+        langCa: 'Català',
+        optSpanish: 'Español',
+        optCatalan: 'Catalán',
+        optEnglish: 'Inglés',
+        optOther: 'Otro'
     },
     en: {
         back: 'Back',
@@ -253,7 +274,28 @@ var i18n = {
         downloadCsvError: 'Could not download the CSV.',
         renameError: 'Could not rename.',
         deleteError: 'Could not delete.',
-        sharingError: 'Could not save permissions.'
+        sharingError: 'Could not save permissions.',
+        gameSingular: 'game',
+        gamePlural: 'games',
+        idLabel: 'ID',
+        importError: 'Import failed.',
+        emailPlaceholder: 'your email',
+        authNickPlaceholder: 'Your public nickname',
+        resetTokenPlaceholder: 'token from email/log',
+        iaLevelPlaceholder: 'e.g. 8th grade',
+        iaTopicPlaceholder: 'e.g. Energy and heat',
+        iaLangCustomPlaceholder: 'Other language',
+        iaExtraPlaceholder: 'Tone, cognitive level, format...',
+        iaCsvPlaceholder: 'Paste here the CSV returned by the AI',
+        kahootUrlPlaceholder: 'https://create.kahoot.it/details/...',
+        visibilityHelp: '<strong>Only me:</strong> if you don\'t sign in, the quiz is stored only in your session and expires in 24h.<br><strong>By link / Public:</strong> even without an account it is stored globally on the server and survives restarts. If you sign in, it links to your user. You can allow or block copies.',
+        langEs: 'Spanish',
+        langEn: 'English',
+        langCa: 'Catalan',
+        optSpanish: 'Spanish',
+        optCatalan: 'Catalan',
+        optEnglish: 'English',
+        optOther: 'Other'
     },
     ca: {
         back: 'Tornar',
@@ -361,7 +403,28 @@ var i18n = {
         downloadCsvError: 'No s\'ha pogut descarregar el CSV.',
         renameError: 'No s\'ha pogut reanomenar.',
         deleteError: 'No s\'ha pogut eliminar.',
-        sharingError: 'No s\'han pogut desar els permisos.'
+        sharingError: 'No s\'han pogut desar els permisos.',
+        gameSingular: 'joc',
+        gamePlural: 'jocs',
+        idLabel: 'ID',
+        importError: 'Error en importar.',
+        emailPlaceholder: 'el teu correu',
+        authNickPlaceholder: 'El teu nick públic',
+        resetTokenPlaceholder: 'token del correu/log',
+        iaLevelPlaceholder: 'Ex: 2n ESO',
+        iaTopicPlaceholder: 'Ex: Energia i calor',
+        iaLangCustomPlaceholder: 'Un altre idioma',
+        iaExtraPlaceholder: 'To, nivell cognitiu, format...',
+        iaCsvPlaceholder: 'Enganxa aquí el CSV retornat per la IA',
+        kahootUrlPlaceholder: 'https://create.kahoot.it/details/...',
+        visibilityHelp: '<strong>Només jo:</strong> si no inicies sessió, el quiz es desa només a la teva sessió i caduca en 24h.<br><strong>Per enllaç / Públic:</strong> encara que no tinguis compte, es desa globalment al servidor i sobreviu a reinicis. Si inicies sessió, queda lligat al teu usuari. Pots permetre o no les còpies.',
+        langEs: 'Espanyol',
+        langEn: 'Anglès',
+        langCa: 'Català',
+        optSpanish: 'Espanyol',
+        optCatalan: 'Català',
+        optEnglish: 'Anglès',
+        optOther: 'Un altre'
     }
 };
 
@@ -374,28 +437,72 @@ function applyStaticTranslations(){
         var key = el.getAttribute('data-i18n');
         // Avoid touching labels with form controls to prevent hiding inputs
         if(el.tagName === 'LABEL' && el.querySelector('input,select,textarea')){
+            var textNode = Array.from(el.childNodes).find(function(node){
+                if(node.nodeType === Node.TEXT_NODE && node.textContent.trim()){
+                    return true;
+                }
+                if(node.nodeType === Node.ELEMENT_NODE && !['INPUT','SELECT','TEXTAREA'].includes(node.tagName)){
+                    return true;
+                }
+                return false;
+            });
+            if(textNode){
+                if(textNode.nodeType === Node.TEXT_NODE){
+                    textNode.textContent = t(key) + ' ';
+                }else{
+                    textNode.textContent = t(key);
+                }
+            }else{
+                var span = document.createElement('span');
+                span.textContent = t(key);
+                el.insertBefore(span, el.firstChild);
+            }
             return;
         }
-        if(key === 'subtitle' || key === 'promptPlaceholder'){
+        if(key === 'subtitle' || key === 'promptPlaceholder' || key === 'visibilityHelp'){
             el.innerHTML = t(key);
         }else{
             el.textContent = t(key);
         }
     });
     var authEmail = document.getElementById('auth-email');
-    if(authEmail) authEmail.placeholder = t('labelEmail');
+    if(authEmail) authEmail.placeholder = t('emailPlaceholder');
     var authPass = document.getElementById('auth-pass');
     if(authPass) authPass.placeholder = '••••••••';
+    var authNick = document.getElementById('auth-nick');
+    if(authNick) authNick.placeholder = t('authNickPlaceholder');
     var resetEmail = document.getElementById('reset-email');
-    if(resetEmail) resetEmail.placeholder = t('labelEmail');
+    if(resetEmail) resetEmail.placeholder = t('emailPlaceholder');
     var resetToken = document.getElementById('reset-token');
-    if(resetToken) resetToken.placeholder = 'token';
+    if(resetToken) resetToken.placeholder = t('resetTokenPlaceholder');
     var resetPass = document.getElementById('reset-pass');
     if(resetPass) resetPass.placeholder = '••••••••';
+    var newUserEmail = document.getElementById('new-user-email');
+    if(newUserEmail) newUserEmail.placeholder = t('emailPlaceholder');
+    var newUserPass = document.getElementById('new-user-pass');
+    if(newUserPass) newUserPass.placeholder = '••••••••';
+    var newUserNick = document.getElementById('new-user-nick');
+    if(newUserNick) newUserNick.placeholder = t('authNickPlaceholder');
+    var resetAdminEmail = document.getElementById('reset-admin-email');
+    if(resetAdminEmail) resetAdminEmail.placeholder = t('emailPlaceholder');
+    var resetAdminPass = document.getElementById('reset-admin-pass');
+    if(resetAdminPass) resetAdminPass.placeholder = '••••••••';
     var iaName = document.getElementById('ia-name');
     if(iaName) iaName.placeholder = t('namePlaceholder');
+    var iaNivel = document.getElementById('ia-nivel');
+    if(iaNivel) iaNivel.placeholder = t('iaLevelPlaceholder');
+    var iaTema = document.getElementById('ia-tema');
+    if(iaTema) iaTema.placeholder = t('iaTopicPlaceholder');
+    var iaLangCustom = document.getElementById('ia-idioma-custom');
+    if(iaLangCustom) iaLangCustom.placeholder = t('iaLangCustomPlaceholder');
+    var iaExtra = document.getElementById('ia-extra');
+    if(iaExtra) iaExtra.placeholder = t('iaExtraPlaceholder');
+    var iaCsv = document.getElementById('ia-csv');
+    if(iaCsv) iaCsv.placeholder = t('iaCsvPlaceholder');
     var csvName = document.getElementById('csv-name');
     if(csvName) csvName.placeholder = t('namePlaceholder');
+    var kahootUrl = document.getElementById('kahoot-url');
+    if(kahootUrl) kahootUrl.placeholder = t('kahootUrlPlaceholder');
     var langSelect = document.getElementById('lang-select');
     if(langSelect) langSelect.value = lang;
 }
@@ -499,11 +606,9 @@ function renderGames(data){
     }
 
     if(count){
-        if(quizzes.length === 1){
-            count.textContent = '1 ' + (lang === 'en' ? 'game' : (lang === 'ca' ? 'joc' : 'juego'));
-        }else{
-            count.textContent = quizzes.length + ' ' + (lang === 'en' ? 'games' : (lang === 'ca' ? 'jocs' : 'juegos'));
-        }
+        var singular = t('gameSingular');
+        var plural = t('gamePlural');
+        count.textContent = quizzes.length + ' ' + (quizzes.length === 1 ? singular : plural);
     }
     if(filterInfo){
         var parts = [];
@@ -537,7 +642,7 @@ function renderGames(data){
 
         var badge = document.createElement('span');
         badge.className = 'badge';
-        badge.textContent = 'ID ' + quiz.id;
+        badge.textContent = (t('idLabel') || 'ID') + ' ' + quiz.id;
 
         head.appendChild(title);
         head.appendChild(badge);
@@ -1351,7 +1456,7 @@ if(kahootForm){
             var body = {};
             try { body = await res.json(); } catch(e){}
             if(!res.ok){
-                if(kahootStatus) kahootStatus.textContent = body.error || 'Error al importar.';
+                if(kahootStatus) kahootStatus.textContent = body.error || t('importError');
                 return;
             }
             if(kahootStatus){
@@ -1363,7 +1468,7 @@ if(kahootForm){
             }
             socket.emit('requestDbNames');
         }catch(err){
-            if(kahootStatus) kahootStatus.textContent = 'Error al importar.';
+            if(kahootStatus) kahootStatus.textContent = t('importError');
         }
     });
 }

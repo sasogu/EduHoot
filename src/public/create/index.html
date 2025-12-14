@@ -13,9 +13,9 @@
                 <label class="lang-switch">
                     <span data-i18n="langLabel">Idioma</span>
                     <select id="lang-select">
-                        <option value="es">Español</option>
-                        <option value="en">English</option>
-                        <option value="ca">Català</option>
+                        <option value="es" data-i18n="langEs">Español</option>
+                        <option value="en" data-i18n="langEn">English</option>
+                        <option value="ca" data-i18n="langCa">Català</option>
                     </select>
                 </label>
             </div>
@@ -133,10 +133,10 @@
                 </label>
                 <label data-i18n="iaLang">Idioma del cuestionario
                     <select id="ia-idioma">
-                        <option value="Español">Español</option>
-                        <option value="Catalán">Catalán</option>
-                        <option value="Inglés">Inglés</option>
-                        <option value="otro">Otro</option>
+                        <option value="Español" data-i18n="optSpanish">Español</option>
+                        <option value="Catalán" data-i18n="optCatalan">Catalán</option>
+                        <option value="Inglés" data-i18n="optEnglish">Inglés</option>
+                        <option value="otro" data-i18n="optOther">Otro</option>
                     </select>
                     <input id="ia-idioma-custom" class="hidden" type="text" placeholder="Otro idioma">
                 </label>
@@ -205,7 +205,7 @@
                     </label>
                 </div>
                 <div id="tag-suggestions" class="tag-suggestions"></div>
-                <p class="subtext">
+                <p class="subtext" data-i18n="visibilityHelp">
                     <strong>Solo yo:</strong> si no inicias sesión, el quiz se guarda solo en tu sesión y caduca en 24h.<br>
                     <strong>Por enlace / Público:</strong> aunque no tengas cuenta, se guardan de forma global en el servidor y sobreviven a reinicios. Si inicias sesión, quedan ligados a tu usuario.
                     Puedes permitir o no las copias.
