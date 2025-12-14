@@ -20,6 +20,8 @@ const sessions = new Map();
 const ephemeralQuizzes = new Map();
 const GLOBAL_OWNER_ID = 'global-anon-owner';
 const GLOBAL_OWNER_EMAIL = 'anon@local';
+const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
+const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
 
 function extractKahootId(raw = '') {
   if (!raw) return '';
@@ -73,6 +75,31 @@ const USERS_COLLECTION = 'users';
 const mongoClient = new MongoClient(mongoUrl);
 let db;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+const uploadRate = new Map(); // clave: ip -> { count, windowStart }
+
+function uploadRateLimiter(req, res, next) {
+  const windowMs = 10 * 60 * 1000; // 10 minutos
+  const max = 10; // máximo subidas por IP en la ventana
+  const now = Date.now();
+  const key = req.ip || req.connection.remoteAddress || 'unknown';
+  const entry = uploadRate.get(key) || { count: 0, windowStart: now };
+  if (now - entry.windowStart > windowMs) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count += 1;
+  uploadRate.set(key, entry);
+  if (entry.count > max) {
+    return res.status(429).json({ error: 'Límite de subidas alcanzado. Intenta más tarde.' });
+  }
+  // limpieza ocasional
+  if (uploadRate.size > 1000) {
+    for (const [k, v] of uploadRate.entries()) {
+      if (now - v.windowStart > windowMs) uploadRate.delete(k);
+    }
+  }
+  return next();
+}
 function logGames(tag) {
   const pins = games.games.map((g) => `${g.pin}(host:${g.hostId})`);
   console.log(`[${tag}] Active games:`, pins.length ? pins.join(', ') : 'none');
@@ -183,6 +210,25 @@ function normalizeTags(list = []) {
     .map((t) => (t || '').toString().trim())
     .filter((t) => t.length > 0)
     .map((t) => t.slice(0, 40).toLowerCase());
+}
+
+function scheduleGameCleanup(hostId, delayMs = GAME_CLEANUP_DELAY) {
+  const game = games.getGame(hostId);
+  if (!game) return;
+  if (game.cleanupTimer) clearTimeout(game.cleanupTimer);
+  if (game.gameOver && delayMs > GAME_CLEANUP_DELAY) {
+    delayMs = GAME_CLEANUP_DELAY;
+  }
+  game.cleanupTimer = setTimeout(() => {
+    const current = games.getGame(hostId);
+    if (!current) return;
+    games.removeGame(hostId);
+    const playersToRemove = players.getPlayers(hostId);
+    for (let i = 0; i < playersToRemove.length; i++) {
+      players.removePlayer(playersToRemove[i].playerId);
+    }
+    io.to(current.pin).emit('hostDisconnect');
+  }, GAME_CLEANUP_DELAY);
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -378,7 +424,7 @@ app.get('/api/validate-pin/:pin', (req, res) => {
   res.json({ valid: !!game });
 });
 
-app.post('/api/upload-csv', upload.single('file'), async (req, res) => {
+app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Selecciona un archivo CSV para importar.' });
   }
@@ -753,6 +799,8 @@ io.on('connection', (socket) => {
         });
 
         const game = games.getGame(socket.id);
+        game.gameOver = false;
+        scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
 
         socket.join(game.pin);
 
@@ -778,6 +826,8 @@ io.on('connection', (socket) => {
     if (game) {
       const previousHostId = game.hostId;
       game.hostId = socket.id;
+      game.gameOver = false;
+      scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
       socket.join(game.pin);
       const playerData = players.getPlayers(previousHostId);
       for (let i = 0; i < Object.keys(players.players).length; i++) {
@@ -947,6 +997,7 @@ io.on('connection', (socket) => {
               players.removePlayer(socket.id);
               const playersInGame = players.getPlayers(hostId);
               io.to(pin).emit('updatePlayerLobby', playersInGame);
+              io.to(pin).emit('playersUpdated', playersInGame.length);
             }
           }, 15000);
           socket.leave(pin);
@@ -994,6 +1045,7 @@ io.on('connection', (socket) => {
             playersAnswered: game.gameData.playersAnswered
           });
         }
+        scheduleGameCleanup(hostId, GAME_INACTIVITY_TIMEOUT);
       } catch (err) {
         console.error('playerAnswer error', err);
         socket.emit('noGameFound');
@@ -1030,6 +1082,7 @@ io.on('connection', (socket) => {
       }
       const correctAnswer = current.correct;
       io.to(game.pin).emit('questionOver', playerData, correctAnswer);
+      scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {
       console.error('timeUp error', err);
       socket.emit('noGameFound');
@@ -1054,6 +1107,7 @@ io.on('connection', (socket) => {
       }
       const correctAnswer = current.correct;
       io.to(game.pin).emit('questionOver', playerData, correctAnswer);
+      scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {
       console.error('skipQuestion error', err);
       socket.emit('noGameFound');
@@ -1102,16 +1156,17 @@ io.on('connection', (socket) => {
           questionNumber: game.gameData.question,
           totalQuestions: game.gameData.totalQuestions || questions.length
         });
-        io.to(game.pin).emit('questionMedia', { image, video });
-        if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
-          io.to(game.pin).emit('playerQuestion', {
-            question,
-            answers: [answer1, answer2, answer3, answer4],
-            image,
-            video
-          });
-        }
-      } else {
+      io.to(game.pin).emit('questionMedia', { image, video });
+      if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
+        io.to(game.pin).emit('playerQuestion', {
+          question,
+          answers: [answer1, answer2, answer3, answer4],
+          image,
+          video
+        });
+      }
+      scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
+    } else {
         const playersInGame = players.getPlayers(game.hostId);
         const first = { name: '', score: 0 };
         const second = { name: '', score: 0 };
@@ -1185,6 +1240,9 @@ io.on('connection', (socket) => {
         });
         const uniquePlayers = Array.isArray(playersInGame) ? playersInGame.length : 0;
         await incrementQuizStats(game.gameData.gameid, uniquePlayers);
+        game.gameLive = false;
+        game.gameOver = true;
+        scheduleGameCleanup(socket.id);
       }
     } catch (err) {
       console.error('nextQuestion error', err);
@@ -1207,6 +1265,8 @@ io.on('connection', (socket) => {
     game.gameData.questions = buildQuestions(game.gameData.originalQuestions || [], options);
     game.gameData.totalQuestions = (game.gameData.questions || []).length;
     game.gameLive = true;
+    game.gameOver = false;
+    scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     socket.emit('gameStarted', game.hostId);
   });
 
