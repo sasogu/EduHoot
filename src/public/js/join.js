@@ -152,7 +152,7 @@
 
     if(joinForm && pinInput && nameInput && tokenInput){
         nameInput.addEventListener('input', function(){
-            var filtered = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 3);
+            var filtered = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 3);
             if(nameInput.value !== filtered){
                 nameInput.value = filtered;
             }
@@ -165,7 +165,7 @@
                 setError(t('join_pin_error', 'Necesitas un PIN válido para entrar.'));
                 return;
             }
-            var name = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 3);
+            var name = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 3);
             nameInput.value = name;
             if(!name){
                 ev.preventDefault();

@@ -79,6 +79,13 @@ form{
 #name:focus, #pin:focus{
     border-color: rgba(255,255,255,0.45);
 }
+.name-three{
+    max-width: 200px;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
 
 #joinButton{
     width: 100%;

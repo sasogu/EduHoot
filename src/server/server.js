@@ -231,7 +231,7 @@ function normalizeSoloName(name) {
 
 function normalizePlayerName(name) {
   const chars = (name || '').toString().match(/[0-9a-zA-Z]/g) || [];
-  const trimmed = chars.join('').slice(0, 3);
+  const trimmed = chars.join('').toUpperCase().slice(0, 3);
   return trimmed || '???';
 }
 
