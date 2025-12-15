@@ -4,6 +4,48 @@ var lastHostKey = 'lastHostId';
 var lastPinKey = 'lastGamePin';
 var resumeBtn = document.getElementById('resume-last');
 var hostLangSelect = document.getElementById('host-lang-select');
+var baseJoinUrl = 'https://eduhoot.edutictac.es/';
+var joinQrImg = document.getElementById('join-qr');
+var joinUrlAnchor = document.getElementById('join-url');
+var gamePinText = document.getElementById('gamePinText');
+var hostError = document.getElementById('host-error');
+var pinLoaded = false;
+var hostErrorTimeout = null;
+
+function buildJoinUrl(pin){
+    if(pin){
+        return baseJoinUrl + '?pin=' + encodeURIComponent(pin);
+    }
+    return baseJoinUrl;
+}
+
+function updateJoinQr(pin){
+    var url = buildJoinUrl(pin);
+    var qrSize = 240;
+    if(joinQrImg){
+        joinQrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + qrSize + 'x' + qrSize + '&data=' + encodeURIComponent(url);
+        joinQrImg.setAttribute('aria-label', url);
+    }
+    if(joinUrlAnchor){
+        joinUrlAnchor.href = url;
+        joinUrlAnchor.textContent = url.replace(/^https?:\/\/(www\.)?/, '');
+    }
+}
+
+function setDisplayedPin(pin){
+    var safePin = (pin || '').toString();
+    pinLoaded = !!pin;
+    if(gamePinText){
+        gamePinText.textContent = safePin || '—';
+    }
+    updateJoinQr(safePin);
+}
+
+function showHostError(msg){
+    if(!hostError) return;
+    hostError.textContent = msg || '';
+    hostError.style.display = 'block';
+}
 
 function syncLangStorage(val){
     if(!val) return;
@@ -33,6 +75,12 @@ try{
     if((savedHost || localStorage.getItem(lastPinKey)) && resumeBtn){
         resumeBtn.style.display = 'inline-block';
     }
+    var storedPin = localStorage.getItem(lastPinKey);
+    if(storedPin){
+        setDisplayedPin(storedPin);
+    }else{
+        updateJoinQr();
+    }
     // inicializar selector de idioma con preferencia previa
     var storedLang = localStorage.getItem('lang-host') || localStorage.getItem('lang');
     if(hostLangSelect && storedLang){
@@ -52,15 +100,28 @@ if(hostLangSelect){
 
 //When host connects to server
 socket.on('connect', function() {
-
     document.getElementById('players').value = "";
-    
+    if(!params.id){
+        showHostError((window.getHostTranslation && window.getHostTranslation('host_error_missing_id')) || 'Falta el quiz para generar la partida. Vuelve a elegirlo.');
+        return;
+    }
     //Tell server that it is host connection
     socket.emit('host-join', params);
+    setTimeout(function(){
+        if(!pinLoaded){
+            socket.emit('host-join', params);
+        }
+    }, 2000);
+    clearTimeout(hostErrorTimeout);
+    hostErrorTimeout = setTimeout(function(){
+        if(!pinLoaded){
+            showHostError((window.getHostTranslation && window.getHostTranslation('host_error_timeout')) || 'No pudimos obtener el PIN. Revisa la conexión y vuelve a elegir el quiz.');
+        }
+    }, 4000);
 });
 
 socket.on('showGamePin', function(data){
-   document.getElementById('gamePinText').innerHTML = data.pin;
+   setDisplayedPin(data.pin);
    try{ localStorage.setItem(lastPinKey, data.pin); }catch(e){}
 });
 
@@ -120,5 +181,6 @@ socket.on('gameStarted', function(id){
 });
 
 socket.on('noGameFound', function(){
-   window.location.href = '../../';//Redirect user to 'join game' page
+   var msg = (window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.';
+   showHostError(msg);
 });

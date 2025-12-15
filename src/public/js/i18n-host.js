@@ -10,7 +10,12 @@
       start_btn: 'Iniciar partida',
       resume_btn: 'Reanudar última partida',
       cancel_btn: 'Cancelar partida',
-      lang_label: 'Idioma'
+      lang_label: 'Idioma',
+      scan_qr: 'Escanea el código QR para entrar',
+      pin_label: 'PIN',
+      host_error: 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.',
+      host_error_missing_id: 'Falta el quiz para generar la partida. Vuelve a elegirlo.',
+      host_error_timeout: 'No pudimos obtener el PIN. Revisa la conexión y vuelve a elegir el quiz.'
     },
     en: {
       join_title: 'Join this game with the PIN:',
@@ -22,7 +27,12 @@
       start_btn: 'Start game',
       resume_btn: 'Resume last game',
       cancel_btn: 'Cancel game',
-      lang_label: 'Language'
+      lang_label: 'Language',
+      scan_qr: 'Scan the QR code to join',
+      pin_label: 'PIN',
+      host_error: 'Could not start the game. Pick the quiz again and retry.',
+      host_error_missing_id: 'Missing quiz to create the game. Please pick it again.',
+      host_error_timeout: 'Could not retrieve the PIN. Check your connection and pick the quiz again.'
     },
     ca: {
       join_title: 'Uneix-te a la partida amb el PIN:',
@@ -34,7 +44,12 @@
       start_btn: 'Inicia partida',
       resume_btn: 'Reprèn l\'última partida',
       cancel_btn: 'Cancel·la la partida',
-      lang_label: 'Idioma'
+      lang_label: 'Idioma',
+      scan_qr: 'Escaneja el codi QR per entrar',
+      pin_label: 'PIN',
+      host_error: 'No s\'ha pogut iniciar la partida. Torna a triar el qüestionari i prova-ho de nou.',
+      host_error_missing_id: 'Falta el qüestionari per generar la partida. Torna a triar-lo.',
+      host_error_timeout: 'No hem pogut obtenir el PIN. Comprova la connexió i torna a triar el qüestionari.'
     }
   };
 
@@ -71,6 +86,13 @@
     if(select){
       select.value = lang;
     }
+    var hostError = document.getElementById('host-error');
+    if(hostError){
+      if(hostError.style.display !== 'none'){
+        hostError.textContent = t('host_error');
+      }
+      hostError.setAttribute('data-i18n-host-msg', t('host_error'));
+    }
   }
 
   function setLang(newLang){
@@ -95,5 +117,8 @@
   // Exponer para host.js
   window.applyHostTranslations = function(newLang){
     setLang(newLang || lang);
+  };
+  window.getHostTranslation = function(key){
+    return t(key);
   };
 })();

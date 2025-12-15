@@ -31,18 +31,96 @@ body{
     padding: 20px;
 }
 
+.join-cta{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.join-text{
+    text-align: center;
+}
+.pin-badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid rgba(255,255,255,0.28);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+}
+.pin-label{
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #22d3ee, #6366f1);
+    color: #0f172a;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+.pin-value{
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
 #title{
     font-size: 30px;
     text-align: center;
     letter-spacing: -0.01em;
-    margin-bottom: 6px;
+    margin: 0 0 10px;
 }
-#gamePinText{
+.qr-card{
+    min-width: 180px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.46);
+    border: 1px solid var(--card-stroke);
+    box-shadow: var(--shadow);
     text-align: center;
-    font-size: 48px;
-    margin: 0 0 12px;
-    letter-spacing: 0.04em;
-    text-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    backdrop-filter: blur(12px);
+}
+.qr-label{
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+.qr-img{
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 6px;
+    padding: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.qr-img img{
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.qr-url{
+    margin: 0;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    display: inline-block;
+}
+.host-error{
+    margin-top: 6px;
+    font-weight: 700;
+    color: #fee2e2;
+    background: rgba(248, 113, 113, 0.16);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    padding: 8px 12px;
+    border-radius: 10px;
+    display: none;
 }
 
 #host-options{

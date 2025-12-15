@@ -1393,6 +1393,10 @@ io.on('connection', (socket) => {
 
   socket.on('startGame', (opts) => {
     const game = games.getGame(socket.id);
+    if (!game || !game.gameData) {
+      socket.emit('noGameFound');
+      return;
+    }
     const options = Object.assign({
       randomQuestions: true,
       randomAnswers: true,
