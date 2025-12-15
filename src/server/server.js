@@ -96,8 +96,12 @@ const DB_NAME = 'kahootDB';
 const GAMES_COLLECTION = 'kahootGames';
 const USERS_COLLECTION = 'users';
 const SOLO_SCORES_COLLECTION = 'soloScores';
-const mongoClient = new MongoClient(mongoUrl);
+const MONGO_MAX_RETRIES = 5;
+const MONGO_RETRY_DELAY_MS = 3000;
+const mongoClient = new MongoClient(mongoUrl, { serverSelectionTimeoutMS: 3000 });
 let db;
+let mongoReadyPromise = null;
+let indexesReadyPromise = null;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 const uploadRate = new Map(); // clave: ip -> { count, windowStart }
 
@@ -133,14 +137,55 @@ function logEvent(tag, payload) {
   console.log(`[${tag}]`, payload);
 }
 
-async function getDb() {
-  if (!db) {
-    console.log(`Connecting to MongoDB at ${mongoUrl}`);
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectMongoWithRetry(attempt = 1) {
+  try {
+    console.log(`Connecting to MongoDB at ${mongoUrl} (attempt ${attempt})`);
     await mongoClient.connect();
     db = mongoClient.db(DB_NAME);
+    await ensureIndexes(db);
     console.log(`Connected to MongoDB at ${mongoUrl}`);
+    mongoReadyPromise = null;
+    return db;
+  } catch (err) {
+    console.error(`MongoDB connection error (attempt ${attempt})`, err && err.message ? err.message : err);
+    db = null;
+    mongoReadyPromise = null;
+    if (attempt >= MONGO_MAX_RETRIES) {
+      throw err;
+    }
+    await wait(MONGO_RETRY_DELAY_MS * attempt);
+    return connectMongoWithRetry(attempt + 1);
   }
-  return db;
+}
+
+async function getDb() {
+  if (db) return db;
+  if (mongoReadyPromise) return mongoReadyPromise;
+  mongoReadyPromise = connectMongoWithRetry();
+  return mongoReadyPromise;
+}
+
+async function ensureIndexes(dbInstance) {
+  if (indexesReadyPromise) return indexesReadyPromise;
+  const games = dbInstance.collection(GAMES_COLLECTION);
+  const users = dbInstance.collection(USERS_COLLECTION);
+  const soloScores = dbInstance.collection(SOLO_SCORES_COLLECTION);
+  indexesReadyPromise = Promise.all([
+    games.createIndex({ id: 1 }, { unique: true, sparse: true }),
+    games.createIndex({ visibility: 1 }),
+    games.createIndex({ ownerId: 1 }),
+    soloScores.createIndex({ quizId: 1, score: -1, createdAt: 1 }),
+    users.createIndex({ email: 1 }, { unique: true, sparse: true }),
+    users.createIndex({ resetToken: 1 }, { sparse: true })
+  ]).catch((err) => {
+    console.error('ensureIndexes error', err);
+    indexesReadyPromise = null;
+  });
+  return indexesReadyPromise;
 }
 
 async function getGamesCollection() {
@@ -202,8 +247,8 @@ async function findGameById(gameId) {
 }
 
 async function nextGameId(collection) {
-  const gamesInDb = await collection.find({}, { projection: { id: 1 } }).toArray();
-  const maxId = gamesInDb.reduce((max, game) => Math.max(max, game.id || 0), 0);
+  const doc = await collection.find({}, { projection: { id: 1 } }).sort({ id: -1 }).limit(1).next();
+  const maxId = doc && doc.id ? doc.id : 0;
   return maxId + 1;
 }
 

@@ -1,4 +1,9 @@
-var socket = io();
+var socket = io({
+    reconnection: true,
+    reconnectionAttempts: 20,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 3000
+});
 var playerAnswered = false;
 var correct = false;
 var name;
@@ -26,6 +31,18 @@ function applyStaticLabels(){
 }
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
+try{
+    var last = localStorage.getItem('playerLastJoin');
+    if(last && (!params.pin || !params.name)){
+        var parsed = JSON.parse(last);
+        if(parsed && parsed.pin && parsed.name){
+            params.pin = params.pin || parsed.pin;
+            params.name = params.name || parsed.name;
+            params.icon = params.icon || parsed.icon;
+            if(!token && parsed.token) token = parsed.token;
+        }
+    }
+}catch(e){}
 if(params.token){
     token = params.token;
 }else{
@@ -36,12 +53,29 @@ if(params.token){
     }catch(e){}
 }
 
-socket.on('connect', function() {
+function persistJoinState(){
+    try{
+        var data = {
+            pin: params.pin || '',
+            name: params.name || '',
+            token: token || '',
+            icon: params.icon || ''
+        };
+        localStorage.setItem('playerLastJoin', JSON.stringify(data));
+    }catch(e){}
+}
+
+function emitJoin(){
     applyStaticLabels();
-    //Tell server that it is host connection from game view
     var payload = Object.assign({}, params);
     if(token) payload.token = token;
     socket.emit('player-join-game', payload);
+}
+
+socket.on('connect', function() {
+    persistJoinState();
+    //Tell server that it is host connection from game view
+    emitJoin();
     
     document.getElementById('answer1').style.visibility = "visible";
     document.getElementById('answer2').style.visibility = "visible";
@@ -53,6 +87,21 @@ socket.on('connect', function() {
     if (langSw) langSw.style.display = 'none';
 
     resetTimer();
+});
+
+socket.on('reconnect', function(){
+    // Reenganchar automáticamente tras cortes cortos
+    emitJoin();
+});
+
+socket.on('disconnect', function(){
+    // Mantener la vista y confiar en el reintento automático
+    var msg = document.getElementById('message');
+    if(msg){
+        msg.style.display = "block";
+        var txt = window.i18nPlayer ? window.i18nPlayer.t('reconnecting') : 'Reconectando...';
+        msg.textContent = txt;
+    }
 });
 
 socket.on('noGameFound', function(){
