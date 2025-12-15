@@ -266,7 +266,7 @@ function scheduleGameCleanup(hostId, delayMs = GAME_CLEANUP_DELAY) {
       players.removePlayer(playersToRemove[i].playerId);
     }
     io.to(current.pin).emit('hostDisconnect');
-  }, GAME_CLEANUP_DELAY);
+  }, delayMs);
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
