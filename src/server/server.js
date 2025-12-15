@@ -18,6 +18,16 @@ const io = socketIO(server);
 const games = new LiveGames();
 const players = new Players();
 const sessions = new Map();
+const soloScoreBuffer = [];
+const SOLO_SCORE_BUFFER_DELAY = 150;
+const SOLO_SCORE_BUFFER_MAX = 50;
+let soloScoreFlushTimer = null;
+let soloScoreFlushPromise = null;
+let soloScoreFlushResolve = null;
+let soloScoreFlushInFlight = false;
+const answerRate = new Map(); // clave: hostId:ip -> { count, windowStart }
+const ANSWER_RATE_WINDOW_MS = 3000;
+const ANSWER_RATE_MAX = 4;
 
 // Log y absorbe errores no controlados para evitar que el proceso caiga
 process.on('unhandledRejection', (reason, promise) => {
@@ -37,6 +47,7 @@ const GLOBAL_OWNER_ID = 'global-anon-owner';
 const GLOBAL_OWNER_EMAIL = 'anon@local';
 const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
 const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
+const MONGO_MAX_POOL_SIZE = parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50;
 
 function extractKahootId(raw = '') {
   if (!raw) return '';
@@ -98,7 +109,10 @@ const USERS_COLLECTION = 'users';
 const SOLO_SCORES_COLLECTION = 'soloScores';
 const MONGO_MAX_RETRIES = 5;
 const MONGO_RETRY_DELAY_MS = 3000;
-const mongoClient = new MongoClient(mongoUrl, { serverSelectionTimeoutMS: 3000 });
+const mongoClient = new MongoClient(mongoUrl, {
+  serverSelectionTimeoutMS: 3000,
+  maxPoolSize: MONGO_MAX_POOL_SIZE
+});
 let db;
 let mongoReadyPromise = null;
 let indexesReadyPromise = null;
@@ -215,6 +229,43 @@ function normalizeSoloName(name) {
   return clean.slice(0, 40);
 }
 
+function socketIp(socket) {
+  const hdr = socket && socket.handshake && socket.handshake.headers && socket.handshake.headers['x-forwarded-for'];
+  if (hdr && typeof hdr === 'string' && hdr.length) {
+    return hdr.split(',')[0].trim();
+  }
+  if (socket && socket.handshake && socket.handshake.address) return socket.handshake.address;
+  if (socket && socket.conn && socket.conn.remoteAddress) return socket.conn.remoteAddress;
+  return 'unknown';
+}
+
+function allowAnswer(socket, hostId) {
+  const ip = socketIp(socket);
+  const key = `${hostId || 'nohost'}:${ip}`;
+  const now = Date.now();
+  const entry = answerRate.get(key) || { count: 0, windowStart: now };
+  if (now - entry.windowStart > ANSWER_RATE_WINDOW_MS) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count += 1;
+  answerRate.set(key, entry);
+  if (entry.count > ANSWER_RATE_MAX) {
+    if (answerRate.size > 2000) {
+      for (const [k, v] of answerRate.entries()) {
+        if (now - v.windowStart > ANSWER_RATE_WINDOW_MS) answerRate.delete(k);
+      }
+    }
+    return false;
+  }
+  if (answerRate.size > 2000) {
+    for (const [k, v] of answerRate.entries()) {
+      if (now - v.windowStart > ANSWER_RATE_WINDOW_MS) answerRate.delete(k);
+    }
+  }
+  return true;
+}
+
 async function getTopSoloScores(quizIdKey, limit = 10) {
   const collection = await getSoloScoresCollection();
   const top = await collection
@@ -224,6 +275,62 @@ async function getTopSoloScores(quizIdKey, limit = 10) {
     .project({ _id: 0, quizId: 1, quizName: 1, playerName: 1, score: 1, totalQuestions: 1, createdAt: 1 })
     .toArray();
   return top;
+}
+
+function scheduleSoloScoreFlush(immediate = false) {
+  if (!soloScoreFlushPromise) {
+    soloScoreFlushPromise = new Promise((resolve) => {
+      soloScoreFlushResolve = resolve;
+    });
+  }
+  if (immediate) {
+    if (soloScoreFlushTimer) {
+      clearTimeout(soloScoreFlushTimer);
+      soloScoreFlushTimer = null;
+    }
+    setImmediate(runSoloScoreFlush);
+    return soloScoreFlushPromise;
+  }
+  if (!soloScoreFlushTimer) {
+    soloScoreFlushTimer = setTimeout(runSoloScoreFlush, SOLO_SCORE_BUFFER_DELAY);
+  }
+  return soloScoreFlushPromise;
+}
+
+async function runSoloScoreFlush() {
+  if (soloScoreFlushInFlight) {
+    if (!soloScoreFlushTimer) {
+      soloScoreFlushTimer = setTimeout(runSoloScoreFlush, SOLO_SCORE_BUFFER_DELAY);
+    }
+    return;
+  }
+  soloScoreFlushInFlight = true;
+  if (soloScoreFlushTimer) {
+    clearTimeout(soloScoreFlushTimer);
+    soloScoreFlushTimer = null;
+  }
+  const docs = soloScoreBuffer.splice(0, soloScoreBuffer.length);
+  const resolve = soloScoreFlushResolve;
+  soloScoreFlushPromise = null;
+  soloScoreFlushResolve = null;
+  try {
+    if (docs.length > 0) {
+      const collection = await getSoloScoresCollection();
+      const ops = docs.map((doc) => ({ insertOne: { document: doc } }));
+      await collection.bulkWrite(ops, { ordered: false });
+    }
+  } catch (err) {
+    console.error('soloScore bulkWrite error', err);
+  } finally {
+    soloScoreFlushInFlight = false;
+    if (resolve) resolve();
+  }
+}
+
+function enqueueSoloScore(doc) {
+  soloScoreBuffer.push(doc);
+  const immediate = soloScoreBuffer.length >= SOLO_SCORE_BUFFER_MAX;
+  return scheduleSoloScoreFlush(immediate);
 }
 
 async function findGameById(gameId) {
@@ -1189,7 +1296,15 @@ io.on('connection', (socket) => {
 
   socket.on('playerAnswer', async (num) => {
     const player = players.getPlayer(socket.id);
+    if (!player) {
+      socket.emit('noGameFound');
+      return;
+    }
     const hostId = player.hostId;
+    if (!allowAnswer(socket, hostId)) {
+      socket.emit('tooManyAnswers');
+      return;
+    }
     const playerNum = players.getPlayers(hostId);
     const game = games.getGame(hostId);
 
@@ -1669,8 +1784,7 @@ app.post('/api/quizzes/:id/solo-run', async (req, res) => {
     }
     const score = Math.max(0, Math.min(rawScore, 1000000));
     const totalQuestions = Math.max(0, Math.min(rawTotal, 500));
-    const collection = await getSoloScoresCollection();
-    await collection.insertOne({
+    await enqueueSoloScore({
       quizId: quizKey,
       quizName: quiz.name || '',
       playerName,
