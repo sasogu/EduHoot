@@ -18,6 +18,20 @@ const io = socketIO(server);
 const games = new LiveGames();
 const players = new Players();
 const sessions = new Map();
+
+// Log y absorbe errores no controlados para evitar que el proceso caiga
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+io.on('error', (err) => {
+  console.error('[socket-io-error]', err);
+});
+io.engine.on('connection_error', (err) => {
+  console.error('[socket-connection-error]', err);
+});
 const ephemeralQuizzes = new Map();
 const GLOBAL_OWNER_ID = 'global-anon-owner';
 const GLOBAL_OWNER_EMAIL = 'anon@local';
@@ -1942,4 +1956,11 @@ app.post('/api/auth/reset', async (req, res) => {
     console.error('reset error', err);
     return res.status(500).json({ error: 'No se pudo actualizar la contraseña.' });
   }
+});
+
+// Fallback para errores de rutas no capturados
+app.use((err, req, res, next) => {
+  console.error('[express-error]', err);
+  if (res.headersSent) return next(err);
+  return res.status(500).json({ error: 'Error interno. Inténtalo de nuevo.' });
 });
