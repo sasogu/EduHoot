@@ -229,6 +229,12 @@ function normalizeSoloName(name) {
   return clean.slice(0, 40);
 }
 
+function normalizePlayerName(name) {
+  const chars = (name || '').toString().match(/[0-9a-zA-Z]/g) || [];
+  const trimmed = chars.join('').slice(0, 3);
+  return trimmed || '???';
+}
+
 function socketIp(socket) {
   const hdr = socket && socket.handshake && socket.handshake.headers && socket.handshake.headers['x-forwarded-for'];
   if (hdr && typeof hdr === 'string' && hdr.length) {
@@ -1200,7 +1206,8 @@ io.on('connection', (socket) => {
           }
         }
 
-        players.addPlayer(hostId, socket.id, params.name, { score: 0, answer: 0 }, params.icon || '', token);
+        const safeName = normalizePlayerName(params.name);
+        players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0 }, params.icon || '', token);
 
         socket.join(params.pin);
 

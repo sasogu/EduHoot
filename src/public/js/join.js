@@ -151,6 +151,12 @@
     }
 
     if(joinForm && pinInput && nameInput && tokenInput){
+        nameInput.addEventListener('input', function(){
+            var filtered = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 3);
+            if(nameInput.value !== filtered){
+                nameInput.value = filtered;
+            }
+        });
         joinForm.addEventListener('submit', function(ev){
             var pinVal = (pinInput.value || '').trim();
             if(!pinValidated || !pinVal){
@@ -159,7 +165,8 @@
                 setError(t('join_pin_error', 'Necesitas un PIN válido para entrar.'));
                 return;
             }
-            var name = (nameInput.value || '').trim();
+            var name = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 3);
+            nameInput.value = name;
             if(!name){
                 ev.preventDefault();
                 nameInput.focus();

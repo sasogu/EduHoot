@@ -244,7 +244,7 @@ socket.on('questionOver', function(playerData, correct){
         for(var r = 0; r < top.length; r++){
             var li = document.createElement('li');
             var icon = top[r].icon ? top[r].icon + ' ' : '';
-            li.textContent = (r+1) + '. ' + icon + top[r].name + ' - ' + (top[r].gameData.score || 0);
+            li.textContent = icon + top[r].name + ' - ' + (top[r].gameData.score || 0);
             rankingList.appendChild(li);
         }
         // Open ranking modal automatically after each question
