@@ -10,6 +10,21 @@ var timerTotal = 20;
 var timerLeft = 20;
 var timerInterval = null;
 
+function tPlayer(key, fallback){
+    return window.i18nPlayer ? window.i18nPlayer.t(key) : (fallback || key);
+}
+
+function applyStaticLabels(){
+    var nameLabelEl = document.getElementById('nameText');
+    var scoreLabelEl = document.getElementById('scoreText');
+    if(nameLabelEl){
+        nameLabelEl.textContent = tPlayer('name', 'Name:');
+    }
+    if(scoreLabelEl){
+        scoreLabelEl.textContent = tPlayer('score', 'Score:');
+    }
+}
+
 var params = jQuery.deparam(window.location.search); //Gets the id from url
 if(params.token){
     token = params.token;
@@ -22,6 +37,7 @@ if(params.token){
 }
 
 socket.on('connect', function() {
+    applyStaticLabels();
     //Tell server that it is host connection from game view
     var payload = Object.assign({}, params);
     if(token) payload.token = token;
