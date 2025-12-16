@@ -459,3 +459,20 @@ body {
     margin: 4px 0;
     font-weight: 700;
 }
+
+.pagination{
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+.pagination span{
+    font-weight: 600;
+    color: #fff;
+}
+.pagination button:disabled{
+    opacity: 0.5;
+    cursor: not-allowed;
+}

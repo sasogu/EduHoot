@@ -4,6 +4,8 @@ var editingId = null;
 var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 var knownTags = [];
+var isUserAuthenticated = false;
+var moodleExportPendingQuiz = null;
 var i18n = {
     es: {
         back: 'Volver',
@@ -19,6 +21,7 @@ var i18n = {
         visibilityPrivate: 'Solo yo (privado)',
         visibilityUnlisted: 'Por enlace/ID',
         visibilityPublic: 'Público en la biblioteca',
+        publicWarning: 'Al publicar el quiz se guardará como parte de la biblioteca global y no podrás editarlo después sin sesión.',
         allowCloneLabel: 'Permitir que otras personas hagan una copia',
         suggestedTags: 'Etiquetas usadas (toca para añadir)',
         questionsEyebrow: 'Preguntas',
@@ -45,7 +48,14 @@ var i18n = {
         loadError: 'No se pudo cargar el quiz.',
         saveError: 'No se pudo guardar el quiz.',
         saveOk: 'Quiz actualizado',
-        confirmCancel: '¿Seguro que quieres salir? Se perderán los cambios.'
+        confirmCancel: '¿Seguro que quieres salir? Se perderán los cambios.',
+        moodleModalTitle: 'Importar en Moodle',
+        moodleModalDescription: 'Revisa estos pasos antes de descargar el XML para subirlo a tu curso.',
+        moodleModalStep1: 'Accede al curso de Moodle donde quieres importar el quiz.',
+        moodleModalStep2: 'Ve a Administración del curso > Importar y selecciona el tipo "Moodle XML".',
+        moodleModalStep3: 'Sube el archivo descargado y sigue el asistente para confirmar las preguntas.',
+        moodleModalCancel: 'Cerrar',
+        moodleModalConfirm: 'Descargar XML'
     },
     en: {
         back: 'Back',
@@ -61,6 +71,7 @@ var i18n = {
         visibilityPrivate: 'Only me (private)',
         visibilityUnlisted: 'By link/ID',
         visibilityPublic: 'Public in library',
+        publicWarning: 'Public quizzes become part of the global library and cannot be edited later unless you sign in.',
         allowCloneLabel: 'Allow others to make a copy',
         suggestedTags: 'Suggested tags (tap to add)',
         questionsEyebrow: 'Questions',
@@ -87,7 +98,14 @@ var i18n = {
         loadError: 'Could not load quiz.',
         saveError: 'Could not save quiz.',
         saveOk: 'Quiz updated',
-        confirmCancel: 'Are you sure? Changes will be lost.'
+        confirmCancel: 'Are you sure? Changes will be lost.',
+        moodleModalTitle: 'Import into Moodle',
+        moodleModalDescription: 'Follow these steps before downloading the XML to upload it to your course.',
+        moodleModalStep1: 'Open the Moodle course where you want to import the quiz.',
+        moodleModalStep2: 'Go to Course administration > Import and choose "Moodle XML" as the source.',
+        moodleModalStep3: 'Upload this file and follow the wizard to review questions and settings.',
+        moodleModalCancel: 'Close',
+        moodleModalConfirm: 'Download XML'
     },
     ca: {
         back: 'Tornar',
@@ -103,6 +121,7 @@ var i18n = {
         visibilityPrivate: 'Només jo (privat)',
         visibilityUnlisted: 'Per enllaç/ID',
         visibilityPublic: 'Públic a la biblioteca',
+        publicWarning: 'Els quizzes públics passen a formar part de la biblioteca global i no es poden editar després sense iniciar sessió.',
         allowCloneLabel: 'Permetre que altres en facin una còpia',
         suggestedTags: 'Etiquetes usades (toca per afegir)',
         questionsEyebrow: 'Preguntes',
@@ -129,7 +148,14 @@ var i18n = {
         loadError: 'No s\'ha pogut carregar el quiz.',
         saveError: 'No s\'ha pogut desar el quiz.',
         saveOk: 'Quiz actualitzat',
-        confirmCancel: 'Segur que vols sortir? Es perdran els canvis.'
+        confirmCancel: 'Segur que vols sortir? Es perdran els canvis.',
+        moodleModalTitle: 'Importar a Moodle',
+        moodleModalDescription: 'Segueix aquests passos abans de descarregar l\'XML per pujar-lo al teu curs.',
+        moodleModalStep1: 'Accedeix al curs de Moodle on vols importar el quiz.',
+        moodleModalStep2: 'Vés a Administració del curs > Importa i tria "Moodle XML".',
+        moodleModalStep3: 'Carrega aquest fitxer i segueix l\'assistència per revisar les preguntes.',
+        moodleModalCancel: 'Tancar',
+        moodleModalConfirm: 'Descarregar XML'
     }
 };
 
@@ -157,6 +183,34 @@ function applyI18n(){
     var langSelect = document.getElementById('lang-select');
     if(langSelect) langSelect.value = lang;
     renderTagSuggestions();
+}
+
+function updateVisibilityWarning(){
+    var warning = document.getElementById('public-warning');
+    if(!warning) return;
+    var visibilitySelect = document.getElementById('visibility');
+    var show = false;
+    if(visibilitySelect){
+        var value = visibilitySelect.value;
+        show = !isUserAuthenticated && value && value !== 'private';
+    }
+    warning.classList.toggle('hidden', !show);
+}
+
+function refreshAuthStatus(){
+    fetch('/api/auth/me', { credentials: 'include' })
+        .then(function(res){
+            if(!res.ok) throw new Error();
+            return res.json();
+        })
+        .then(function(){
+            isUserAuthenticated = true;
+            updateVisibilityWarning();
+        })
+        .catch(function(){
+            isUserAuthenticated = false;
+            updateVisibilityWarning();
+        });
 }
 
 function updateDatabase(){
@@ -366,6 +420,10 @@ function exportMoodleXml(){
         alert('Añade preguntas');
         return;
     }
+    openMoodleExportModal(quiz);
+}
+
+function downloadMoodleXmlFile(quiz){
     var xml = buildMoodleXml(quiz);
     var blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
     var url = URL.createObjectURL(blob);
@@ -376,6 +434,35 @@ function exportMoodleXml(){
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+}
+
+function closeMoodleExportModal(){
+    var modal = document.getElementById('moodleModal');
+    if(!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    moodleExportPendingQuiz = null;
+}
+
+function openMoodleExportModal(quiz){
+    moodleExportPendingQuiz = quiz;
+    var modal = document.getElementById('moodleModal');
+    if(!modal){
+        downloadMoodleXmlFile(quiz);
+        moodleExportPendingQuiz = null;
+        return;
+    }
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+}
+
+function confirmMoodleExport(){
+    if(moodleExportPendingQuiz){
+        downloadMoodleXmlFile(moodleExportPendingQuiz);
+    }
+    closeMoodleExportModal();
 }
 
 function buildQuestionCard(num, data){
@@ -727,6 +814,32 @@ function renderTagSuggestions(){
     });
 }
 
+function setupMoodleExportModal(){
+    var modal = document.getElementById('moodleModal');
+    if(!modal) return;
+    var confirmBtn = document.getElementById('moodleModalConfirm');
+    var cancelBtn = document.getElementById('moodleModalCancel');
+    if(confirmBtn){
+        confirmBtn.type = 'button';
+        confirmBtn.addEventListener('click', function(event){
+            event.preventDefault();
+            confirmMoodleExport();
+        });
+    }
+    if(cancelBtn){
+        cancelBtn.type = 'button';
+        cancelBtn.addEventListener('click', function(event){
+            event.preventDefault();
+            closeMoodleExportModal();
+        });
+    }
+    modal.addEventListener('click', function(event){
+        if(event.target === modal){
+            closeMoodleExportModal();
+        }
+    });
+}
+
 function fetchKnownTags(){
     return fetch('/api/tags', { credentials: 'include' })
         .then(function(res){ return res.json(); })
@@ -755,4 +868,11 @@ if(tagsInputEl){
         renderTagSuggestions();
     });
 }
+var visibilitySelect = document.getElementById('visibility');
+if(visibilitySelect){
+    visibilitySelect.addEventListener('change', updateVisibilityWarning);
+}
+setupMoodleExportModal();
 applyI18n();
+updateVisibilityWarning();
+refreshAuthStatus();

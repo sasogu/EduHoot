@@ -45,6 +45,7 @@
                         <option value="unlisted" data-i18n="visibilityUnlisted">Por enlace/ID</option>
                         <option value="public" data-i18n="visibilityPublic">Público en la biblioteca</option>
                     </select>
+                    <p id="public-warning" class="visibility-warning hidden" data-i18n="publicWarning">Al publicar el quiz se guardará como parte de la biblioteca global y no podrás editarlo después sin sesión.</p>
                 </div>
                 <div class="form-field inline">
                     <label for="allow-clone" class="checkbox-label" data-i18n="allowCloneLabel">
@@ -79,6 +80,22 @@
                     - Si eliges <strong>Por enlace/Público</strong> se guarda globalmente y persiste tras reinicios.<br>
                     Con sesión iniciada, se guardan en tu usuario.
                 </p>
+            </div>
+        </div>
+
+        <div id="moodleModal" class="moodle-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="moodleModalTitle">
+            <div class="moodle-modal__content">
+                <h3 id="moodleModalTitle" data-i18n="moodleModalTitle">Importar en Moodle</h3>
+                <p data-i18n="moodleModalDescription">Revisa estos pasos antes de descargar el XML para subirlo a tu curso.</p>
+                <ol>
+                    <li data-i18n="moodleModalStep1">Accede al curso de Moodle donde quieres importar el quiz.</li>
+                    <li data-i18n="moodleModalStep2">Ve a Administración del curso > Importar y selecciona el tipo "Moodle XML".</li>
+                    <li data-i18n="moodleModalStep3">Sube el archivo descargado y sigue el asistente para confirmar las preguntas.</li>
+                </ol>
+                <div class="moodle-modal__actions">
+                    <button id="moodleModalCancel" class="btn btn-ghost" data-i18n="moodleModalCancel">Cerrar</button>
+                    <button id="moodleModalConfirm" class="btn btn-primary" data-i18n="moodleModalConfirm">Descargar XML</button>
+                </div>
             </div>
         </div>
 

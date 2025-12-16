@@ -15,6 +15,10 @@ var currentFilters = {
     search: ''
 };
 var knownTags = [];
+var LIBRARY_PAGE_SIZE = 12;
+var libraryCurrentPage = 1;
+var libraryTotalPages = 1;
+var libraryLatestData = [];
 function getAnonOwnerToken(){
     var key = 'anonOwnerToken';
     var existing = localStorage.getItem(key);
@@ -97,6 +101,9 @@ var i18n = {
         filterMine: 'Solo mis juegos',
         playsShort: 'partidas',
         playersShort: 'jugadores',
+        paginationPrev: 'Anterior',
+        paginationNext: 'Siguiente',
+        paginationPageInfo: 'Página {current} de {total}',
         play: 'Iniciar juego',
         edit: 'Editar',
         download: 'Descargar CSV',
@@ -229,6 +236,9 @@ var i18n = {
         filterMine: 'Only my games',
         playsShort: 'plays',
         playersShort: 'players',
+        paginationPrev: 'Previous',
+        paginationNext: 'Next',
+        paginationPageInfo: 'Page {current} of {total}',
         play: 'Start game',
         edit: 'Edit',
         download: 'Download CSV',
@@ -360,6 +370,9 @@ var i18n = {
         filterBy: 'Filtrant per: ',
         playsShort: 'partides',
         playersShort: 'jugadors',
+        paginationPrev: 'Anterior',
+        paginationNext: 'Següent',
+        paginationPageInfo: 'Pàgina {current} de {total}',
         play: 'Iniciar joc',
         edit: 'Editar',
         download: 'Descarregar CSV',
@@ -526,6 +539,7 @@ function setLang(newLang){
 
 function fetchWithFilters(){
     var query = '';
+    libraryCurrentPage = 1;
     if(currentFilters.tags.length){
         var parts = currentFilters.tags.map(function(t){ return 'tags=' + encodeURIComponent(t); });
         query = '?' + parts.join('&');
@@ -547,9 +561,11 @@ function fetchWithFilters(){
     fetch('/api/quizzes' + query, { headers: headers })
         .then(function(res){ return res.json(); })
         .then(function(data){
-            renderGames(data || []);
+            libraryLatestData = data || [];
+            renderGames(libraryLatestData);
         })
         .catch(function(){
+            libraryLatestData = [];
             renderGames([]);
         });
 }
@@ -602,6 +618,23 @@ if(librarySearch){
     });
 }
 
+var paginationPrevBtn = document.getElementById('library-pagination-prev');
+if(paginationPrevBtn){
+    paginationPrevBtn.addEventListener('click', function(){
+        if(libraryCurrentPage <= 1) return;
+        libraryCurrentPage -= 1;
+        renderGames(libraryLatestData);
+    });
+}
+var paginationNextBtn = document.getElementById('library-pagination-next');
+if(paginationNextBtn){
+    paginationNextBtn.addEventListener('click', function(){
+        if(libraryCurrentPage >= libraryTotalPages) return;
+        libraryCurrentPage += 1;
+        renderGames(libraryLatestData);
+    });
+}
+
 function fetchTags(){
     var headers = {};
     var anonToken = getAnonOwnerToken();
@@ -626,10 +659,15 @@ function renderGames(data){
     var filterInfo = document.getElementById('filter-info');
     if(!div) return;
 
+    var sourceData = data || libraryLatestData;
+    libraryLatestData = sourceData || [];
+
     div.innerHTML = '';
     var quizzes = [];
-    for(var i = 0; i < Object.keys(data || {}).length; i++){
-        quizzes.push(data[i]);
+    var entries = sourceData || {};
+    var entriesLength = Object.keys(entries).length;
+    for(var i = 0; i < entriesLength; i++){
+        quizzes.push(entries[i]);
     }
 
     if(currentFilters.search && currentFilters.search.trim()){
@@ -659,15 +697,31 @@ function renderGames(data){
         filterInfo.textContent = parts.length ? parts.join(' · ') : t('noFilters');
     }
 
-    if(quizzes.length === 0){
+    var totalQuizzes = quizzes.length;
+    libraryTotalPages = Math.max(1, Math.ceil(totalQuizzes / LIBRARY_PAGE_SIZE));
+    if(libraryCurrentPage > libraryTotalPages){
+        libraryCurrentPage = libraryTotalPages;
+    }
+    if(libraryCurrentPage < 1){
+        libraryCurrentPage = 1;
+    }
+
+    if(totalQuizzes === 0){
         var empty = document.createElement('div');
         empty.className = 'empty-state';
         empty.innerHTML = '<p>'+t('noGames')+'</p><p>'+t('noGamesHint')+'</p>';
         div.appendChild(empty);
+        libraryCurrentPage = 1;
+        libraryTotalPages = 1;
+        updatePaginationControls(false);
         return;
     }
 
-    quizzes.forEach(function(quiz){
+    var startIndex = (libraryCurrentPage - 1) * LIBRARY_PAGE_SIZE;
+    var pageQuizzes = quizzes.slice(startIndex, startIndex + LIBRARY_PAGE_SIZE);
+    updatePaginationControls(libraryTotalPages > 1);
+
+    pageQuizzes.forEach(function(quiz){
         var card = document.createElement('div');
         card.className = 'game-card';
 
@@ -852,6 +906,25 @@ function renderGames(data){
         card.appendChild(actions);
         div.appendChild(card);
     });
+}
+
+function updatePaginationControls(visible){
+    var pagination = document.getElementById('library-pagination');
+    if(!pagination) return;
+    pagination.classList.toggle('hidden', !visible);
+    var info = document.getElementById('library-pagination-info');
+    if(info){
+        var template = t('paginationPageInfo');
+        info.textContent = template.replace('{current}', libraryCurrentPage).replace('{total}', libraryTotalPages);
+    }
+    var prevBtn = document.getElementById('library-pagination-prev');
+    var nextBtn = document.getElementById('library-pagination-next');
+    if(prevBtn){
+        prevBtn.disabled = libraryCurrentPage <= 1;
+    }
+    if(nextBtn){
+        nextBtn.disabled = libraryCurrentPage >= libraryTotalPages;
+    }
 }
 
 function startGame(data){
