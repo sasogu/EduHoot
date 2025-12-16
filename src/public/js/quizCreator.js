@@ -28,7 +28,7 @@ var i18n = {
         btnSave: 'Guardar quiz',
         btnPlayLocal: 'Jugar sin guardar',
         btnExportCsv: 'Exportar CSV',
-        btnExportAiken: 'Exportar AIKEN',
+        btnExportMoodleXml: 'Exportar XML (Moodle)',
         btnCancel: 'Cancelar y volver',
         localInfo: 'Sin sesión: “Guardar” o “Jugar sin guardar” crean un quiz anónimo. Si es Solo yo caduca en 24h; Por enlace/Público se guarda globalmente. Con sesión se guarda en tu usuario.',
         questionLabel: 'Enunciado',
@@ -70,7 +70,7 @@ var i18n = {
         btnSave: 'Save quiz',
         btnPlayLocal: 'Play without saving',
         btnExportCsv: 'Export CSV',
-        btnExportAiken: 'Export AIKEN',
+        btnExportMoodleXml: 'Export Moodle XML',
         btnCancel: 'Cancel and go back',
         localInfo: 'Without session: “Save” or “Play without saving” create an anonymous quiz. "Only me" expires in 24h; "By link/Public" is stored globally. With session, it is saved to your user.',
         questionLabel: 'Question',
@@ -112,7 +112,7 @@ var i18n = {
         btnSave: 'Desar quiz',
         btnPlayLocal: 'Jugar sense desar',
         btnExportCsv: 'Exportar CSV',
-        btnExportAiken: 'Exportar AIKEN',
+        btnExportMoodleXml: 'Exportar XML (Moodle)',
         btnCancel: 'Cancel·lar i tornar',
         localInfo: 'Sense sessió: “Desar” o “Jugar sense desar” creen un quiz anònim. "Només jo" caduca en 24h; "Per enllaç/Públic" es guarda globalment. Amb sessió, queda al teu usuari.',
         questionLabel: 'Enunciat',
@@ -273,6 +273,75 @@ function quizToCsv(quiz){
     return [header].concat(lines).join('\n');
 }
 
+function escapeHtmlText(value){
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function escapeAttrValue(value){
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function wrapCdata(value){
+    var str = String(value || '');
+    var safe = str.replace(/]]>/g, ']]]]><![CDATA[>');
+    return '<![CDATA[' + safe + ']]>';
+}
+
+function buildQuestionHtml(question){
+    var parts = [];
+    var text = (question.question || '').trim();
+    if(text){
+        parts.push('<p>' + escapeHtmlText(text) + '</p>');
+    }
+    if(question.image){
+        parts.push('<p><img src="' + escapeAttrValue(question.image) + '" alt=""/></p>');
+    }
+    if(question.video){
+        parts.push('<p><video controls="controls" preload="metadata" src="' + escapeAttrValue(question.video) + '"></video></p>');
+    }
+    return parts.join('');
+}
+
+function buildMoodleXml(quiz){
+    var title = (quiz.name || 'EduHoot quiz').trim() || 'EduHoot quiz';
+    var lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<quiz>'];
+    var questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    questions.forEach(function(question, index){
+        lines.push('  <question type="multichoice">');
+        lines.push('    <name><text>' + wrapCdata(title + ' pregunta ' + (index + 1)) + '</text></name>');
+        var html = buildQuestionHtml(question) || '<p>' + escapeHtmlText(question.question || '') + '</p>';
+        lines.push('    <questiontext format="html">');
+        lines.push('      <text>' + wrapCdata(html) + '</text>');
+        lines.push('    </questiontext>');
+        lines.push('    <defaultgrade>1</defaultgrade>');
+        lines.push('    <penalty>0.0</penalty>');
+        lines.push('    <hidden>0</hidden>');
+        lines.push('    <single>true</single>');
+        lines.push('    <shuffleanswers>true</shuffleanswers>');
+        lines.push('    <answernumbering>abc</answernumbering>');
+        var answers = Array.isArray(question.answers) ? question.answers.slice(0,4) : [];
+        while(answers.length < 4) answers.push('');
+        var correctIndex = Math.max(0, Math.min(answers.length - 1, (parseInt(question.correct, 10) || 1) - 1));
+        answers.forEach(function(answer, answerIndex){
+            var fraction = answerIndex === correctIndex ? '100' : '0';
+            lines.push('    <answer fraction="' + fraction + '" format="html">');
+            lines.push('      <text>' + wrapCdata(escapeHtmlText(answer || '')) + '</text>');
+            lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+            lines.push('    </answer>');
+        });
+        lines.push('  </question>');
+    });
+    lines.push('</quiz>');
+    return lines.join('\n');
+}
+
 function exportCsv(){
     var quiz = buildQuizPayload();
     if(!quiz.questions.length){
@@ -291,32 +360,18 @@ function exportCsv(){
     URL.revokeObjectURL(url);
 }
 
-function exportAiken(){
+function exportMoodleXml(){
     var quiz = buildQuizPayload();
     if(!quiz.questions.length){
         alert('Añade preguntas');
         return;
     }
-    var lines = [];
-    quiz.questions.forEach(function(q){
-        if(!q.question) return;
-        var answers = Array.isArray(q.answers) ? q.answers.slice(0,4) : ['', '', '', ''];
-        while(answers.length < 4) answers.push('');
-        lines.push(q.question);
-        var labels = ['A','B','C','D'];
-        answers.forEach(function(ans, idx){
-            lines.push(labels[idx] + '. ' + ans);
-        });
-        var correctIdx = Math.max(0, Math.min(3, (parseInt(q.correct, 10) || 1) - 1));
-        lines.push('ANSWER: ' + labels[correctIdx]);
-        lines.push(''); // blank line between questions
-    });
-    var aiken = lines.join('\n');
-    var blob = new Blob([aiken], { type: 'text/plain;charset=utf-8' });
+    var xml = buildMoodleXml(quiz);
+    var blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = (quiz.name || 'quiz') + '.aiken.txt';
+    a.download = (quiz.name || 'quiz') + '.xml';
     document.body.appendChild(a);
     a.click();
     a.remove();

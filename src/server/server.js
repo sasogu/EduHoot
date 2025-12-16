@@ -395,6 +395,82 @@ function quizToCsv(quiz) {
   return [header].concat(lines).join('\n');
 }
 
+function escapeHtmlText(value = '') {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeAttrValue(value = '') {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function wrapCdata(value = '') {
+  const str = String(value || '');
+  const safe = str.replace(/]]>/g, ']]]]><![CDATA[>');
+  return `<![CDATA[${safe}]]>`;
+}
+
+function buildQuestionHtml(question) {
+  const parts = [];
+  const text = (question.question || '').trim();
+  if (text) {
+    parts.push(`<p>${escapeHtmlText(text)}</p>`);
+  }
+  if (question.image) {
+    parts.push(`<p><img src="${escapeAttrValue(question.image)}" alt=""/></p>`);
+  }
+  if (question.video) {
+    parts.push(
+      `<p><video controls="controls" preload="metadata" src="${escapeAttrValue(
+        question.video
+      )}"></video></p>`
+    );
+  }
+  return parts.join('');
+}
+
+function quizToMoodleXml(quiz) {
+  const title = (quiz.name || 'EduHoot quiz').trim() || 'EduHoot quiz';
+  const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+  const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<quiz>'];
+  questions.forEach((question, index) => {
+    lines.push('  <question type="multichoice">');
+    lines.push(`    <name><text>${wrapCdata(`${title} pregunta ${index + 1}`)}</text></name>`);
+    const questionHtml = buildQuestionHtml(question) || `<p>${escapeHtmlText(question.question || '')}</p>`;
+    lines.push('    <questiontext format="html">');
+    lines.push(`      <text>${wrapCdata(questionHtml)}</text>`);
+    lines.push('    </questiontext>');
+    lines.push('    <defaultgrade>1</defaultgrade>');
+    lines.push('    <penalty>0.0</penalty>');
+    lines.push('    <hidden>0</hidden>');
+    lines.push('    <single>true</single>');
+    lines.push('    <shuffleanswers>true</shuffleanswers>');
+    lines.push('    <answernumbering>abc</answernumbering>');
+    const answers = Array.isArray(question.answers) ? question.answers.slice(0, 4) : [];
+    while (answers.length < 4) answers.push('');
+    const correctIndex = Math.max(
+      0,
+      Math.min(answers.length - 1, (parseInt(question.correct, 10) || 1) - 1)
+    );
+    answers.forEach((answer, answerIndex) => {
+      const fraction = answerIndex === correctIndex ? '100' : '0';
+      lines.push(`    <answer fraction="${fraction}" format="html">`);
+      lines.push(`      <text>${wrapCdata(escapeHtmlText(answer || ''))}</text>`);
+      lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+      lines.push('    </answer>');
+    });
+    lines.push('  </question>');
+  });
+  lines.push('</quiz>');
+  return lines.join('\n');
+}
+
 function normalizeQuestions(list = []) {
   return list
     .map((item) => {
@@ -860,6 +936,27 @@ app.get('/api/quizzes/:id/csv', async (req, res) => {
   } catch (err) {
     console.error('get-quiz-csv error', err);
     return res.status(500).json({ error: 'No se pudo generar el CSV.' });
+  }
+});
+
+app.get('/api/quizzes/:id/moodle-xml', async (req, res) => {
+  const quizIdParam = req.params.id;
+  try {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz no encontrado.' });
+    }
+    if (!canUseQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado para descargar este quiz.' });
+    }
+    const xml = quizToMoodleXml(quiz);
+    const fileName = `${(quiz.name || 'quiz').replace(/[^a-z0-9-_]+/gi, '_')}.xml`;
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(xml);
+  } catch (err) {
+    console.error('get-quiz-moodle-xml error', err);
+    return res.status(500).json({ error: 'No se pudo generar el XML de Moodle.' });
   }
 });
 
