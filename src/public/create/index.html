@@ -123,47 +123,93 @@
             </div>
 
             <div id="ia-box" class="panel">
-            <div class="panel-header">
-                <div>
-                    <p class="eyebrow" data-i18n="aiEyebrow">Ayuda IA</p>
-                    <h3 data-i18n="aiTitle">Generador IA (CSV)</h3>
-                    <p class="subtext" data-i18n="aiDesc">Rellena los campos y copia el prompt para generar tu cuestionario por IA.</p>
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow" data-i18n="aiEyebrow">Ayuda IA</p>
+                        <h3 data-i18n="aiTitle">Generador IA (CSV)</h3>
+                        <p class="subtext" data-i18n="aiDesc">Rellena los campos y copia el prompt para generar tu cuestionario por IA.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="ia-grid">
-                <label data-i18n="iaNameLabel">Nombre del quiz (opcional)
-                    <input id="ia-name" type="text" placeholder="Nombre para guardar">
+
+                <div class="ia-grid">
+                    <label data-i18n="iaNameLabel">Nombre del quiz (opcional)
+                        <input id="ia-name" type="text" placeholder="Nombre para guardar">
+                    </label>
+                    <label data-i18n="iaLevel">Nivel del alumnado
+                        <input id="ia-nivel" type="text" placeholder="Ej: 2º ESO">
+                    </label>
+                    <label data-i18n="iaTopic">Tema del cuestionario
+                        <input id="ia-tema" type="text" placeholder="Ej: Energía y calor">
+                    </label>
+
+                    <label data-i18n="iaLang">Idioma del cuestionario
+                        <select id="ia-idioma">
+                            <option value="Español" data-i18n="optSpanish">Español</option>
+                            <option value="Catalán" data-i18n="optCatalan">Catalán</option>
+                            <option value="Inglés" data-i18n="optEnglish">Inglés</option>
+                            <option value="otro" data-i18n="optOther">Otro</option>
+                        </select>
+                        <input id="ia-idioma-custom" class="hidden" type="text" placeholder="Otro idioma">
+                    </label>
+                    <label data-i18n="iaNum">Número de preguntas
+                        <input id="ia-num" type="number" min="1" max="50" value="10">
+                    </label>
+                    <label data-i18n="iaExtra">Instrucciones adicionales
+                        <textarea id="ia-extra" rows="2" placeholder="Tono, nivel cognitivo, formato..."></textarea>
+                    </label>
+                </div>
+
+                <div class="subpanel">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="ia-use-docs">
+                        <span data-i18n="iaUseDocs">Usar documentos como conocimiento exclusivo</span>
+                    </label>
+                    <p id="ia-docs-hint" class="subtext hidden" data-i18n="iaDocsHint">Cuando ejecutes este prompt en la IA, te pedirá que adjuntes los documentos. No subas nada aquí: adjunta los archivos allí y las preguntas se generarán exclusivamente a partir de esos documentos.</p>
+                </div>
+
+                <div class="subpanel">
+                    <p class="eyebrow" data-i18n="iaTypesLabel">Tipos de pregunta</p>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="ia-type-quiz" checked>
+                        <span data-i18n="iaTypeQuiz">Quiz (1 correcta)</span>
+                    </label>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="ia-type-multiple">
+                        <span data-i18n="iaTypeMultiple">Respuesta Múltiple</span>
+                    </label>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="ia-type-tf">
+                        <span data-i18n="iaTypeTf">Verdadero / Falso</span>
+                    </label>
+                </div>
+
+                <div class="actions-row">
+                    <button id="ia-generate" type="button" data-i18n="btnGenPrompt">Generar prompt</button>
+                    <button id="ia-copy" type="button" class="secondary" data-i18n="btnCopyPrompt">Copiar prompt</button>
+                </div>
+                <pre id="ia-prompt" data-i18n="promptPlaceholder">El prompt aparecerá aquí...</pre>
+
+                <label data-i18n="iaCsvLabel">Contenido CSV generado por la IA
+                    <textarea id="ia-csv" rows="6" placeholder="Pega aquí el CSV devuelto por la IA"></textarea>
                 </label>
-                <label data-i18n="iaLevel">Nivel del alumnado
-                    <input id="ia-nivel" type="text" placeholder="Ej: 2º ESO">
-                </label>
-                <label data-i18n="iaTopic">Tema del cuestionario
-                    <input id="ia-tema" type="text" placeholder="Ej: Energía y calor">
-                </label>
-                <label data-i18n="iaLang">Idioma del cuestionario
-                    <select id="ia-idioma">
-                        <option value="Español" data-i18n="optSpanish">Español</option>
-                        <option value="Catalán" data-i18n="optCatalan">Catalán</option>
-                        <option value="Inglés" data-i18n="optEnglish">Inglés</option>
-                        <option value="otro" data-i18n="optOther">Otro</option>
-                    </select>
-                    <input id="ia-idioma-custom" class="hidden" type="text" placeholder="Otro idioma">
-                </label>
-                <label data-i18n="iaNum">Número de preguntas
-                    <input id="ia-num" type="number" min="1" max="50" value="10">
-                </label>
-                <label data-i18n="iaExtra">Instrucciones adicionales
-                    <textarea id="ia-extra" rows="2" placeholder="Tono, nivel cognitivo, formato..."></textarea>
-                </label>
-            </div>
-            <button id="ia-generate" data-i18n="btnGenPrompt">Generar prompt</button>
-            <button id="ia-copy" class="secondary" data-i18n="btnCopyPrompt">Copiar prompt</button>
-            <pre id="ia-prompt" data-i18n="promptPlaceholder">El prompt aparecerá aquí...</pre>
-            <label data-i18n="iaCsvLabel">Contenido CSV generado por la IA
-                <textarea id="ia-csv" rows="6" placeholder="Pega aquí el CSV devuelto por la IA"></textarea>
-            </label>
-            <button id="ia-upload" data-i18n="btnImportIa">Importar CSV en el juego</button>
-            <p id="ia-status"></p>
+                <input id="ia-csv-file" type="file" accept=".csv,text/csv" class="hidden">
+
+                <div class="actions-row">
+                    <button id="ia-open" class="btn btn-ghost" type="button" data-i18n="btnOpenCsv">Abrir CSV</button>
+                    <button id="ia-download" class="btn btn-ghost" type="button" data-i18n="btnDownloadCsv">Descargar CSV</button>
+                    <button id="ia-preview" class="btn btn-ghost" type="button" data-i18n="btnPreviewCsv">Vista previa</button>
+                </div>
+
+                <div id="ia-preview-box" class="subpanel hidden">
+                    <p class="eyebrow" data-i18n="previewTitle">Vista previa</p>
+                    <div id="ia-preview-content" class="ia-preview"></div>
+                </div>
+
+                <div class="actions-row">
+                    <button id="ia-upload" type="button" data-i18n="btnImportIa">Importar CSV en el juego</button>
+                    <button id="ia-edit" class="btn btn-ghost" type="button" data-i18n="btnEditCreator" disabled>Editar en creador</button>
+                </div>
+                <p id="ia-status"></p>
             </div>
 
             <div id="csv-import" class="panel">
@@ -182,8 +228,10 @@
             <p id="csv-status"></p>
             <div class="split-import">
                 <div>
-                    <h4 data-i18n="kahootTitle">Importar Kahoot público</h4>
+                    <h3 data-i18n="kahootTitle">Importar Kahoot público</h3>
+                    
                     <p class="subtext" data-i18n="kahootHelp">Pega la URL o el ID de un Kahoot público.</p>
+                    <br>
                     <form id="kahoot-form">
                         <input id="kahoot-url" type="text" inputmode="url" autocomplete="off" placeholder="https://create.kahoot.it/details/..." required>
                         <select id="kahoot-visibility">

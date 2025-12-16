@@ -165,6 +165,13 @@ body {
     align-items: center;
     margin: 6px 0;
 }
+.actions-row{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
 .share-controls select{
     padding: 8px 10px;
     border-radius: 8px;
@@ -221,6 +228,16 @@ body {
     flex-wrap: wrap;
     gap: 8px;
 }
+#kahoot-form #kahoot-url{
+    flex: 1 1 420px;
+    min-width: 280px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    box-sizing: border-box;
+}
 #ia-box input, #ia-box select, #ia-box textarea{
     width: 100%;
     box-sizing: border-box;
@@ -257,6 +274,42 @@ body {
 #ia-status{
     color: white;
     font-weight: bold;
+}
+
+.ia-preview{
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+}
+.ia-preview__q{
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 12px;
+}
+.ia-preview__qtitle{
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.ia-preview__answers{
+    display: grid;
+    gap: 6px;
+}
+.ia-preview__answer{
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 8px;
+    align-items: start;
+    padding: 6px 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+}
+.ia-preview__answer.is-correct{
+    background: rgba(102,191,57,0.18);
+    border: 1px solid rgba(102,191,57,0.22);
+}
+.ia-preview__bullet{
+    font-weight: 900;
 }
 
 #csv-import{

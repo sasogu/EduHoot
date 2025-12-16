@@ -78,13 +78,26 @@ var i18n = {
         iaNameLabel: 'Nombre del quiz (opcional)',
         iaLevel: 'Nivel del alumnado',
         iaTopic: 'Tema del cuestionario',
+        iaUseDocs: 'Usar documentos como conocimiento exclusivo',
+        iaDocsHint: 'Cuando ejecutes este prompt en la IA, te pedirá que adjuntes los documentos. No subas nada aquí: adjunta los archivos allí y las preguntas se generarán exclusivamente a partir de esos documentos.',
         iaLang: 'Idioma del cuestionario',
         iaNum: 'Número de preguntas',
         iaExtra: 'Instrucciones adicionales',
+        iaTypesLabel: 'Tipos de pregunta',
+        iaTypeQuiz: 'Quiz (1 correcta)',
+        iaTypeMultiple: 'Respuesta Múltiple',
+        iaTypeTf: 'Verdadero / Falso',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt aparecerá aquí...',
         iaCsvLabel: 'Contenido CSV generado por la IA',
+        btnPreviewCsv: 'Vista previa',
+        btnOpenCsv: 'Abrir CSV',
+        btnDownloadCsv: 'Descargar CSV',
+        btnEditCreator: 'Editar en creador',
+        previewTitle: 'Vista previa',
+        alertPasteCsv: 'Pega primero el CSV.',
+        alertNothingToSave: 'No hay nada que guardar.',
         btnImportIa: 'Importar CSV en el juego',
         kahootTitle: 'Importar Kahoot público',
         kahootHelp: 'Pega la URL o el ID de un Kahoot público.',
@@ -217,13 +230,26 @@ var i18n = {
         iaNameLabel: 'Quiz name (optional)',
         iaLevel: 'Students level',
         iaTopic: 'Quiz topic',
+        iaUseDocs: 'Use documents as exclusive knowledge',
+        iaDocsHint: 'When you run this prompt in the AI, it will ask you to attach the documents. Do not upload anything here: attach the files there and the questions will be generated exclusively from those documents.',
         iaLang: 'Quiz language',
         iaNum: 'Number of questions',
         iaExtra: 'Extra instructions',
+        iaTypesLabel: 'Question types',
+        iaTypeQuiz: 'Quiz (1 correct)',
+        iaTypeMultiple: 'Multiple answers',
+        iaTypeTf: 'True / False',
         btnGenPrompt: 'Generate prompt',
         btnCopyPrompt: 'Copy prompt',
         promptPlaceholder: 'Prompt will appear here...',
         iaCsvLabel: 'CSV content from AI',
+        btnPreviewCsv: 'Preview',
+        btnOpenCsv: 'Open CSV',
+        btnDownloadCsv: 'Download CSV',
+        btnEditCreator: 'Edit in creator',
+        previewTitle: 'Preview',
+        alertPasteCsv: 'Paste the CSV first.',
+        alertNothingToSave: 'Nothing to save.',
         btnImportIa: 'Import CSV into the game',
         kahootTitle: 'Import public Kahoot',
         kahootHelp: 'Paste a public Kahoot URL or ID.',
@@ -356,13 +382,26 @@ var i18n = {
         iaNameLabel: 'Nom del quiz (opcional)',
         iaLevel: 'Nivell de l\'alumnat',
         iaTopic: 'Tema del qüestionari',
+        iaUseDocs: 'Usar documents com a coneixement exclusiu',
+        iaDocsHint: 'Quan executes aquest prompt a la IA, et demanarà adjuntar els documents. No puges res ací: adjunta els fitxers allí i les preguntes es generaran exclusivament a partir d\'aquests documents.',
         iaLang: 'Idioma del qüestionari',
         iaNum: 'Nombre de preguntes',
         iaExtra: 'Instruccions addicionals',
+        iaTypesLabel: 'Tipus de pregunta',
+        iaTypeQuiz: 'Quiz (1 correcta)',
+        iaTypeMultiple: 'Resposta múltiple',
+        iaTypeTf: 'Vertader / Fals',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt apareixerà aquí...',
         iaCsvLabel: 'Contingut CSV generat per la IA',
+        btnPreviewCsv: 'Vista prèvia',
+        btnOpenCsv: 'Obrir CSV',
+        btnDownloadCsv: 'Descarregar CSV',
+        btnEditCreator: 'Editar al creador',
+        previewTitle: 'Vista prèvia',
+        alertPasteCsv: 'Enganxa primer el CSV.',
+        alertNothingToSave: 'No hi ha res a guardar.',
         btnImportIa: 'Importar CSV al joc',
         kahootTitle: 'Importar Kahoot públic',
         kahootHelp: 'Enganxa la URL o l\'ID d\'un Kahoot públic.',
@@ -1166,24 +1205,41 @@ if (csvForm) {
 // --- Generador IA ---
 function buildPrompt(params){
     var idioma = params.idioma === 'otro' && params.idiomaCustom ? params.idiomaCustom : params.idioma;
+    var tipos = Array.isArray(params.tipos) && params.tipos.length ? params.tipos : ['quiz'];
+    var useDocs = !!params.useDocs;
+    var tema = useDocs ? '' : (params.tema || '');
     var prompt = {
         objetivo: "Generar un cuestionario en CSV con separador ';' siguiendo el formato: tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video",
         nivel: params.nivel || '',
-        tema: params.tema || '',
+        tema: tema,
         idioma: idioma || 'Español',
         numero_preguntas: params.num,
-        tipos: ["quiz"],
+        tipos: tipos,
+        usar_documentos: useDocs,
         instrucciones: params.extra || '',
         notas: [
             "Usa el punto y coma ';' como separador.",
-            "Columna 'tipo': usa 'quiz' (una correcta).",
-            "Columna 'correcta': índice de la resposta correcta (1-4).",
+            "Columna 'tipo': usa uno de: quiz | multiple | true-false.",
+            "Columna 'correcta': índice (1-4). Si es múltiple, usa lista separada por comas (ej: 1,3).",
+            "Si 'usar_documentos' es true, genera las preguntas SOLO a partir de los documentos adjuntos en la IA (no inventes contenido fuera de ellos).",
             "Columna 'imagen': solo URLs de imagen (png/jpg/webp).",
             "Columna 'video': URLs de vídeo (YouTube/Vimeo/MP4). Si hay vídeo, deja 'imagen' vacía.",
             "Tiempo: en segons (ex: 20)."
         ]
     };
     return JSON.stringify(prompt, null, 2);
+}
+
+function getSelectedIaTypes(){
+    var selected = [];
+    var quiz = document.getElementById('ia-type-quiz');
+    var multiple = document.getElementById('ia-type-multiple');
+    var tf = document.getElementById('ia-type-tf');
+    if(quiz && quiz.checked) selected.push('quiz');
+    if(multiple && multiple.checked) selected.push('multiple');
+    if(tf && tf.checked) selected.push('true-false');
+    if(!selected.length) selected.push('quiz');
+    return selected;
 }
 
 function buildIaTags(){
@@ -1223,6 +1279,9 @@ var iaCopy = document.getElementById('ia-copy');
 var iaPrompt = document.getElementById('ia-prompt');
 var iaIdioma = document.getElementById('ia-idioma');
 var iaIdiomaCustom = document.getElementById('ia-idioma-custom');
+var iaUseDocs = document.getElementById('ia-use-docs');
+var iaDocsHint = document.getElementById('ia-docs-hint');
+var iaTema = document.getElementById('ia-tema');
 
 // --- Auth modal ---
 var authModal = document.getElementById('auth-modal');
@@ -1596,6 +1655,27 @@ if (iaIdioma) {
     });
 }
 
+function applyIaDocsMode(){
+    if(!iaUseDocs) return;
+    var active = !!iaUseDocs.checked;
+    if(iaDocsHint) iaDocsHint.classList.toggle('hidden', !active);
+    if(iaTema){
+        iaTema.disabled = active;
+        if(active) iaTema.value = '';
+    }
+}
+
+if(iaUseDocs){
+    try{
+        iaUseDocs.checked = localStorage.getItem('eduh_ia_use_docs') === '1';
+    }catch(e){}
+    applyIaDocsMode();
+    iaUseDocs.addEventListener('change', function(){
+        try{ localStorage.setItem('eduh_ia_use_docs', iaUseDocs.checked ? '1' : '0'); }catch(e){}
+        applyIaDocsMode();
+    });
+}
+
 if (iaGenerate) {
     iaGenerate.addEventListener('click', function(){
         var params = {
@@ -1605,7 +1685,9 @@ if (iaGenerate) {
             idioma: iaIdioma ? iaIdioma.value : 'Español',
             idiomaCustom: iaIdiomaCustom ? iaIdiomaCustom.value.trim() : '',
             num: parseInt(document.getElementById('ia-num').value, 10) || 10,
-            extra: document.getElementById('ia-extra').value.trim()
+            extra: document.getElementById('ia-extra').value.trim(),
+            tipos: getSelectedIaTypes(),
+            useDocs: iaUseDocs ? iaUseDocs.checked : false
         };
         iaPrompt.textContent = buildPrompt(params);
     });
@@ -1619,6 +1701,148 @@ if (iaCopy) {
 }
 
 var iaUpload = document.getElementById('ia-upload');
+var iaPreviewBtn = document.getElementById('ia-preview');
+var iaOpenBtn = document.getElementById('ia-open');
+var iaDownloadBtn = document.getElementById('ia-download');
+var iaEditBtn = document.getElementById('ia-edit');
+var iaCsvFile = document.getElementById('ia-csv-file');
+var iaPreviewBox = document.getElementById('ia-preview-box');
+var iaPreviewContent = document.getElementById('ia-preview-content');
+
+var lastIaUploadedQuizId = null;
+
+function normalizeCsvForDownload(csvText){
+    var text = (csvText || '').trim();
+    if(!text) return '';
+    var header = 'Tipo;Pregunta;R1;R2;R3;R4;Tiempo;Correcta;URL Imagen';
+    if(!text.toLowerCase().includes('tipo;pregunta')){
+        text = header + '\n' + text;
+    }
+    return text;
+}
+
+function parseCsvLines(csvText){
+    var text = (csvText || '').trim();
+    if(!text) return [];
+    var regex = /"((?:[^"]|"")*)"|([^;]+)/g;
+    var linesRaw = text.split(/\r?\n/);
+    var headerIndex = -1;
+    for(var i=0;i<linesRaw.length;i++){
+        if((linesRaw[i] || '').toLowerCase().includes('tipo;pregunta')){ headerIndex = i; break; }
+    }
+    var lines = headerIndex !== -1 ? linesRaw.slice(headerIndex + 1) : linesRaw;
+    var out = [];
+    lines.forEach(function(line){
+        var l = (line || '').trim();
+        if(!l) return;
+        var fields = Array.from(l.matchAll(regex), function(m){
+            return (m[1] ? m[1].replace(/""/g, '"') : (m[2] || '')).trim();
+        });
+        if(fields.length < 8) return;
+        out.push({
+            tipo: fields[0],
+            pregunta: fields[1],
+            respuestas: fields.slice(2, 6),
+            tiempo: fields[6],
+            correcta: fields[7]
+        });
+    });
+    return out;
+}
+
+function renderIaPreview(csvText){
+    if(!iaPreviewBox || !iaPreviewContent) return;
+    var questions = parseCsvLines(csvText);
+    iaPreviewContent.innerHTML = '';
+    if(!questions.length){
+        iaPreviewContent.textContent = t('alertPasteCsv');
+        iaPreviewBox.classList.remove('hidden');
+        return;
+    }
+    questions.forEach(function(q, idx){
+        var card = document.createElement('div');
+        card.className = 'ia-preview__q';
+        var title = document.createElement('div');
+        title.className = 'ia-preview__qtitle';
+        title.textContent = (idx + 1) + '. ' + (q.pregunta || '');
+        card.appendChild(title);
+        var list = document.createElement('div');
+        list.className = 'ia-preview__answers';
+        var correctIdx = [];
+        (q.correcta || '').split(',').forEach(function(n){
+            var i = parseInt(String(n).trim(), 10);
+            if(!isNaN(i)) correctIdx.push(i - 1);
+        });
+        q.respuestas.forEach(function(a, i){
+            if(!a) return;
+            var row = document.createElement('div');
+            row.className = 'ia-preview__answer' + (correctIdx.indexOf(i) !== -1 ? ' is-correct' : '');
+            var bullet = document.createElement('span');
+            bullet.className = 'ia-preview__bullet';
+            bullet.textContent = (correctIdx.indexOf(i) !== -1 ? '✓' : '•');
+            var txt = document.createElement('span');
+            txt.className = 'ia-preview__text';
+            txt.textContent = a;
+            row.appendChild(bullet);
+            row.appendChild(txt);
+            list.appendChild(row);
+        });
+        card.appendChild(list);
+        iaPreviewContent.appendChild(card);
+    });
+    iaPreviewBox.classList.remove('hidden');
+}
+
+if(iaPreviewBtn){
+    iaPreviewBtn.addEventListener('click', function(){
+        var csvText = document.getElementById('ia-csv') ? document.getElementById('ia-csv').value : '';
+        renderIaPreview(csvText);
+    });
+}
+
+if(iaOpenBtn && iaCsvFile){
+    iaOpenBtn.addEventListener('click', function(){ iaCsvFile.click(); });
+    iaCsvFile.addEventListener('change', function(e){
+        var file = e.target.files && e.target.files[0];
+        if(!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev){
+            var ta = document.getElementById('ia-csv');
+            if(ta) ta.value = String(ev.target.result || '');
+            if(iaPreviewBox) iaPreviewBox.classList.add('hidden');
+        };
+        reader.readAsText(file, 'UTF-8');
+        e.target.value = '';
+    });
+}
+
+if(iaDownloadBtn){
+    iaDownloadBtn.addEventListener('click', function(){
+        var csvText = document.getElementById('ia-csv') ? document.getElementById('ia-csv').value : '';
+        var normalized = normalizeCsvForDownload(csvText);
+        if(!normalized){
+            alert(t('alertNothingToSave'));
+            return;
+        }
+        var blob = new Blob(['\uFEFF' + normalized], { type: 'text/csv;charset=utf-8;' });
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'quiz.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    });
+}
+
+if(iaEditBtn){
+    iaEditBtn.addEventListener('click', function(){
+        if(!lastIaUploadedQuizId) return;
+        window.location.href = 'quiz-creator/?id=' + encodeURIComponent(lastIaUploadedQuizId);
+    });
+}
+
 if (iaUpload) {
     iaUpload.addEventListener('click', async function(){
         var status = document.getElementById('ia-status');
@@ -1629,6 +1853,8 @@ if (iaUpload) {
             return;
         }
         status.textContent = t('importing');
+        if(iaEditBtn) iaEditBtn.disabled = true;
+        lastIaUploadedQuizId = null;
         try{
             var blob = new Blob([csvText], { type: 'text/csv' });
             var file = new File([blob], 'ia.csv', { type: 'text/csv' });
@@ -1649,6 +1875,8 @@ if (iaUpload) {
             }
             status.textContent = t('importSuccess') + ': ' + result.name + ' (' + result.count + ')';
             if (result.id) {
+                lastIaUploadedQuizId = result.id;
+                if(iaEditBtn) iaEditBtn.disabled = false;
                 var startBtn = document.createElement('button');
                 startBtn.className = 'btn btn-primary';
                 startBtn.textContent = t('play');
