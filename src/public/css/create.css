@@ -206,6 +206,17 @@ body {
 #ia-box{
     margin-top: 10px;
 }
+details.panel > summary{
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+details.panel > summary::-webkit-details-marker{
+    display: none;
+}
+details.panel[open] > summary{
+    margin-bottom: 12px;
+}
 .checkbox-inline{
     display: inline-flex;
     align-items: center;

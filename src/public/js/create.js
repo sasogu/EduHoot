@@ -15,6 +15,25 @@ var currentFilters = {
     search: ''
 };
 var knownTags = [];
+
+function getTagsFromLibraryData(data){
+    var tags = new Set();
+    if(!data) return [];
+    var entries = data || {};
+    var entriesLength = Object.keys(entries).length;
+    for(var i = 0; i < entriesLength; i++){
+        var q = entries[i];
+        if(!q) continue;
+        var tgs = Array.isArray(q.tags) ? q.tags : [];
+        if(!tgs.length) continue;
+        tgs.forEach(function(t){
+            var clean = (t || '').toString().trim();
+            if(!clean) return;
+            tags.add(clean);
+        });
+    }
+    return Array.from(tags).filter(Boolean).slice(0, 40);
+}
 var LIBRARY_PAGE_SIZE = 12;
 var libraryCurrentPage = 1;
 var libraryTotalPages = 1;
@@ -45,7 +64,7 @@ var i18n = {
     es: {
         back: 'Volver',
         title: 'Crea y lanza tu EduHoot',
-        subtitle: 'Elige un juego importado o <a id="link" href="quiz-creator/">crea uno desde cero</a>',
+        subtitle: 'Genera con IA, importa (CSV o Kahoot) o <a id="link" href="quiz-creator/">crea un cuestionario desde cero</a>.',
         langLabel: 'Idioma',
         modalClose: 'Cerrar',
         accessEyebrow: 'Acceso',
@@ -98,17 +117,17 @@ var i18n = {
         previewTitle: 'Vista previa',
         alertPasteCsv: 'Pega primero el CSV.',
         alertNothingToSave: 'No hay nada que guardar.',
-        btnImportIa: 'Importar CSV en el juego',
+        btnImportIa: 'Importar CSV en el cuestionario',
         kahootTitle: 'Importar Kahoot público',
         kahootHelp: 'Pega la URL o el ID de un Kahoot público.',
         btnImportKahoot: 'Importar desde Kahoot',
         importEyebrow: 'Importación',
-        importTitle: 'Importar quiz desde CSV',
+        importTitle: 'Importar cuestionario (CSV o Kahoot público)',
         importDesc: 'Sube un archivo CSV con tus preguntas para guardarlo en tu biblioteca.',
         btnUploadCsv: 'Subir CSV',
         libraryEyebrow: 'Biblioteca',
         libraryTitle: 'Cuestionarios importados',
-        libraryDesc: 'Selecciona un juego para hostearlo o gestiona su nombre y estado.',
+        libraryDesc: 'Selecciona un cuestionario para hostearlo o gestiona su nombre y estado.',
         searchPlaceholder: 'Buscar por nombre o etiqueta',
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
         noFilters: 'Sin filtros',
@@ -119,7 +138,7 @@ var i18n = {
         paginationPrev: 'Anterior',
         paginationNext: 'Siguiente',
         paginationPageInfo: 'Página {current} de {total}',
-        play: 'Iniciar juego',
+        play: 'Iniciar cuestionario',
         edit: 'Editar',
         download: 'Descargar CSV',
         exportMoodleXml: 'Exportar XML (Moodle)',
@@ -139,7 +158,7 @@ var i18n = {
         creatorUnknown: 'Creador desconocido',
         creatorHidden: 'Creador',
         labelNick: 'Nombre visible (opcional)',
-        noGames: 'No hay juegos importados aún.',
+        noGames: 'No hay cuestionarios importados aún.',
         noGamesHint: 'Sube un CSV o crea uno nuevo para verlo aquí.',
         importSuccess: 'Importado',
         importing: 'Importando...',
@@ -172,8 +191,8 @@ var i18n = {
         renameError: 'No se pudo renombrar.',
         deleteError: 'No se pudo eliminar.',
         sharingError: 'No se pudieron guardar los permisos.',
-        gameSingular: 'juego',
-        gamePlural: 'juegos',
+        gameSingular: 'cuestionario',
+        gamePlural: 'cuestionarios',
         idLabel: 'ID',
         importError: 'Error al importar.',
         emailPlaceholder: 'tu correo',
@@ -197,7 +216,7 @@ var i18n = {
     en: {
         back: 'Back',
         title: 'Create and launch your EduHoot',
-        subtitle: 'Pick an imported game or <a id="link" href="quiz-creator/">create one from scratch</a>',
+        subtitle: 'Generate with AI, import (CSV or Kahoot), or <a id="link" href="quiz-creator/">create a quiz from scratch</a>.',
         langLabel: 'Language',
         modalClose: 'Close',
         accessEyebrow: 'Access',
@@ -250,17 +269,17 @@ var i18n = {
         previewTitle: 'Preview',
         alertPasteCsv: 'Paste the CSV first.',
         alertNothingToSave: 'Nothing to save.',
-        btnImportIa: 'Import CSV into the game',
+        btnImportIa: 'Import CSV into the quiz',
         kahootTitle: 'Import public Kahoot',
         kahootHelp: 'Paste a public Kahoot URL or ID.',
         btnImportKahoot: 'Import from Kahoot',
         importEyebrow: 'Import',
-        importTitle: 'Import quiz from CSV',
+        importTitle: 'Import quiz (CSV or public Kahoot)',
         importDesc: 'Upload a CSV with your questions to save it in your library.',
         btnUploadCsv: 'Upload CSV',
         libraryEyebrow: 'Library',
         libraryTitle: 'Imported quizzes',
-        libraryDesc: 'Pick a game to host or manage its name and status.',
+        libraryDesc: 'Pick a quiz to host or manage its name and status.',
         searchPlaceholder: 'Search by name or tag',
         suggestedTags: 'Suggested tags (tap to filter)',
         noFilters: 'No filters',
@@ -271,7 +290,7 @@ var i18n = {
         paginationPrev: 'Previous',
         paginationNext: 'Next',
         paginationPageInfo: 'Page {current} of {total}',
-        play: 'Start game',
+        play: 'Start quiz',
         edit: 'Edit',
         download: 'Download CSV',
         exportMoodleXml: 'Export Moodle XML',
@@ -291,7 +310,7 @@ var i18n = {
         creatorUnknown: 'Unknown creator',
         creatorHidden: 'Creator',
         labelNick: 'Display name (optional)',
-        noGames: 'No games yet.',
+        noGames: 'No quizzes yet.',
         noGamesHint: 'Upload a CSV or create one to see it here.',
         importSuccess: 'Imported',
         importing: 'Importing...',
@@ -324,8 +343,8 @@ var i18n = {
         renameError: 'Could not rename.',
         deleteError: 'Could not delete.',
         sharingError: 'Could not save permissions.',
-        gameSingular: 'game',
-        gamePlural: 'games',
+        gameSingular: 'quiz',
+        gamePlural: 'quizzes',
         idLabel: 'ID',
         importError: 'Import failed.',
         emailPlaceholder: 'your email',
@@ -349,7 +368,7 @@ var i18n = {
     ca: {
         back: 'Tornar',
         title: 'Crea i llança el teu EduHoot',
-        subtitle: 'Tria un joc importat o <a id="link" href="quiz-creator/">crea\'n un de zero</a>',
+        subtitle: 'Genera amb IA, importa (CSV o Kahoot) o <a id="link" href="quiz-creator/">crea un qüestionari de zero</a>.',
         langLabel: 'Idioma',
         modalClose: 'Tancar',
         accessEyebrow: 'Accés',
@@ -402,17 +421,17 @@ var i18n = {
         previewTitle: 'Vista prèvia',
         alertPasteCsv: 'Enganxa primer el CSV.',
         alertNothingToSave: 'No hi ha res a guardar.',
-        btnImportIa: 'Importar CSV al joc',
+        btnImportIa: 'Importar CSV al qüestionari',
         kahootTitle: 'Importar Kahoot públic',
         kahootHelp: 'Enganxa la URL o l\'ID d\'un Kahoot públic.',
         btnImportKahoot: 'Importar des de Kahoot',
         importEyebrow: 'Importació',
-        importTitle: 'Importar quiz des de CSV',
+        importTitle: 'Importar qüestionari (CSV o Kahoot públic)',
         importDesc: 'Puja un fitxer CSV amb les teves preguntes per desar-lo a la biblioteca.',
         btnUploadCsv: 'Pujar CSV',
         libraryEyebrow: 'Biblioteca',
         libraryTitle: 'Qüestionaris importats',
-        libraryDesc: 'Selecciona un joc per hostatjar-lo o gestiona el seu nom i estat.',
+        libraryDesc: 'Selecciona un qüestionari per hostatjar-lo o gestiona el seu nom i estat.',
         searchPlaceholder: 'Cerca per nom o etiqueta',
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
         noFilters: 'Sense filtres',
@@ -423,7 +442,7 @@ var i18n = {
         paginationPrev: 'Anterior',
         paginationNext: 'Següent',
         paginationPageInfo: 'Pàgina {current} de {total}',
-        play: 'Iniciar joc',
+        play: 'Iniciar qüestionari',
         edit: 'Editar',
         download: 'Descarregar CSV',
         exportMoodleXml: 'Exportar XML (Moodle)',
@@ -443,7 +462,7 @@ var i18n = {
         creatorUnknown: 'Creador desconegut',
         creatorHidden: 'Creador',
         labelNick: 'Nom visible (opcional)',
-        noGames: 'Encara no hi ha jocs.',
+        noGames: 'Encara no hi ha qüestionaris.',
         noGamesHint: 'Puja un CSV o crea\'n un per veure\'l aquí.',
         importSuccess: 'Importat',
         importing: 'Important...',
@@ -476,8 +495,8 @@ var i18n = {
         renameError: 'No s\'ha pogut reanomenar.',
         deleteError: 'No s\'ha pogut eliminar.',
         sharingError: 'No s\'han pogut desar els permisos.',
-        gameSingular: 'joc',
-        gamePlural: 'jocs',
+        gameSingular: 'qüestionari',
+        gamePlural: 'qüestionaris',
         idLabel: 'ID',
         importError: 'Error en importar.',
         emailPlaceholder: 'el teu correu',
@@ -614,10 +633,12 @@ function fetchWithFilters(){
         .then(function(res){ return res.json(); })
         .then(function(data){
             libraryLatestData = data || [];
+            renderTagSuggestions();
             renderGames(libraryLatestData);
         })
         .catch(function(){
             libraryLatestData = [];
+            renderTagSuggestions();
             renderGames([]);
         });
 }
@@ -637,14 +658,15 @@ function renderTagSuggestions(){
     var wrap = document.getElementById('tag-suggestions');
     if(!wrap) return;
     wrap.innerHTML = '';
-    if(!knownTags.length){
+    var tagsToShow = currentFilters.mineOnly ? getTagsFromLibraryData(libraryLatestData) : knownTags;
+    if(!tagsToShow.length){
         return;
     }
     var label = document.createElement('span');
     label.className = 'label';
     label.textContent = t('suggestedTags');
     wrap.appendChild(label);
-    knownTags.forEach(function(tag){
+    tagsToShow.forEach(function(tag){
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'tag' + (currentFilters.tags.indexOf(tag) !== -1 ? ' active' : '');
@@ -658,6 +680,7 @@ var mineFilter = document.getElementById('filter-mine');
 if(mineFilter){
     mineFilter.addEventListener('change', function(){
         currentFilters.mineOnly = mineFilter.checked;
+        renderTagSuggestions();
         fetchWithFilters();
     });
 }

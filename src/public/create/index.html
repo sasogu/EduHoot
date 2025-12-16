@@ -23,7 +23,7 @@
                     <button id="open-auth" type="button" class="btn btn-ghost btn-small" data-i18n="btnLogin">Entrar</button>
                 </div>
             </div>
-            <h4 id = "subtitle" data-i18n="subtitle">Elige un juego importado o <a id = "link" href = "quiz-creator/">crea uno desde cero</a></h4>
+            <h4 id = "subtitle" data-i18n="subtitle">Genera con IA, importa (CSV o Kahoot) o <a id = "link" href = "quiz-creator/">crea un cuestionario desde cero</a>.</h4>
 
             <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true">
                 <div class="modal__backdrop" data-modal-close></div>
@@ -122,14 +122,16 @@
                 </div>
             </div>
 
-            <div id="ia-box" class="panel">
-                <div class="panel-header">
-                    <div>
-                        <p class="eyebrow" data-i18n="aiEyebrow">Ayuda IA</p>
-                        <h3 data-i18n="aiTitle">Generador IA (CSV)</h3>
-                        <p class="subtext" data-i18n="aiDesc">Rellena los campos y copia el prompt para generar tu cuestionario por IA.</p>
+            <details id="ia-box" class="panel">
+                <summary class="panel-summary">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow" data-i18n="aiEyebrow">Ayuda IA</p>
+                            <h3 data-i18n="aiTitle">Generador IA (CSV)</h3>
+                            <p class="subtext" data-i18n="aiDesc">Rellena los campos y copia el prompt para generar tu cuestionario por IA.</p>
+                        </div>
                     </div>
-                </div>
+                </summary>
 
                 <div class="ia-grid">
                     <label data-i18n="iaNameLabel">Nombre del quiz (opcional)
@@ -206,20 +208,22 @@
                 </div>
 
                 <div class="actions-row">
-                    <button id="ia-upload" type="button" data-i18n="btnImportIa">Importar CSV en el juego</button>
+                    <button id="ia-upload" type="button" data-i18n="btnImportIa">Importar CSV en el cuestionario</button>
                     <button id="ia-edit" class="btn btn-ghost" type="button" data-i18n="btnEditCreator" disabled>Editar en creador</button>
                 </div>
                 <p id="ia-status"></p>
-            </div>
+            </details>
 
-            <div id="csv-import" class="panel">
-            <div class="panel-header">
-                <div>
-                    <p class="eyebrow" data-i18n="importEyebrow">Importación</p>
-                    <h3 data-i18n="importTitle">Importar quiz desde CSV</h3>
-                    <p class="subtext" data-i18n="importDesc">Sube un archivo CSV con tus preguntas para guardarlo en tu biblioteca.</p>
-                </div>
-            </div>
+            <details id="csv-import" class="panel">
+                <summary class="panel-summary">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow" data-i18n="importEyebrow">Importación</p>
+                            <h3 data-i18n="importTitle">Importar cuestionario (CSV o Kahoot público)</h3>
+                            <p class="subtext" data-i18n="importDesc">Sube un archivo CSV con tus preguntas para guardarlo en tu biblioteca.</p>
+                        </div>
+                    </div>
+                </summary>
             <form id="csv-form">
                 <input id="csv-file" type="file" accept=".csv,text/csv" required>
                 <input id="csv-name" type="text" placeholder="Nombre del quiz (opcional)">
@@ -244,16 +248,16 @@
                     <p id="kahoot-status" class="subtext"></p>
                 </div>
             </div>
-            </div>
+            </details>
 
             <div id="library" class="panel">
                 <div class="panel-header">
                     <div>
                         <p class="eyebrow" data-i18n="libraryEyebrow">Biblioteca</p>
                         <h3 data-i18n="libraryTitle">Cuestionarios importados</h3>
-                        <p class="subtext" data-i18n="libraryDesc">Selecciona un juego para hostearlo o gestiona su nombre y estado.</p>
+                        <p class="subtext" data-i18n="libraryDesc">Selecciona un cuestionario para hostearlo o gestiona su nombre y estado.</p>
                     </div>
-                    <div id="game-count" class="pill pill-muted">0 juegos</div>
+                    <div id="game-count" class="pill pill-muted">0 cuestionarios</div>
                 </div>
                 <div class="filter-bar extra-gap">
                     <input id="library-search" type="search" placeholder="Buscar por nombre o etiqueta">
