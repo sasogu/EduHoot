@@ -6,6 +6,8 @@ body{
     background: linear-gradient(135deg, #0f162a, #1c2d4b);
 }
 
+*, *::before, *::after{ box-sizing: border-box; }
+
 body.modal-open{
     overflow: hidden;
 }
@@ -327,4 +329,19 @@ label{
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+}
+
+@media (max-width: 600px){
+    .page-shell{ margin: 16px auto 46px auto; padding: 0 14px 26px; }
+    #back{ margin: 12px 0 0 12px; }
+    .top-row{ flex-direction: column; align-items: stretch; }
+    #title{ font-size: 32px; line-height: 1.1; }
+    #subtitle{ margin-bottom: 18px; }
+    .panel{ padding: 14px 14px 16px; border-radius: 14px; }
+    .panel-header{ flex-direction: column; align-items: stretch; }
+    .actions-row{ flex-direction: column; align-items: stretch; justify-content: flex-start; }
+    .question-grid{ grid-template-columns: 1fr; }
+    .answers{ grid-template-columns: 1fr; }
+    .actions{ text-align: left; }
+    .moodle-modal__actions{ flex-direction: column; align-items: stretch; }
 }

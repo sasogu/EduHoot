@@ -225,7 +225,6 @@ input[type="text"]::placeholder{
 .card-thumb.placeholder{
     background: linear-gradient(135deg, #6c2bd9, #b83280);
 }
-}
 .card h3{
     margin: 0;
     font-size: 18px;

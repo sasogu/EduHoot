@@ -34,6 +34,8 @@ body{
     text-align: center;
 }
 
+*, *::before, *::after{ box-sizing: border-box; }
+
 #title1{
     font-size: 34px;
     margin: 0 0 6px;
@@ -53,4 +55,11 @@ body{
     height: 64px;
     animation: spin 1.4s linear infinite;
     box-shadow: 0 14px 35px rgba(0,0,0,0.28);
+}
+
+@media (max-width: 420px){
+    body{ padding: 14px; }
+    #title1{ font-size: 26px; }
+    #title2{ font-size: 15px; }
+    .loader{ width: 54px; height: 54px; border-width: 7px; border-top-width: 7px; }
 }

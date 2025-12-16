@@ -696,9 +696,32 @@ app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 app.get('/manifest.webmanifest', (req, res) => {
   res.type('application/manifest+json');
+  res.set('Cache-Control', 'no-cache, must-revalidate, max-age=0');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(publicPath, 'manifest.webmanifest'));
 });
-app.use(express.static(publicPath));
+app.use(express.static(publicPath, {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    const lower = (filePath || '').toLowerCase();
+    const isHtml = lower.endsWith('.html');
+
+    // HTML: evitar caché para que los cambios se reflejen al recargar.
+    if (isHtml) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      return;
+    }
+
+    // Assets: permitir caché pero forzar revalidación (evita quedarse con JS/CSS antiguos).
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 app.use(sessionMiddleware);
 
 server.listen(3000, () => {

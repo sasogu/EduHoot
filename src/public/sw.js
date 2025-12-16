@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduh-pwa-v1';
+const CACHE_NAME = 'eduh-pwa-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -30,16 +30,55 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith('/api/') || url.pathname.includes('/socket.io')) return;
 
+  // No interferir con recursos cross-origin
+  if (url.origin !== self.location.origin) return;
+
+  const accept = request.headers.get('accept') || '';
+  const isHtml = request.mode === 'navigate' || accept.includes('text/html');
+
+  // HTML: network-first para que los cambios se vean al recargar.
+  if (isHtml) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const response = await fetch(request, { cache: 'no-store' });
+          if (response && response.ok) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        } catch (err) {
+          const cached = await caches.match(request);
+          return cached || caches.match('/index.html');
+        }
+      })()
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await caches.match(request);
+
+      const fetchPromise = fetch(request).then((response) => {
         if (response && response.status === 200 && response.type === 'basic') {
-          const respClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, respClone));
+          cache.put(request, response.clone());
         }
         return response;
-      }).catch(() => caches.match('/index.html'));
-    })
+      });
+
+      // stale-while-revalidate: devuelve caché si existe, pero actualiza en background.
+      if (cached) {
+        event.waitUntil(fetchPromise.catch(() => null));
+        return cached;
+      }
+
+      try {
+        return await fetchPromise;
+      } catch (err) {
+        return cached;
+      }
+    })()
   );
 });

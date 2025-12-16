@@ -149,3 +149,11 @@ body{
   margin-top: 12px;
   font-weight: 700;
 }
+
+@media (max-width: 600px){
+  body{ padding: 14px; }
+  .login-inline{ flex-wrap: wrap; width: 100%; }
+  .login-inline input{ width: 100%; }
+  .login-inline span{ min-width: 0; width: 100%; }
+  .card .value{ font-size: 26px; }
+}

@@ -252,7 +252,11 @@
 
     if('serviceWorker' in navigator){
         window.addEventListener('load', function(){
-            navigator.serviceWorker.register('/sw.js').catch(function(err){
+            navigator.serviceWorker.register('/sw.js').then(function(reg){
+                if(reg && typeof reg.update === 'function'){
+                    reg.update();
+                }
+            }).catch(function(err){
                 console.warn('SW registration failed', err);
             });
         });
