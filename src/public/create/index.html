@@ -11,25 +11,31 @@
         <div class="page-shell">
             <div class="top-row">
                 <h1 id = "title" data-i18n="title">Crea y lanza tu EduHoot</h1>
-                <label class="lang-switch">
-                    <span data-i18n="langLabel">Idioma</span>
-                    <select id="lang-select">
-                        <option value="es" data-i18n="langEs">Español</option>
-                        <option value="en" data-i18n="langEn">English</option>
-                        <option value="ca" data-i18n="langCa">Català</option>
-                    </select>
-                </label>
+                <div class="top-actions">
+                    <label class="lang-switch">
+                        <span data-i18n="langLabel">Idioma</span>
+                        <select id="lang-select">
+                            <option value="es" data-i18n="langEs">Español</option>
+                            <option value="en" data-i18n="langEn">English</option>
+                            <option value="ca" data-i18n="langCa">Català</option>
+                        </select>
+                    </label>
+                    <button id="open-auth" type="button" class="btn btn-ghost btn-small" data-i18n="btnLogin">Entrar</button>
+                </div>
             </div>
             <h4 id = "subtitle" data-i18n="subtitle">Elige un juego importado o <a id = "link" href = "quiz-creator/">crea uno desde cero</a></h4>
 
-            <div id="auth-panel" class="panel">
+            <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true">
+                <div class="modal__backdrop" data-modal-close></div>
+                <div class="modal__content" role="document">
+                    <button id="auth-modal-close" type="button" class="btn btn-ghost btn-small modal__close" data-i18n="modalClose" data-modal-close>Cerrar</button>
+                    <div id="auth-panel" class="panel">
                 <div class="panel-header">
                     <div>
                         <p class="eyebrow" data-i18n="accessEyebrow">Acceso</p>
                         <h3 data-i18n="accessTitle">Usuarios</h3>
                         <p class="subtext" data-i18n="accessDesc">Inicia sesión para crear, editar o borrar quizzes.</p>
                     </div>
-                    <div id="auth-status" class="pill pill-muted" data-i18n="authStatus">No has iniciado sesión</div>
                 </div>
                 <div class="auth-grid">
                     <label data-i18n="labelEmail">Email
@@ -44,7 +50,6 @@
                 </div>
                 <div class="actions-row">
                     <button id="auth-login" class="btn btn-primary" data-i18n="btnLogin">Entrar</button>
-                    <button id="auth-logout" class="btn btn-ghost" data-i18n="btnLogout">Cerrar sesión</button>
                     <button id="auth-save-nick" class="btn btn-ghost" data-i18n="btnSaveNick">Guardar nombre visible</button>
                 </div>
                 <p class="subtext" id="auth-message"></p>
@@ -114,6 +119,9 @@
                 </div>
             </div>
 
+                </div>
+            </div>
+
             <div id="ia-box" class="panel">
             <div class="panel-header">
                 <div>
@@ -175,8 +183,9 @@
             <div class="split-import">
                 <div>
                     <h4 data-i18n="kahootTitle">Importar Kahoot público</h4>
+                    <p class="subtext" data-i18n="kahootHelp">Pega la URL o el ID de un Kahoot público.</p>
                     <form id="kahoot-form">
-                        <input id="kahoot-url" type="url" placeholder="https://create.kahoot.it/details/..." required>
+                        <input id="kahoot-url" type="text" inputmode="url" autocomplete="off" placeholder="https://create.kahoot.it/details/..." required>
                         <select id="kahoot-visibility">
                             <option value="public" data-i18n="visibilityPublic">Público</option>
                             <option value="unlisted" data-i18n="visibilityUnlisted">Por enlace/ID</option>
@@ -193,7 +202,7 @@
                 <div class="panel-header">
                     <div>
                         <p class="eyebrow" data-i18n="libraryEyebrow">Biblioteca</p>
-                        <h3 data-i18n="libraryTitle">Juegos importados</h3>
+                        <h3 data-i18n="libraryTitle">Cuestionarios importados</h3>
                         <p class="subtext" data-i18n="libraryDesc">Selecciona un juego para hostearlo o gestiona su nombre y estado.</p>
                     </div>
                     <div id="game-count" class="pill pill-muted">0 juegos</div>
@@ -205,7 +214,7 @@
                     <div class="pill pill-muted" id="filter-info" data-i18n="noFilters">Sin filtros</div>
                     <label class="checkbox-inline">
                         <input type="checkbox" id="filter-mine">
-                        <span data-i18n="filterMine">Solo mis juegos</span>
+                        <span data-i18n="filterMine">Sólo mis cuestionarios</span>
                     </label>
                 </div>
                 <div id="tag-suggestions" class="tag-suggestions"></div>

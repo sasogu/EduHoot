@@ -47,6 +47,7 @@ var i18n = {
         title: 'Crea y lanza tu EduHoot',
         subtitle: 'Elige un juego importado o <a id="link" href="quiz-creator/">crea uno desde cero</a>',
         langLabel: 'Idioma',
+        modalClose: 'Cerrar',
         accessEyebrow: 'Acceso',
         accessTitle: 'Usuarios',
         accessDesc: 'Inicia sesión para crear, editar o borrar quizzes.',
@@ -86,19 +87,20 @@ var i18n = {
         iaCsvLabel: 'Contenido CSV generado por la IA',
         btnImportIa: 'Importar CSV en el juego',
         kahootTitle: 'Importar Kahoot público',
+        kahootHelp: 'Pega la URL o el ID de un Kahoot público.',
         btnImportKahoot: 'Importar desde Kahoot',
         importEyebrow: 'Importación',
         importTitle: 'Importar quiz desde CSV',
         importDesc: 'Sube un archivo CSV con tus preguntas para guardarlo en tu biblioteca.',
         btnUploadCsv: 'Subir CSV',
         libraryEyebrow: 'Biblioteca',
-        libraryTitle: 'Juegos importados',
+        libraryTitle: 'Cuestionarios importados',
         libraryDesc: 'Selecciona un juego para hostearlo o gestiona su nombre y estado.',
         searchPlaceholder: 'Buscar por nombre o etiqueta',
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
-        filterMine: 'Solo mis juegos',
+        filterMine: 'Sólo mis cuestionarios',
         playsShort: 'partidas',
         playersShort: 'jugadores',
         paginationPrev: 'Anterior',
@@ -114,6 +116,8 @@ var i18n = {
         renamePrompt: 'Nuevo nombre',
         confirmDelete: '¿Eliminar este quiz?',
         cannotStartPrivate: 'Solo el propietario puede usar un quiz privado.',
+        needLogin: 'Inicia sesión para realizar esta acción.',
+        permissionDenied: 'No tienes permiso para realizar esta acción.',
         saveSharing: 'Guardar permisos',
         allowClone: 'Permitir que otros hagan una copia',
         visibilityPrivate: 'Solo yo (privado)',
@@ -167,7 +171,7 @@ var i18n = {
         iaLangCustomPlaceholder: 'Otro idioma',
         iaExtraPlaceholder: 'Tono, nivel cognitivo, formato...',
         iaCsvPlaceholder: 'Pega aquí el CSV devuelto por la IA',
-        kahootUrlPlaceholder: 'https://create.kahoot.it/details/...',
+        kahootUrlPlaceholder: 'URL o ID (p. ej. https://create.kahoot.it/details/... o 01234567)',
         visibilityHelp: '<strong>Solo yo:</strong> si no inicias sesión, el quiz se guarda solo en tu sesión y caduca en 24h.<br><strong>Por enlace / Público:</strong> aunque no tengas cuenta, se guardan de forma global en el servidor y sobreviven a reinicios. Si inicias sesión, quedan ligados a tu usuario. Puedes permitir o no las copias.',
         langEs: 'Español',
         langEn: 'English',
@@ -182,6 +186,7 @@ var i18n = {
         title: 'Create and launch your EduHoot',
         subtitle: 'Pick an imported game or <a id="link" href="quiz-creator/">create one from scratch</a>',
         langLabel: 'Language',
+        modalClose: 'Close',
         accessEyebrow: 'Access',
         accessTitle: 'Users',
         accessDesc: 'Sign in to create, edit or delete quizzes.',
@@ -221,19 +226,20 @@ var i18n = {
         iaCsvLabel: 'CSV content from AI',
         btnImportIa: 'Import CSV into the game',
         kahootTitle: 'Import public Kahoot',
+        kahootHelp: 'Paste a public Kahoot URL or ID.',
         btnImportKahoot: 'Import from Kahoot',
         importEyebrow: 'Import',
         importTitle: 'Import quiz from CSV',
         importDesc: 'Upload a CSV with your questions to save it in your library.',
         btnUploadCsv: 'Upload CSV',
         libraryEyebrow: 'Library',
-        libraryTitle: 'Imported games',
+        libraryTitle: 'Imported quizzes',
         libraryDesc: 'Pick a game to host or manage its name and status.',
         searchPlaceholder: 'Search by name or tag',
         suggestedTags: 'Suggested tags (tap to filter)',
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
-        filterMine: 'Only my games',
+        filterMine: 'Only my quizzes',
         playsShort: 'plays',
         playersShort: 'players',
         paginationPrev: 'Previous',
@@ -249,6 +255,8 @@ var i18n = {
         renamePrompt: 'New name',
         confirmDelete: 'Delete this quiz?',
         cannotStartPrivate: 'Only the owner can use a private quiz.',
+        needLogin: 'Sign in to perform this action.',
+        permissionDenied: 'You don\'t have permission to perform this action.',
         saveSharing: 'Save permissions',
         allowClone: 'Allow others to copy',
         visibilityPrivate: 'Only me (private)',
@@ -302,7 +310,7 @@ var i18n = {
         iaLangCustomPlaceholder: 'Other language',
         iaExtraPlaceholder: 'Tone, cognitive level, format...',
         iaCsvPlaceholder: 'Paste here the CSV returned by the AI',
-        kahootUrlPlaceholder: 'https://create.kahoot.it/details/...',
+        kahootUrlPlaceholder: 'URL or ID (e.g. https://create.kahoot.it/details/... or 01234567)',
         visibilityHelp: '<strong>Only me:</strong> if you don\'t sign in, the quiz is stored only in your session and expires in 24h.<br><strong>By link / Public:</strong> even without an account it is stored globally on the server and survives restarts. If you sign in, it links to your user. You can allow or block copies.',
         langEs: 'Spanish',
         langEn: 'English',
@@ -317,6 +325,7 @@ var i18n = {
         title: 'Crea i llança el teu EduHoot',
         subtitle: 'Tria un joc importat o <a id="link" href="quiz-creator/">crea\'n un de zero</a>',
         langLabel: 'Idioma',
+        modalClose: 'Tancar',
         accessEyebrow: 'Accés',
         accessTitle: 'Usuaris',
         accessDesc: 'Inicia sessió per crear, editar o esborrar qüestionaris.',
@@ -356,18 +365,20 @@ var i18n = {
         iaCsvLabel: 'Contingut CSV generat per la IA',
         btnImportIa: 'Importar CSV al joc',
         kahootTitle: 'Importar Kahoot públic',
+        kahootHelp: 'Enganxa la URL o l\'ID d\'un Kahoot públic.',
         btnImportKahoot: 'Importar des de Kahoot',
         importEyebrow: 'Importació',
         importTitle: 'Importar quiz des de CSV',
         importDesc: 'Puja un fitxer CSV amb les teves preguntes per desar-lo a la biblioteca.',
         btnUploadCsv: 'Pujar CSV',
         libraryEyebrow: 'Biblioteca',
-        libraryTitle: 'Jocs importats',
+        libraryTitle: 'Qüestionaris importats',
         libraryDesc: 'Selecciona un joc per hostatjar-lo o gestiona el seu nom i estat.',
         searchPlaceholder: 'Cerca per nom o etiqueta',
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
+        filterMine: 'Només els meus qüestionaris',
         playsShort: 'partides',
         playersShort: 'jugadors',
         paginationPrev: 'Anterior',
@@ -383,6 +394,8 @@ var i18n = {
         renamePrompt: 'Nom nou',
         confirmDelete: 'Eliminar aquest quiz?',
         cannotStartPrivate: 'Només el propietari pot usar un quiz privat.',
+        needLogin: 'Inicia sessió per realitzar aquesta acció.',
+        permissionDenied: 'No tens permís per realitzar aquesta acció.',
         saveSharing: 'Desar permisos',
         allowClone: 'Permetre que altres en facin una còpia',
         visibilityPrivate: 'Només jo (privat)',
@@ -436,7 +449,7 @@ var i18n = {
         iaLangCustomPlaceholder: 'Un altre idioma',
         iaExtraPlaceholder: 'To, nivell cognitiu, format...',
         iaCsvPlaceholder: 'Enganxa aquí el CSV retornat per la IA',
-        kahootUrlPlaceholder: 'https://create.kahoot.it/details/...',
+        kahootUrlPlaceholder: 'URL o ID (p. ex. https://create.kahoot.it/details/... o 01234567)',
         visibilityHelp: '<strong>Només jo:</strong> si no inicies sessió, el quiz es desa només a la teva sessió i caduca en 24h.<br><strong>Per enllaç / Públic:</strong> encara que no tinguis compte, es desa globalment al servidor i sobreviu a reinicis. Si inicies sessió, queda lligat al teu usuari. Pots permetre o no les còpies.',
         langEs: 'Espanyol',
         langEn: 'Anglès',
@@ -787,20 +800,26 @@ function renderGames(data){
         var playBtn = document.createElement('button');
         playBtn.className = 'btn btn-primary';
         playBtn.textContent = t('play');
-        playBtn.onclick = function(){ startGame(quiz.id); };
-        playBtn.disabled = !canStart;
-        if(!canStart){
-            playBtn.title = t('cannotStartPrivate');
-        }
+        playBtn.onclick = function(){
+            if(!canStart){
+                warnNoPermission(t('cannotStartPrivate'));
+                return;
+            }
+            startGame(quiz.id);
+        };
+        if(!canStart) playBtn.title = t('cannotStartPrivate');
 
         var editBtn = document.createElement('button');
         editBtn.className = 'btn btn-ghost icon-only';
         editBtn.innerHTML = '✏️';
         editBtn.title = t('edit');
         editBtn.onclick = function(){
+            if(!canEdit){
+                warnNoPermission(authState.user ? t('permissionDenied') : t('needLogin'));
+                return;
+            }
             window.location.href = '/create/quiz-creator/?id=' + quiz.id;
         };
-        editBtn.disabled = !canEdit;
 
         var downloadBtn = document.createElement('button');
         downloadBtn.className = 'btn btn-ghost icon-only';
@@ -827,27 +846,32 @@ function renderGames(data){
         deleteBtn.innerHTML = '🗑️';
         deleteBtn.title = t('delete');
         deleteBtn.onclick = function(){
+            if(!canEdit){
+                warnNoPermission(authState.user ? t('permissionDenied') : t('needLogin'));
+                return;
+            }
             if(confirm(t('confirmDelete'))){
                 deleteQuiz(quiz.id);
             }
         };
-        deleteBtn.disabled = !canEdit;
 
         actions.appendChild(playBtn);
         actions.appendChild(editBtn);
         actions.appendChild(downloadBtn);
         actions.appendChild(moodleXmlBtn);
 
-        if(canClone){
-            var cloneBtn = document.createElement('button');
-            cloneBtn.className = 'btn btn-ghost icon-only';
-            cloneBtn.innerHTML = '📄';
-            cloneBtn.title = t('clone');
-            cloneBtn.onclick = function(){
-                cloneQuiz(quiz.id);
-            };
-            actions.appendChild(cloneBtn);
-        }
+        var cloneBtn = document.createElement('button');
+        cloneBtn.className = 'btn btn-ghost icon-only';
+        cloneBtn.innerHTML = '📄';
+        cloneBtn.title = t('clone');
+        cloneBtn.onclick = function(){
+            if(!canClone){
+                warnNoPermission(authState.user ? t('permissionDenied') : t('needLogin'));
+                return;
+            }
+            cloneQuiz(quiz.id);
+        };
+        actions.appendChild(cloneBtn);
         actions.appendChild(deleteBtn);
 
         var share = document.createElement('div');
@@ -886,8 +910,11 @@ function renderGames(data){
         var shareBtn = document.createElement('button');
         shareBtn.className = 'btn btn-ghost';
         shareBtn.textContent = t('saveSharing');
-        shareBtn.disabled = !canEdit;
         shareBtn.onclick = function(){
+            if(!canEdit){
+                warnNoPermission(authState.user ? t('permissionDenied') : t('needLogin'));
+                return;
+            }
             updateSharing(quiz.id, select.value, cloneCheck.checked);
         };
 
@@ -1150,10 +1177,10 @@ function buildPrompt(params){
         notas: [
             "Usa el punto y coma ';' como separador.",
             "Columna 'tipo': usa 'quiz' (una correcta).",
-            "Columna 'correcta': índice de la respuesta correcta (1-4).",
+            "Columna 'correcta': índice de la resposta correcta (1-4).",
             "Columna 'imagen': solo URLs de imagen (png/jpg/webp).",
             "Columna 'video': URLs de vídeo (YouTube/Vimeo/MP4). Si hay vídeo, deja 'imagen' vacía.",
-            "Tiempo: en segundos (ej: 20)."
+            "Tiempo: en segons (ex: 20)."
         ]
     };
     return JSON.stringify(prompt, null, 2);
@@ -1176,7 +1203,7 @@ function buildIaTags(){
     addFromList(temaVal);
     addFromList(nivelVal);
     addFromList(nameVal);
-    // combos derivados
+    // combos derivats
     var composed = [];
     if(temaVal && nivelVal) composed.push(nivelVal + ' ' + temaVal);
     composed.push('ia-' + (temaVal || '').replace(/\s+/g, '-'));
@@ -1196,6 +1223,68 @@ var iaCopy = document.getElementById('ia-copy');
 var iaPrompt = document.getElementById('ia-prompt');
 var iaIdioma = document.getElementById('ia-idioma');
 var iaIdiomaCustom = document.getElementById('ia-idioma-custom');
+
+// --- Auth modal ---
+var authModal = document.getElementById('auth-modal');
+var openAuthBtn = document.getElementById('open-auth');
+
+function openAuthModal(){
+    if(!authModal) return;
+    authModal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    try{ if(authEmail) authEmail.focus(); }catch(e){}
+}
+
+function closeAuthModal(){
+    if(!authModal) return;
+    authModal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+}
+
+function warnNoPermission(message){
+    var msg = message || t('permissionDenied');
+    if(authMsg){
+        authMsg.textContent = msg;
+        if(!authState.user) openAuthModal();
+        return;
+    }
+    try{ window.alert(msg); }catch(e){}
+}
+
+function updateTopAuthButton(){
+    if(!openAuthBtn) return;
+    if(authState && authState.user){
+        openAuthBtn.setAttribute('data-i18n', 'btnLogout');
+        openAuthBtn.textContent = t('btnLogout');
+    }else{
+        openAuthBtn.setAttribute('data-i18n', 'btnLogin');
+        openAuthBtn.textContent = t('btnLogin');
+    }
+}
+
+if(openAuthBtn){
+    openAuthBtn.addEventListener('click', function(){
+        if(authState && authState.user){
+            logout();
+            return;
+        }
+        openAuthModal();
+    });
+}
+
+if(authModal){
+    authModal.querySelectorAll('[data-modal-close]').forEach(function(el){
+        el.addEventListener('click', function(){
+            closeAuthModal();
+        });
+    });
+}
+
+document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && authModal && !authModal.classList.contains('hidden')){
+        closeAuthModal();
+    }
+});
 
 // --- Auth ---
 var authEmail = document.getElementById('auth-email');
@@ -1228,14 +1317,15 @@ var resetStatus = document.getElementById('reset-status');
 var authState = { user: null };
 
 function updateAuthUI(){
-    if(!authStatus) return;
-    if(authState.user){
-        var nickPart = authState.user.nickname ? ' · ' + authState.user.nickname : '';
-        authStatus.textContent = authState.user.email + nickPart + ' (' + authState.user.role + ')';
-        authStatus.classList.remove('pill-muted');
-    }else{
-        authStatus.textContent = t('authStatus');
-        authStatus.classList.add('pill-muted');
+    if(authStatus){
+        if(authState.user){
+            var nickPart = authState.user.nickname ? ' · ' + authState.user.nickname : '';
+            authStatus.textContent = authState.user.email + nickPart + ' (' + authState.user.role + ')';
+            authStatus.classList.remove('pill-muted');
+        }else{
+            authStatus.textContent = t('authStatus');
+            authStatus.classList.add('pill-muted');
+        }
     }
     if(adminPanel){
         if(authState.user && authState.user.role === 'admin'){
@@ -1244,6 +1334,8 @@ function updateAuthUI(){
             adminPanel.classList.add('hidden');
         }
     }
+
+    updateTopAuthButton();
 }
 
 function fetchMe(){
@@ -1285,6 +1377,7 @@ function login(){
         authMsg.textContent = t('loginOk') || t('authStatus');
         authPass.value = '';
         if(authNick) authNick.value = '';
+        closeAuthModal();
         reconnectSocket();
         fetchMe();
     }).catch(function(){
@@ -1297,6 +1390,7 @@ function logout(){
         .then(function(){
             authState.user = null;
             updateAuthUI();
+            closeAuthModal();
             reconnectSocket();
             fetchWithFilters();
         })
@@ -1392,6 +1486,30 @@ async function resetPasswordAsAdmin(){
 
 if(authLoginBtn){
     authLoginBtn.addEventListener('click', login);
+}
+if(authEmail){
+    authEmail.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+            e.preventDefault();
+            login();
+        }
+    });
+}
+if(authPass){
+    authPass.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+            e.preventDefault();
+            login();
+        }
+    });
+}
+if(authNick){
+    authNick.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+            e.preventDefault();
+            login();
+        }
+    });
 }
 if(authLogoutBtn){
     authLogoutBtn.addEventListener('click', logout);
@@ -1575,7 +1693,7 @@ function reconnectSocket(){
     }catch(e){}
 }
 
-// Importar Kahoot público
+// Importar Kahoot públic
 var kahootForm = document.getElementById('kahoot-form');
 var kahootUrlInput = document.getElementById('kahoot-url');
 var kahootStatus = document.getElementById('kahoot-status');
@@ -1586,6 +1704,16 @@ if(kahootForm){
         if(!kahootUrlInput || !kahootUrlInput.value.trim()){
             return;
         }
+        var raw = kahootUrlInput.value.trim();
+        var payload = {
+            visibility: kahootVisSelect ? kahootVisSelect.value : 'public',
+            ownerToken: getAnonOwnerToken()
+        };
+        if(/^https?:\/\//i.test(raw)) payload.url = raw;
+        else payload.id = raw;
+
+        var submitBtn = kahootForm.querySelector('button[type="submit"]');
+        if(submitBtn) submitBtn.disabled = true;
         if(kahootStatus) kahootStatus.textContent = t('importing');
     try{
         var res = await fetch('/api/import/kahoot', {
@@ -1596,16 +1724,13 @@ if(kahootForm){
                 if(token) base['X-Owner-Token'] = token;
                 return base;
             })(),
-            body: JSON.stringify({
-                url: kahootUrlInput.value.trim(),
-                visibility: kahootVisSelect ? kahootVisSelect.value : 'public',
-                ownerToken: getAnonOwnerToken()
-            })
+            body: JSON.stringify(payload)
         });
         var body = {};
         try { body = await res.json(); } catch(e){}
         if(!res.ok){
                 if(kahootStatus) kahootStatus.textContent = body.error || t('importError');
+                if(submitBtn) submitBtn.disabled = false;
                 return;
             }
             if(kahootStatus){
@@ -1615,6 +1740,7 @@ if(kahootForm){
                 btn.onclick = function(){ startGame(body.id); };
                 kahootStatus.appendChild(btn);
             }
+            if(submitBtn) submitBtn.disabled = false;
             if(body.id){
                 try{
                     var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
@@ -1627,6 +1753,7 @@ if(kahootForm){
             socket.emit('requestDbNames');
         }catch(err){
             if(kahootStatus) kahootStatus.textContent = t('importError');
+            if(submitBtn) submitBtn.disabled = false;
         }
     });
 }
