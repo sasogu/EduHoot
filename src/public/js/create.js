@@ -13,7 +13,7 @@ var currentFilters = {
     tags: [],
     mineOnly: false,
     search: '',
-    tagMode: 'any'
+    tagMode: 'all'
 };
 var currentSort = 'newest';
 var knownTags = [];

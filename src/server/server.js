@@ -1778,7 +1778,7 @@ app.get('/api/quizzes', async (req, res) => {
       : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
     const normalized = normalizeTags(tags);
     const mineOnly = req.query.mine === '1';
-    const tagMode = req.query.tagMode === 'all' ? 'all' : 'any';
+    const tagMode = req.query.tagMode === 'any' ? 'any' : 'all';
     const collection = await getGamesCollection();
     const baseQuery = normalized.length
       ? { tags: tagMode === 'all' ? { $all: normalized } : { $in: normalized } }
