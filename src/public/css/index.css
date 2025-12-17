@@ -76,6 +76,10 @@ form{
     outline: none;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
 }
+#pin{
+    text-align: center;
+    letter-spacing: 0.12em;
+}
 #name:focus, #pin:focus{
     border-color: rgba(255,255,255,0.45);
 }
@@ -232,6 +236,8 @@ body.modal-open{
     background: rgba(255,255,255,0.12);
     color: var(--text-main);
     font-size: 18px;
+    text-align: center;
+    letter-spacing: 0.12em;
 }
 #pinModalSubmit{
     background: linear-gradient(135deg, #6366f1, #8b5cf6);

@@ -1,4 +1,11 @@
-var socket = io();
+var socket = null;
+try{
+    if(typeof io !== 'undefined'){
+        socket = io();
+    }
+}catch(e){
+    socket = null;
+}
 var questionNum = 0; // Se incrementa cuando se añaden tarjetas
 var editingId = null;
 var browserLang = (navigator.language || 'es').slice(0,2);
@@ -232,7 +239,11 @@ function updateDatabase(){
             return res.json();
         })
         .then(function(){
-            socket.emit('newQuiz', quiz);
+            if(socket){
+                socket.emit('newQuiz', quiz);
+            }else{
+                alert('No se pudo conectar con el servidor en tiempo real. Recarga la página e inténtalo de nuevo.');
+            }
         })
         .catch(function(){
             saveLocal();
@@ -688,14 +699,16 @@ function cancelQuiz(){
     }
 }
 
-socket.on('startGameFromCreator', function(data){
-    window.location.href = "../../host/?id=" + data;
-});
+if(socket){
+    socket.on('startGameFromCreator', function(data){
+        window.location.href = "../../host/?id=" + data;
+    });
 
-socket.on('quizValidationError', function(payload){
-    var message = payload && payload.error ? payload.error : t('saveError');
-    alert(message);
-});
+    socket.on('quizValidationError', function(payload){
+        var message = payload && payload.error ? payload.error : t('saveError');
+        alert(message);
+    });
+}
 
 async function saveExistingQuiz(id, quiz){
     try{
