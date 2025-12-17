@@ -55,18 +55,18 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             nameSave: 'Guardar',
             nameSkip: 'Omitir',
             namePlaceholder: 'AAA',
-            startButton: 'Jugar en solitario',
-            startHint: 'El tiempo por pregunta se respeta si el quiz lo define.',
-            questionOf: 'Pregunta {current} de {total}',
-            score: 'Puntos',
-            timer: 'Tiempo',
-            correctText: '¡Correcto!',
-            wrongText: 'Respuesta incorrecta',
-            timeup: 'Tiempo agotado',
-            finishTitle: 'Partida terminada',
-            playAgain: 'Repetir quiz',
-            pickAnother: 'Elegir otro quiz',
-            rankingTitle: 'Top 10 global',
+        startButton: 'Jugar en solitario',
+        startHint: 'El tiempo por pregunta se respeta si el quiz lo define.',
+        questionOf: 'Pregunta {current} de {total}',
+        score: 'Puntos',
+        timer: 'Tiempo',
+        correctText: '¡Correcto!',
+        wrongText: 'Respuesta incorrecta',
+        timeup: 'Tiempo agotado',
+        finishTitle: 'Partida terminada',
+        playAgain: 'Repetir quiz',
+        pickAnother: 'Elegir otro quiz',
+        rankingTitle: 'Top 10 global',
             rankingHint: 'Solo se muestra al finalizar la partida.',
             resultSummary: 'Acertadas {correct}/{total} · {score} pts',
             publicEmpty: 'No hay juegos públicos disponibles.',
@@ -81,8 +81,9 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             timerLabel: 'Tiempo',
             selectedMeta: 'Preguntas: {count} · Etiquetas: {tags}',
             topName: 'Nombre',
-            topScore: 'Puntos'
-        },
+        topScore: 'Puntos',
+        footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+    },
         en: {
             back: 'Back',
             eyebrow: 'Solo mode',
@@ -130,8 +131,9 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             timerLabel: 'Time',
             selectedMeta: 'Questions: {count} · Tags: {tags}',
             topName: 'Name',
-            topScore: 'Score'
-        },
+            topScore: 'Score',
+            footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+    },
         ca: {
             back: 'Tornar',
             eyebrow: 'Mode individual',
@@ -179,7 +181,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             timerLabel: 'Temps',
             selectedMeta: 'Preguntes: {count} · Etiquetes: {tags}',
             topName: 'Nom',
-            topScore: 'Punts'
+            topScore: 'Punts',
+            footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
         }
     };
 

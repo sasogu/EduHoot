@@ -57,6 +57,7 @@ body {
     padding: 8px 14px;
     border-radius: 999px;
     transition: transform 0.2s ease, background 0.2s ease;
+    align-self: flex-start;
 }
 #back:hover{
     background: rgba(255,255,255,0.18);
@@ -687,6 +688,19 @@ body.modal-open{
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.4);
     background: rgba(255,255,255,0.05);
+}
+
+.site-footer__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.site-footer__about {
+    margin: 0;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.65);
 }
 
 @media (max-width: 600px){

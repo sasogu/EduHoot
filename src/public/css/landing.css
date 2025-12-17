@@ -97,6 +97,19 @@ body {
     object-fit: cover;
 }
 
+.site-footer__content, .landing-footer__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.site-footer__about, .landing-footer__about {
+    margin: 0;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.65);
+}
+
 .landing-professor__link:hover {
     opacity: 1;
 }

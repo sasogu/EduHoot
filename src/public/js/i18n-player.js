@@ -34,11 +34,12 @@
       rank_top: 'Top 10 - Puesto',
       rank_out: 'Fuera del Top 10',
       landing_title: 'EduHoot',
-      landing_tagline: 'Juega desde el aula o en solitario.',
+      landing_tagline: 'Juega desde cualquier aula o en solitario.',
       landing_play_multi: 'Jugar con más personas',
       landing_play_solo: 'Jugar solo',
       landing_langLabel: 'Idioma',
-      landing_prof_access: 'Acceso profesorado'
+      landing_prof_access: 'Acceso profesorado',
+      footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
     ca: {
       join_title: 'Uneix-te a una partida',
@@ -73,11 +74,12 @@
       rank_top: 'Top 10 - Posició',
       rank_out: 'Fora del Top 10',
       landing_title: 'EduHoot',
-      landing_tagline: 'Juga des de l\'aula o en solitari.',
+      landing_tagline: 'Juga des de qualsevol aula o en solitari.',
       landing_play_multi: 'Jugar amb més persones',
       landing_play_solo: 'Jugar sol',
       landing_langLabel: 'Idioma',
-      landing_prof_access: 'Accés professorat'
+      landing_prof_access: 'Accés professorat',
+      footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
     en: {
       join_title: 'Join a Game',
@@ -112,11 +114,12 @@
       rank_top: 'Top 10 - Rank',
       rank_out: 'Outside Top 10',
       landing_title: 'EduHoot',
-      landing_tagline: 'Play from the classroom or on your own.',
+      landing_tagline: 'Play from any classroom or on your own.',
       landing_play_multi: 'Play with others',
       landing_play_solo: 'Play solo',
       landing_langLabel: 'Language',
-      landing_prof_access: 'Teacher access'
+      landing_prof_access: 'Teacher access',
+      footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     }
   };
 

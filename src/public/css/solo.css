@@ -223,6 +223,19 @@ body.playing #public-pagination{
     box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
+.site-footer__content{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.site-footer__about{
+    margin: 0;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.65);
+}
+
 .card{
     padding: 12px;
     border-radius: 14px;
