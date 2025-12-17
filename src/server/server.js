@@ -1778,8 +1778,11 @@ app.get('/api/quizzes', async (req, res) => {
       : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
     const normalized = normalizeTags(tags);
     const mineOnly = req.query.mine === '1';
+    const tagMode = req.query.tagMode === 'all' ? 'all' : 'any';
     const collection = await getGamesCollection();
-    const baseQuery = normalized.length ? { tags: { $in: normalized } } : {};
+    const baseQuery = normalized.length
+      ? { tags: tagMode === 'all' ? { $all: normalized } : { $in: normalized } }
+      : {};
     let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
     if (mineOnly && req.user) {
       quizzesRaw = quizzesRaw.filter((q) => {

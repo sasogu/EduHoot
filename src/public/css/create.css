@@ -591,6 +591,14 @@ details.panel[open] > summary{
     color: #fff;
     border: 1px solid rgba(255,255,255,0.16);
 }
+.btn-ghost#tag-mode-toggle{
+    letter-spacing: 0.04em;
+    text-transform: none;
+}
+.btn-ghost#tag-mode-toggle.is-active{
+    background: rgba(255,255,255,0.18);
+    border-color: rgba(255,255,255,0.35);
+}
 .btn-danger{
     background: rgba(255,80,80,0.14);
     color: #ffdede;

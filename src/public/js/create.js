@@ -12,7 +12,8 @@ socket.on('gameNamesData', function(data){
 var currentFilters = {
     tags: [],
     mineOnly: false,
-    search: ''
+    search: '',
+    tagMode: 'any'
 };
 var currentSort = 'newest';
 var knownTags = [];
@@ -184,6 +185,10 @@ var i18n = {
         filterBy: 'Filtrando por: ',
         filterMine: 'Sólo mis cuestionarios',
         clearFilters: 'Limpiar filtros',
+        filterModeAny: 'Coincide con cualquiera',
+        filterModeAll: 'Coincide con todas',
+        matchAnyTags: 'Cualquiera de las etiquetas',
+        matchAllTags: 'Todas las etiquetas',
         sortLabel: 'Ordenar por',
         sortNewest: 'Más recientes primero',
         sortOldest: 'Más antiguos primero',
@@ -344,6 +349,10 @@ var i18n = {
         filterBy: 'Filtering by: ',
         filterMine: 'Only my quizzes',
         clearFilters: 'Clear filters',
+        filterModeAny: 'Matches any tag',
+        filterModeAll: 'Matches all tags',
+        matchAnyTags: 'Match any tag',
+        matchAllTags: 'Match all tags',
         sortLabel: 'Sort by',
         sortNewest: 'Newest first',
         sortOldest: 'Oldest first',
@@ -504,6 +513,10 @@ var i18n = {
         filterBy: 'Filtrant per: ',
         filterMine: 'Només els meus qüestionaris',
         clearFilters: 'Eliminar filtres',
+        filterModeAny: 'Coincideix amb qualsevol etiqueta',
+        filterModeAll: 'Coincideix amb totes les etiquetes',
+        matchAnyTags: 'Qualsevol etiqueta',
+        matchAllTags: 'Totes les etiquetes',
         sortLabel: 'Ordenar per',
         sortNewest: 'Els més recents primer',
         sortOldest: 'Els més antics primer',
@@ -688,6 +701,7 @@ function fetchWithFilters(){
     if(currentFilters.tags.length){
         var parts = currentFilters.tags.map(function(t){ return 'tags=' + encodeURIComponent(t); });
         query = '?' + parts.join('&');
+        query += '&tagMode=' + encodeURIComponent(currentFilters.tagMode || 'any');
     }
     try{
         var localIds = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
@@ -736,6 +750,7 @@ function clearFilters(){
     currentFilters.tags = [];
     currentFilters.mineOnly = false;
     currentFilters.search = '';
+    currentFilters.tagMode = 'any';
     var searchInput = document.getElementById('library-search');
     if(searchInput){
         searchInput.value = '';
@@ -748,10 +763,33 @@ function clearFilters(){
     fetchWithFilters();
 }
 
+function toggleTagMode(){
+    currentFilters.tagMode = currentFilters.tagMode === 'all' ? 'any' : 'all';
+    renderTagModeToggle();
+    if(currentFilters.tags.length){
+        fetchWithFilters();
+    }
+}
+
+function renderTagModeToggle(){
+    var toggle = document.getElementById('tag-mode-toggle');
+    if(!toggle) return;
+    if(currentFilters.tagMode === 'all'){
+        toggle.textContent = t('matchAllTags');
+        toggle.classList.add('is-active');
+        toggle.setAttribute('aria-pressed', 'true');
+    }else{
+        toggle.textContent = t('matchAnyTags');
+        toggle.classList.remove('is-active');
+        toggle.setAttribute('aria-pressed', 'false');
+    }
+}
+
 function renderTagSuggestions(){
     var wrap = document.getElementById('tag-suggestions');
     if(!wrap) return;
     wrap.innerHTML = '';
+    renderTagModeToggle();
     var tagsToShow;
     var tagSource;
     if(currentFilters.tags.length){
@@ -787,6 +825,7 @@ function renderTagSuggestions(){
         btn.onclick = function(){ toggleTagFilter(tag); };
         wrap.appendChild(btn);
     });
+    renderTagModeToggle();
 }
 
 var mineFilter = document.getElementById('filter-mine');
@@ -800,6 +839,11 @@ if(mineFilter){
 var clearFiltersBtn = document.getElementById('clear-filters');
 if(clearFiltersBtn){
     clearFiltersBtn.addEventListener('click', clearFilters);
+}
+var tagModeToggleBtn = document.getElementById('tag-mode-toggle');
+if(tagModeToggleBtn){
+    tagModeToggleBtn.addEventListener('click', toggleTagMode);
+    renderTagModeToggle();
 }
 
 var librarySearch = document.getElementById('library-search');
@@ -895,6 +939,7 @@ function renderGames(data){
         var parts = [];
         if(currentFilters.tags.length){
             parts.push(t('filterBy') + currentFilters.tags.join(', '));
+            parts.push(currentFilters.tagMode === 'all' ? t('filterModeAll') : t('filterModeAny'));
         }
         if(currentFilters.mineOnly){
             parts.push(t('filterMine'));
