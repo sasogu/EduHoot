@@ -319,6 +319,10 @@ function renderList(){
             return;
         }
         if(empty) empty.textContent = '';
+        var totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+        if(state.page >= totalPages){
+            state.page = totalPages - 1;
+        }
         filtered = sortPublicQuizzes(filtered);
         var start = state.page * state.pageSize;
         var pageItems = filtered.slice(start, start + state.pageSize);
@@ -868,6 +872,7 @@ function renderList(){
         var search = document.getElementById('search');
         if(search){
             search.addEventListener('input', function(){
+                state.page = 0;
                 renderList();
             });
         }

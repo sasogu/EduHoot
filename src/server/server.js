@@ -1779,7 +1779,7 @@ app.get('/api/quizzes', async (req, res) => {
     const normalized = normalizeTags(tags);
     const mineOnly = req.query.mine === '1';
     const collection = await getGamesCollection();
-    const baseQuery = normalized.length ? { tags: { $all: normalized } } : {};
+    const baseQuery = normalized.length ? { tags: { $in: normalized } } : {};
     let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
     if (mineOnly && req.user) {
       quizzesRaw = quizzesRaw.filter((q) => {

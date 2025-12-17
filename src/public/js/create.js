@@ -183,6 +183,7 @@ var i18n = {
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
         filterMine: 'Sólo mis cuestionarios',
+        clearFilters: 'Limpiar filtros',
         sortLabel: 'Ordenar por',
         sortNewest: 'Más recientes primero',
         sortOldest: 'Más antiguos primero',
@@ -342,6 +343,7 @@ var i18n = {
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
         filterMine: 'Only my quizzes',
+        clearFilters: 'Clear filters',
         sortLabel: 'Sort by',
         sortNewest: 'Newest first',
         sortOldest: 'Oldest first',
@@ -501,6 +503,7 @@ var i18n = {
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
         filterMine: 'Només els meus qüestionaris',
+        clearFilters: 'Eliminar filtres',
         sortLabel: 'Ordenar per',
         sortNewest: 'Els més recents primer',
         sortOldest: 'Els més antics primer',
@@ -725,6 +728,26 @@ function toggleTagFilter(tag){
     fetchWithFilters();
 }
 
+function clearFilters(){
+    var hasSearch = currentFilters.search && currentFilters.search.trim();
+    if(!currentFilters.tags.length && !currentFilters.mineOnly && !hasSearch){
+        return;
+    }
+    currentFilters.tags = [];
+    currentFilters.mineOnly = false;
+    currentFilters.search = '';
+    var searchInput = document.getElementById('library-search');
+    if(searchInput){
+        searchInput.value = '';
+    }
+    var mineCheckbox = document.getElementById('filter-mine');
+    if(mineCheckbox){
+        mineCheckbox.checked = false;
+    }
+    renderTagSuggestions();
+    fetchWithFilters();
+}
+
 function renderTagSuggestions(){
     var wrap = document.getElementById('tag-suggestions');
     if(!wrap) return;
@@ -773,6 +796,10 @@ if(mineFilter){
         renderTagSuggestions();
         fetchWithFilters();
     });
+}
+var clearFiltersBtn = document.getElementById('clear-filters');
+if(clearFiltersBtn){
+    clearFiltersBtn.addEventListener('click', clearFilters);
 }
 
 var librarySearch = document.getElementById('library-search');
