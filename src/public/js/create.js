@@ -14,7 +14,9 @@ var currentFilters = {
     mineOnly: false,
     search: ''
 };
+var currentSort = 'newest';
 var knownTags = [];
+var currentDisplayedQuizzes = [];
 
 function getTagsFromLibraryData(data){
     var tags = new Set();
@@ -33,6 +35,54 @@ function getTagsFromLibraryData(data){
         });
     }
     return Array.from(tags).filter(Boolean).slice(0, 40);
+}
+function getTagFrequencies(data){
+    var frequencies = {};
+    if(!data) return frequencies;
+    var entries = Array.isArray(data) ? data : Object.values(data);
+    entries.forEach(function(quiz){
+        if(!quiz) return;
+        var tagList = Array.isArray(quiz.tags) ? quiz.tags : [];
+        tagList.forEach(function(raw){
+            var clean = (raw || '').toString().trim();
+            if(!clean) return;
+            frequencies[clean] = (frequencies[clean] || 0) + 1;
+        });
+    });
+    return frequencies;
+}
+function getQuizTimestamp(quiz){
+    if(!quiz) return 0;
+    var raw = quiz.createdAt || quiz.updatedAt || quiz.id;
+    var parsed = Date.parse(raw);
+    if(!isNaN(parsed)) return parsed;
+    return 0;
+}
+function sortLibraryQuizzes(quizzes){
+    if(!quizzes || !quizzes.slice) return quizzes;
+    var sorted = quizzes.slice();
+    if(currentSort === 'newest'){
+        sorted.sort(function(a, b){
+            return getQuizTimestamp(b) - getQuizTimestamp(a);
+        });
+    }else if(currentSort === 'oldest'){
+        sorted.sort(function(a, b){
+            return getQuizTimestamp(a) - getQuizTimestamp(b);
+        });
+    }else if(currentSort === 'alpha-asc'){
+        sorted.sort(function(a, b){
+            var na = (a.name || '').toLowerCase();
+            var nb = (b.name || '').toLowerCase();
+            return na.localeCompare(nb);
+        });
+    }else if(currentSort === 'alpha-desc'){
+        sorted.sort(function(a, b){
+            var na = (a.name || '').toLowerCase();
+            var nb = (b.name || '').toLowerCase();
+            return nb.localeCompare(na);
+        });
+    }
+    return sorted;
 }
 var LIBRARY_PAGE_SIZE = 12;
 var libraryCurrentPage = 1;
@@ -133,6 +183,11 @@ var i18n = {
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
         filterMine: 'Sólo mis cuestionarios',
+        sortLabel: 'Ordenar por',
+        sortNewest: 'Más recientes primero',
+        sortOldest: 'Más antiguos primero',
+        sortAlphaAsc: 'Orden alfabético A-Z',
+        sortAlphaDesc: 'Orden alfabético Z-A',
         playsShort: 'partidas',
         playersShort: 'jugadores',
         paginationPrev: 'Anterior',
@@ -141,6 +196,7 @@ var i18n = {
         play: 'Iniciar cuestionario',
         edit: 'Editar',
         download: 'Descargar CSV',
+        editQuiz: 'Editar cuestionario',
         exportMoodleXml: 'Exportar XML (Moodle)',
         rename: 'Renombrar',
         delete: 'Eliminar',
@@ -285,6 +341,11 @@ var i18n = {
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
         filterMine: 'Only my quizzes',
+        sortLabel: 'Sort by',
+        sortNewest: 'Newest first',
+        sortOldest: 'Oldest first',
+        sortAlphaAsc: 'Alphabetical A-Z',
+        sortAlphaDesc: 'Alphabetical Z-A',
         playsShort: 'plays',
         playersShort: 'players',
         paginationPrev: 'Previous',
@@ -293,6 +354,7 @@ var i18n = {
         play: 'Start quiz',
         edit: 'Edit',
         download: 'Download CSV',
+        editQuiz: 'Edit quiz',
         exportMoodleXml: 'Export Moodle XML',
         rename: 'Rename',
         delete: 'Delete',
@@ -437,6 +499,11 @@ var i18n = {
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
         filterMine: 'Només els meus qüestionaris',
+        sortLabel: 'Ordenar per',
+        sortNewest: 'Els més recents primer',
+        sortOldest: 'Els més antics primer',
+        sortAlphaAsc: 'Alfabètic A-Z',
+        sortAlphaDesc: 'Alfabètic Z-A',
         playsShort: 'partides',
         playersShort: 'jugadors',
         paginationPrev: 'Anterior',
@@ -445,6 +512,7 @@ var i18n = {
         play: 'Iniciar qüestionari',
         edit: 'Editar',
         download: 'Descarregar CSV',
+        editQuiz: 'Editar qüestionari',
         exportMoodleXml: 'Exportar XML (Moodle)',
         rename: 'Reanomenar',
         delete: 'Eliminar',
@@ -658,10 +726,25 @@ function renderTagSuggestions(){
     var wrap = document.getElementById('tag-suggestions');
     if(!wrap) return;
     wrap.innerHTML = '';
-    var tagsToShow = currentFilters.mineOnly ? getTagsFromLibraryData(libraryLatestData) : knownTags;
+    var tagsToShow;
+    var tagSource;
+    if(currentFilters.tags.length){
+        tagSource = currentDisplayedQuizzes;
+        tagsToShow = getTagsFromLibraryData(tagSource);
+    }else if(currentFilters.mineOnly){
+        tagSource = libraryLatestData;
+        tagsToShow = getTagsFromLibraryData(tagSource);
+    }else{
+        tagSource = libraryLatestData;
+        tagsToShow = knownTags;
+    }
     if(!tagsToShow.length){
         return;
     }
+    var freqMap = getTagFrequencies(tagSource);
+    var freqValues = Object.keys(freqMap).map(function(k){ return freqMap[k]; });
+    var maxFreq = freqValues.length ? Math.max.apply(null, freqValues) : 1;
+    var normalizedMax = Math.max(1, maxFreq);
     var label = document.createElement('span');
     label.className = 'label';
     label.textContent = t('suggestedTags');
@@ -671,6 +754,10 @@ function renderTagSuggestions(){
         btn.type = 'button';
         btn.className = 'tag' + (currentFilters.tags.indexOf(tag) !== -1 ? ' active' : '');
         btn.textContent = tag;
+        var tagCount = freqMap[tag] || 0;
+        var normalizedWeight = normalizedMax ? Math.min(1, tagCount / normalizedMax) : 0;
+        btn.style.setProperty('--tag-weight', normalizedWeight);
+        btn.setAttribute('data-weight', normalizedWeight.toFixed(2));
         btn.onclick = function(){ toggleTagFilter(tag); };
         wrap.appendChild(btn);
     });
@@ -690,6 +777,16 @@ if(librarySearch){
     librarySearch.addEventListener('input', function(){
         currentFilters.search = librarySearch.value || '';
         fetchWithFilters();
+    });
+}
+
+var librarySortSelect = document.getElementById('library-sort');
+if(librarySortSelect){
+    librarySortSelect.value = currentSort;
+    librarySortSelect.addEventListener('change', function(){
+        currentSort = librarySortSelect.value;
+        libraryCurrentPage = 1;
+        renderGames(libraryLatestData);
     });
 }
 
@@ -755,6 +852,9 @@ function renderGames(data){
             return matchName || matchTag;
         });
     }
+    currentDisplayedQuizzes = quizzes.slice();
+
+    quizzes = sortLibraryQuizzes(quizzes);
 
     if(count){
         var singular = t('gameSingular');
@@ -830,7 +930,14 @@ function renderGames(data){
         stats.className = 'game-stats';
         var plays = quiz.playsCount || 0;
         var players = quiz.playersCount || 0;
-        stats.textContent = plays + ' ' + t('playsShort') + ' · ' + players + ' ' + t('playersShort');
+        var statPlays = document.createElement('span');
+        statPlays.className = 'game-stats__item';
+        statPlays.textContent = plays + ' ' + t('playsShort');
+        var statPlayers = document.createElement('span');
+        statPlayers.className = 'game-stats__item';
+        statPlayers.textContent = players + ' ' + t('playersShort');
+        stats.appendChild(statPlays);
+        stats.appendChild(statPlayers);
 
         var canEdit = false;
         if(authState.user){
@@ -1989,7 +2096,15 @@ if(kahootForm){
                 var btn = document.createElement('button');
                 btn.textContent = t('play');
                 btn.onclick = function(){ startGame(body.id); };
+                btn.className = 'btn btn-primary btn-small';
                 kahootStatus.appendChild(btn);
+                if(body.id){
+                    var editBtn = document.createElement('button');
+                    editBtn.textContent = t('editQuiz');
+                    editBtn.className = 'btn btn-ghost btn-small';
+                    editBtn.onclick = function(){ window.location.href = '/create/quiz-creator/?id=' + body.id; };
+                    kahootStatus.appendChild(editBtn);
+                }
             }
             if(submitBtn) submitBtn.disabled = false;
             if(body.id){

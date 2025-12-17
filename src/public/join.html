@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Join | EduHoot</title>
+        <link rel = "stylesheet" href = "css/index.css">
+        <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
+        <link rel="manifest" href="manifest.webmanifest">
+        <link rel="icon" href="/icons/logo.svg" type="image/svg+xml">
+        <meta name="theme-color" content="#6c2bd9">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <div id="lang-switcher">
+            <button type="button" data-lang="es" onclick="window.i18nPlayer && window.i18nPlayer.setLang('es')">ES</button>
+            <button type="button" data-lang="ca" onclick="window.i18nPlayer && window.i18nPlayer.setLang('ca')">CA</button>
+            <button type="button" data-lang="en" onclick="window.i18nPlayer && window.i18nPlayer.setLang('en')">EN</button>
+        </div>
+        <div id="pinModal" class="pin-modal" role="dialog" aria-modal="true">
+            <div class="pin-modal__card">
+                <h2 data-i18n="join_pin_prompt">Ingresa el PIN del juego</h2>
+                <p data-i18n="join_pin_blocked">Necesitas un PIN válido para continuar.</p>
+                <form id="pinModalForm" class="pin-modal__form">
+                    <label for="pinModalInput" data-i18n="join_pin">PIN de la partida</label>
+                    <div class="pin-modal__controls">
+                        <input id="pinModalInput" type="number" inputmode="numeric" placeholder="12345" autofocus>
+                    </div>
+                    <button id="pinModalSubmit" class="pin-modal__submit" type="submit" data-i18n="join_continue">Continuar</button>
+                    <p id="pinModalError" class="pin-modal__error" aria-live="assertive"></p>
+                </form>
+            </div>
+        </div>
+        <img id="join-logo" src="/icons/logo.svg" alt="EduHoot logo">
+        <h1 id="title">EduHoot</h1>
+        <div id="pin-display" class="pin-display hidden">
+            <span class="pin-display__label">PIN</span>
+            <span id="pin-display-value" class="pin-display__value"></span>
+        </div>
+        <form action="/player/">
+                <input type="hidden" id="pin" name="pin"/>
+                <div class="form-field">
+                    <label id="label" data-i18n="join_icon">Icono</label>
+                    <input type="hidden" id="icon" name="icon">
+                    <div id="icon-picker">
+                        <button type="button" data-icon="🦊">🦊</button>
+                        <button type="button" data-icon="🐱">🐱</button>
+                        <button type="button" data-icon="🐶">🐶</button>
+                        <button type="button" data-icon="🐼">🐼</button>
+                        <button type="button" data-icon="🐧">🐧</button>
+                        <button type="button" data-icon="🐸">🐸</button>
+                        <button type="button" data-icon="🦉">🦉</button>
+                        <button type="button" data-icon="🦄">🦄</button>
+                        <button type="button" data-icon="🐰">🐰</button>
+                        <button type="button" data-icon="🐢">🐢</button>
+                        <button type="button" data-icon="🐙">🐙</button>
+                        <button type="button" data-icon="🦁">🦁</button>
+                        <button type="button" data-icon="🐨">🐨</button>
+                        <button type="button" data-icon="🐝">🐝</button>
+                        <button type="button" data-icon="🐯">🐯</button>
+                        <button type="button" data-icon="🐸">🐸</button>
+                        <button type="button" data-icon="🐻">🐻</button>
+                        <button type="button" data-icon="🦕">🦕</button>
+                        <button type="button" data-icon="🦖">🦖</button>
+                        <button type="button" data-icon="🐉">🐉</button>
+                        <button type="button" data-icon="🚀">🚀</button>
+                        <button type="button" data-icon="🌈">🌈</button>
+                        <button type="button" data-icon="⚽️">⚽️</button>
+                        <button type="button" data-icon="🏀">🏀</button>
+                        <button type="button" data-icon="🏆">🏆</button>
+                        <button type="button" data-icon="🎮">🎮</button>
+                        <button type="button" data-icon="🎧">🎧</button>
+                        <button type="button" data-icon="📚">📚</button>
+                        <button type="button" data-icon="🎨">🎨</button>
+                    </div>
+                    <div id="icon-preview"></div>
+                </div>
+                <div class="form-field">
+                    <label id = "label" data-i18n="join_name">Display Name</label>
+                    <input id = "name" class="name-three" type = "text" name="name" autocomplete="name" maxlength="3" pattern="[A-Za-z0-9]{1,3}" />
+                </div>
+                <input type="hidden" id="token" name="token">
+                <div class="form-field">
+                    <button id = "joinButton" data-i18n="join_button" disabled>Join</button>
+                </div>
+                <div id="install-card" class="install-card hidden" aria-live="polite">
+                    <div>
+                        <p data-i18n="install_title">Instala EduHoot como app</p>
+                        <small data-i18n="install_subtitle">Acceso directo y pantalla completa desde tu dispositivo.</small>
+                    </div>
+                    <div class="install-card__actions">
+                        <button type="button" id="installNow" class="install-card__btn" data-i18n="install_now">Instalar</button>
+                        <button type="button" id="installSkip" class="install-card__link" data-i18n="install_skip">Ahora no</button>
+                    </div>
+                </div>
+        </form>
+        <footer class="site-footer">
+            <a class="site-footer__link" href="https://edutictac.es" target="_blank" rel="noopener">
+                <img class="site-footer__logo" src="/icons/logoedutictac.jpeg" alt="EduTicTac">
+                <span>edutictac.es</span>
+            </a>
+        </footer>
+        <script src="js/i18n-player.js"></script>
+        <script src="js/join.js"></script>
+    </body>
+</html>

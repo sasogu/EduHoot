@@ -262,6 +262,15 @@
                 </div>
                 <div class="filter-bar extra-gap">
                     <input id="library-search" type="search" placeholder="Buscar por nombre o etiqueta">
+                    <div class="sort-control">
+                        <label for="library-sort" data-i18n="sortLabel">Ordenar por</label>
+                        <select id="library-sort">
+                            <option value="newest" data-i18n="sortNewest">Más recientes primero</option>
+                            <option value="oldest" data-i18n="sortOldest">Más antiguos primero</option>
+                            <option value="alpha-asc" data-i18n="sortAlphaAsc">Orden alfabético A-Z</option>
+                            <option value="alpha-desc" data-i18n="sortAlphaDesc">Orden alfabético Z-A</option>
+                        </select>
+                    </div>
                 </div>
                 <div id="filter-bar" class="filter-bar">
                     <div class="pill pill-muted" id="filter-info" data-i18n="noFilters">Sin filtros</div>
@@ -286,6 +295,12 @@
             </div>
         </div>
         
+        <footer class="site-footer">
+            <a class="site-footer__link" href="https://edutictac.es" target="_blank" rel="noopener">
+                <img class="site-footer__logo" src="/icons/logoedutictac.jpeg" alt="EduTicTac">
+                <span>edutictac.es</span>
+            </a>
+        </footer>
         <script src = "../socket.io/socket.io.js"></script>
         <script src = "../js/create.js"></script>
     </body>

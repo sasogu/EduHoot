@@ -1,8 +1,9 @@
 const CACHE_NAME = 'eduh-pwa-v2';
 const ASSETS = [
   '/',
-  '/index.html',
+  '/join.html',
   '/css/index.css',
+  '/css/landing.css',
   '/js/join.js',
   '/js/i18n-player.js',
   '/manifest.webmanifest',
@@ -49,7 +50,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         } catch (err) {
           const cached = await caches.match(request);
-          return cached || caches.match('/index.html');
+          return cached || caches.match('/');
         }
       })()
     );

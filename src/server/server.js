@@ -1791,7 +1791,7 @@ app.get('/api/quizzes', async (req, res) => {
     const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
       id: quiz.id,
       name: quiz.name,
-    tags: quiz.tags || [],
+      tags: quiz.tags || [],
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
       visibility: currentVisibility(quiz),
@@ -1799,7 +1799,8 @@ app.get('/api/quizzes', async (req, res) => {
       ownerId: quiz.ownerId,
       ownerEmail: quiz.ownerEmail || '',
       ownerNickname: quiz.ownerNickname || '',
-      sourceQuizId: quiz.sourceQuizId
+      sourceQuizId: quiz.sourceQuizId,
+      createdAt: quiz.createdAt || quiz.updatedAt || new Date(0)
     }));
     // Añadir quizzes efímeros solicitados
     const localIdsParam = req.query.localIds;
@@ -1812,18 +1813,19 @@ app.get('/api/quizzes', async (req, res) => {
       const q = getEphemeralQuiz(id);
       if (q && (!q.expires || q.expires >= now)) {
         validLocal.push({
-          id: q.id,
-          name: q.name,
-          tags: q.tags || [],
-          playsCount: 0,
-          playersCount: 0,
-          visibility: currentVisibility(q),
-          allowClone: normalizeAllowClone(q.allowClone),
-          ownerId: null,
-          ownerEmail: '',
-          ownerNickname: '',
-          sourceQuizId: q.sourceQuizId
-        });
+        id: q.id,
+        name: q.name,
+        tags: q.tags || [],
+        playsCount: 0,
+        playersCount: 0,
+        visibility: currentVisibility(q),
+        allowClone: normalizeAllowClone(q.allowClone),
+        ownerId: null,
+        ownerEmail: '',
+        ownerNickname: '',
+        sourceQuizId: q.sourceQuizId,
+        createdAt: q.createdAt || q.updatedAt || new Date()
+      });
       }
     });
     return res.json(quizzes.concat(validLocal));
@@ -1921,6 +1923,11 @@ app.post('/api/quizzes/:id/solo-run', async (req, res) => {
     });
     const top = await getTopSoloScores(quizKey, 10);
     const position = top.findIndex((r) => r.playerName === playerName && r.score === score);
+    try{
+      await incrementQuizStats(quiz.id, 1);
+    }catch(e){
+      console.error('solo-run stat increment failed', e);
+    }
     return res.json({ ok: true, top, position });
   } catch (err) {
     console.error('solo-run error', err);

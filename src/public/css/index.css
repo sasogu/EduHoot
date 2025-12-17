@@ -29,7 +29,6 @@ body{
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     padding: 18px;
     color: var(--text-main);
     font-family: 'Inter', 'Poppins', sans-serif;
@@ -44,6 +43,13 @@ form{
     padding: 22px;
     box-shadow: var(--shadow);
     backdrop-filter: blur(12px);
+}
+
+#join-logo{
+    display: block;
+    margin: 0 auto 14px;
+    width: 96px;
+    height: 96px;
 }
 
 #title{
@@ -347,4 +353,28 @@ body.modal-open{
     padding: 0 6px;
     cursor: pointer;
     text-decoration: underline;
+}
+
+.site-footer{
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.site-footer__link{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(233,238,251,0.65);
+    font-size: 0.85rem;
+}
+
+.site-footer__logo{
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 1px solid rgba(233,238,251,0.35);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }

@@ -1,6 +1,6 @@
 // Modo individual: listado de quizzes públicos + juego auto-dirigido con ranking global
 (function(){
-    var state = {
+var state = {
         quizzes: [],
         currentQuiz: null,
         quizData: null,
@@ -17,9 +17,21 @@
         playerName: 'Anónimo',
         awaitingConfirm: false,
         lastWrong: null
-    };
+};
 
-    var browserLang = (navigator.language || 'es').slice(0,2);
+function sortPublicQuizzes(list){
+    if(!Array.isArray(list)) return list;
+    return list.slice().sort(function(a, b){
+        var pa = a && typeof a.playsCount === 'number' ? a.playsCount : 0;
+        var pb = b && typeof b.playsCount === 'number' ? b.playsCount : 0;
+        if(pa === pb){
+            return Math.random() - 0.5;
+        }
+        return pb - pa;
+    });
+}
+
+var browserLang = (navigator.language || 'es').slice(0,2);
     var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 
     var i18n = {
@@ -33,6 +45,8 @@
             publicListTitle: 'Juegos públicos',
             publicListDesc: 'Solo se muestran quizzes públicos. Pulsa “Jugar en solitario” para arrancar.',
             searchPlaceholder: 'Buscar por nombre o etiqueta',
+            playsShort: 'partidas',
+            playersShort: 'jugadores',
             soloEyebrow: 'Modo individual',
             soloTitle: 'Elige un juego para empezar',
             nameLabel: 'Tu nombre (opcional)',
@@ -79,6 +93,8 @@
             publicListTitle: 'Public games',
             publicListDesc: 'Only public quizzes are listed. Hit “Play solo” to start.',
             searchPlaceholder: 'Search by name or tag',
+            playsShort: 'plays',
+            playersShort: 'players',
             soloEyebrow: 'Solo mode',
             soloTitle: 'Pick a game to start',
             nameLabel: 'Your name (optional)',
@@ -126,6 +142,8 @@
             publicListTitle: 'Jocs públics',
             publicListDesc: 'Només es mostren quizzes públics. Prem “Jugar en solitari” per començar.',
             searchPlaceholder: 'Cerca per nom o etiqueta',
+            playsShort: 'partides',
+            playersShort: 'jugadors',
             soloEyebrow: 'Mode individual',
             soloTitle: 'Tria un joc per començar',
             nameLabel: 'El teu nom (opcional)',
@@ -282,8 +300,8 @@
             });
     }
 
-    function renderList(){
-        var list = document.getElementById('public-list');
+function renderList(){
+    var list = document.getElementById('public-list');
         var empty = document.getElementById('public-empty');
         if(!list) return;
         list.innerHTML = '';
@@ -293,13 +311,14 @@
             var haystack = (q.name || '') + ' ' + (Array.isArray(q.tags) ? q.tags.join(' ') : '');
             return haystack.toLowerCase().includes(searchVal);
         });
-        var start = state.page * state.pageSize;
-        var pageItems = filtered.slice(start, start + state.pageSize);
         if(filtered.length === 0){
             if(empty) empty.textContent = t('publicEmpty');
             return;
         }
         if(empty) empty.textContent = '';
+        filtered = sortPublicQuizzes(filtered);
+        var start = state.page * state.pageSize;
+        var pageItems = filtered.slice(start, start + state.pageSize);
         pageItems.forEach(function(q){
             var card = document.createElement('div');
             card.className = 'card';
@@ -357,6 +376,11 @@
                     tagsWrap.appendChild(el);
                 });
             }
+            var stats = document.createElement('div');
+            stats.className = 'card-stats';
+            var plays = q.playsCount || 0;
+            var players = q.playersCount || 0;
+            stats.textContent = plays + ' ' + t('playsShort') + ' · ' + players + ' ' + t('playersShort');
             var btn = document.createElement('button');
             btn.className = 'btn btn-primary';
             btn.textContent = t('playCta');
@@ -364,6 +388,7 @@
             card.appendChild(title);
             card.appendChild(meta);
             card.appendChild(tagsWrap);
+            card.appendChild(stats);
             card.appendChild(btn);
             list.appendChild(card);
         });
@@ -483,7 +508,10 @@
         var time = (typeof q.time === 'number' && q.time > 0) ? q.time : 20;
         startTimer(time);
         var feedback = document.getElementById('feedback');
-        if(feedback) feedback.textContent = '';
+        if(feedback){
+            feedback.textContent = '';
+            feedback.classList.remove('feedback--success', 'feedback--error', 'feedback--muted');
+        }
     }
 
     function parseYouTubeId(url){
@@ -620,10 +648,16 @@
         }
         if(feedback){
             if(timedOut){
+                feedback.classList.remove('feedback--success', 'feedback--error');
+                feedback.classList.add('feedback--muted');
                 feedback.textContent = t('timeup');
             }else if(isCorrect){
+                feedback.classList.remove('feedback--muted', 'feedback--error');
+                feedback.classList.add('feedback--success');
                 feedback.textContent = t('correctText');
             }else{
+                feedback.classList.remove('feedback--muted', 'feedback--success');
+                feedback.classList.add('feedback--error');
                 var correctAnswerText = '';
                 if(Array.isArray(q.answers)){
                     var correctIdx = parseInt(q.correct, 10) - 1;
@@ -731,11 +765,11 @@
             ranking.classList.remove('hidden');
             return;
         }
-        list.slice(0, 10).forEach(function(row, idx){
+        list.slice(0, 10).forEach(function(row){
             var li = document.createElement('li');
             var name = row.playerName || t('namePlaceholder');
             var score = row.score || 0;
-            li.textContent = (idx + 1) + '. ' + name + ' — ' + score + ' ' + t('scoreLabel');
+            li.textContent = name + ' — ' + score + ' ' + t('scoreLabel');
             rankingList.appendChild(li);
         });
         ranking.classList.remove('hidden');

@@ -32,7 +32,13 @@
       name: 'Nombre:',
       game_over: 'PARTIDA TERMINADA',
       rank_top: 'Top 10 - Puesto',
-      rank_out: 'Fuera del Top 10'
+      rank_out: 'Fuera del Top 10',
+      landing_title: 'EduHoot',
+      landing_tagline: 'Juega desde el aula o en solitario.',
+      landing_play_multi: 'Jugar con más personas',
+      landing_play_solo: 'Jugar solo',
+      landing_langLabel: 'Idioma',
+      landing_prof_access: 'Acceso profesorado'
     },
     ca: {
       join_title: 'Uneix-te a una partida',
@@ -65,7 +71,13 @@
       name: 'Nom:',
       game_over: 'PARTIDA ACABADA',
       rank_top: 'Top 10 - Posició',
-      rank_out: 'Fora del Top 10'
+      rank_out: 'Fora del Top 10',
+      landing_title: 'EduHoot',
+      landing_tagline: 'Juga des de l\'aula o en solitari.',
+      landing_play_multi: 'Jugar amb més persones',
+      landing_play_solo: 'Jugar sol',
+      landing_langLabel: 'Idioma',
+      landing_prof_access: 'Accés professorat'
     },
     en: {
       join_title: 'Join a Game',
@@ -98,7 +110,13 @@
       name: 'Name:',
       game_over: 'GAME OVER',
       rank_top: 'Top 10 - Rank',
-      rank_out: 'Outside Top 10'
+      rank_out: 'Outside Top 10',
+      landing_title: 'EduHoot',
+      landing_tagline: 'Play from the classroom or on your own.',
+      landing_play_multi: 'Play with others',
+      landing_play_solo: 'Play solo',
+      landing_langLabel: 'Language',
+      landing_prof_access: 'Teacher access'
     }
   };
 
