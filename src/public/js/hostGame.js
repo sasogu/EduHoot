@@ -26,6 +26,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 var hostMusicPlayerInstance = null;
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
+var hostAutoMusicEnabled = false;
 var hostQuestionEnded = false;
 var hostRankingGongPlayed = false;
 var hostResumeMusicAfterRanking = false;
@@ -222,6 +223,7 @@ function maybeAutoplayHostMusicFromLobby(){
     try{
         if(sessionStorage.getItem(HOST_AUTOPLAY_MUSIC_KEY) === '1'){
             sessionStorage.removeItem(HOST_AUTOPLAY_MUSIC_KEY);
+            hostAutoMusicEnabled = true;
             ensureHostMusicPlaying();
         }
     }catch(e){}
@@ -249,6 +251,14 @@ socket.on('gameQuestions', function(data){
     hostQuestionEnded = false;
     hostRankingGongPlayed = false;
     closeRankingModal();
+
+    // Si venimos de "Iniciar partida" intentamos que suene música en cada pregunta.
+    // También reanudamos si la pausamos automáticamente al mostrar el ranking.
+    if(hostAutoMusicEnabled && (hostResumeMusicAfterRanking || !isHostMusicPlaying())){
+        hostResumeMusicAfterRanking = false;
+        ensureHostMusicPlaying();
+    }
+
     document.getElementById('question').innerHTML = data.q1;
     document.getElementById('answer1').innerHTML = data.a1;
     document.getElementById('answer2').innerHTML = data.a2;
