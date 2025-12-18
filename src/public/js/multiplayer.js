@@ -29,7 +29,7 @@
   var GONG_VOLUME_BOOST = 1.25;
 
   var roundRankingOpen = false;
-  var roundRankingDelayMs = 650;
+  var roundRankingDelayMs = 1100;
 
   var browserLang = (navigator.language || 'es').slice(0, 2);
   var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
@@ -344,7 +344,7 @@
     });
     sorted.forEach(function(p, idx){
       var li = document.createElement('li');
-      li.textContent = (idx + 1) + '. ' + p.name + ' — ' + ((p && p.score) || 0);
+      li.textContent = p.name + ' — ' + ((p && p.score) || 0);
       list.appendChild(li);
     });
   }
@@ -1235,7 +1235,7 @@
       var sorted = state.players.slice().sort(function(a, b){ return (b.score || 0) - (a.score || 0); });
       sorted.forEach(function(p, idx){
         var li = document.createElement('li');
-        li.textContent = (idx + 1) + '. ' + p.name + ' — ' + (p.score || 0);
+        li.textContent = p.name + ' — ' + (p.score || 0);
         list.appendChild(li);
       });
     }

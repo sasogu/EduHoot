@@ -1,18 +1,80 @@
-const CACHE_NAME = 'eduh-pwa-v0.2.1';
+const CACHE_NAME = 'eduh-pwa-v0.2.4';
+
+// App shell: recursos críticos para que la app cargue incluso sin red.
+// El resto de recursos se cachean en runtime con stale-while-revalidate.
+// Nota: evitamos precachear multimedia (música/efectos) para no inflar la instalación.
 const ASSETS = [
   '/',
+  '/index.html',
   '/join.html',
+  '/multiplayer/',
+  '/multiplayer/index.html',
+  '/solo/',
+  '/solo/index.html',
+  '/player/',
+  '/player/index.html',
+  '/player/game/',
+  '/player/game/index.html',
+  '/host/',
+  '/host/index.html',
+  '/host/game/',
+  '/host/game/index.html',
+  '/create/',
+  '/create/index.html',
+  '/create/quiz-creator/',
+  '/create/quiz-creator/index.html',
+  '/create/editor_ia.html',
+  '/admin-stats.html',
+
   '/css/index.css',
   '/css/landing.css',
-  '/js/join.js',
+  '/css/solo.css',
+  '/css/multiplayer.css',
+  '/css/music-player.css',
+  '/css/host.css',
+  '/css/lobby.css',
+  '/css/playerGameView.css',
+  '/css/hostGameView.css',
+  '/css/create.css',
+  '/css/quizCreator.css',
+  '/css/admin.css',
+
   '/js/i18n-player.js',
+  '/js/i18n-host.js',
+  '/js/join.js',
+  '/js/solo.js',
+  '/js/multiplayer.js',
+  '/js/music-player.js',
+  '/js/playerGame.js',
+  '/js/host.js',
+  '/js/hostGame.js',
+  '/js/create.js',
+  '/js/quizCreator.js',
+  '/js/lobby.js',
+  '/js/admin-stats.js',
+
   '/manifest.webmanifest',
   '/icons/logo.svg'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await Promise.allSettled(
+        ASSETS.map(async (url) => {
+          try {
+            const response = await fetch(url, { cache: 'reload' });
+            if (response && response.ok) {
+              await cache.put(url, response.clone());
+            }
+          } catch (_) {
+            // Si un asset falla, no bloqueamos la instalación del SW.
+          }
+        })
+      );
+      await self.skipWaiting();
+    })()
   );
 });
 
