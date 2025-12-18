@@ -721,13 +721,13 @@ function fetchWithFilters(){
         .then(function(res){ return res.json(); })
         .then(function(data){
             libraryLatestData = data || [];
-            renderTagSuggestions();
             renderGames(libraryLatestData);
+            renderTagSuggestions();
         })
         .catch(function(){
             libraryLatestData = [];
-            renderTagSuggestions();
             renderGames([]);
+            renderTagSuggestions();
         });
 }
 
@@ -738,7 +738,6 @@ function toggleTagFilter(tag){
     }else{
         currentFilters.tags.splice(idx, 1);
     }
-    renderTagSuggestions();
     fetchWithFilters();
 }
 
@@ -750,7 +749,7 @@ function clearFilters(){
     currentFilters.tags = [];
     currentFilters.mineOnly = false;
     currentFilters.search = '';
-    currentFilters.tagMode = 'any';
+    currentFilters.tagMode = 'all';
     var searchInput = document.getElementById('library-search');
     if(searchInput){
         searchInput.value = '';
@@ -759,7 +758,6 @@ function clearFilters(){
     if(mineCheckbox){
         mineCheckbox.checked = false;
     }
-    renderTagSuggestions();
     fetchWithFilters();
 }
 
@@ -832,7 +830,6 @@ var mineFilter = document.getElementById('filter-mine');
 if(mineFilter){
     mineFilter.addEventListener('change', function(){
         currentFilters.mineOnly = mineFilter.checked;
-        renderTagSuggestions();
         fetchWithFilters();
     });
 }
@@ -2118,6 +2115,7 @@ if(langSelector){
     });
 }
 applyStaticTranslations();
+renderTagModeToggle();
 
 function reconnectSocket(){
     try{

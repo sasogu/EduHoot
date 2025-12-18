@@ -24,6 +24,8 @@ var time = 20;
 var defaultTime = 20;
 var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
+var hostMusicPlayerInstance = null;
+var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
 var i18n = {
     es: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -34,7 +36,14 @@ var i18n = {
         showRanking: 'Mostrar Top 10',
         rankingTitle: 'Top 10',
         topPlayers: 'Top 5 jugadores',
-        gameOver: 'FIN DE LA PARTIDA'
+        gameOver: 'FIN DE LA PARTIDA',
+        bgMusicTitle: 'Música de fondo',
+        bgMusicChoose: 'Elige un tema',
+        bgMusicPlay: 'Reproducir música',
+        bgMusicPause: 'Pausar música',
+        bgMusicPrev: 'Anterior',
+        bgMusicNext: 'Siguiente',
+        bgMusicVolume: 'Volumen'
     },
     en: {
         questionXofY: function(n, t){ return 'Question ' + n + ' / ' + t; },
@@ -45,7 +54,14 @@ var i18n = {
         showRanking: 'Show Top 10',
         rankingTitle: 'Top 10',
         topPlayers: 'Top 5 Players',
-        gameOver: 'GAME OVER'
+        gameOver: 'GAME OVER',
+        bgMusicTitle: 'Background music',
+        bgMusicChoose: 'Choose a track',
+        bgMusicPlay: 'Play music',
+        bgMusicPause: 'Pause music',
+        bgMusicPrev: 'Prev',
+        bgMusicNext: 'Next',
+        bgMusicVolume: 'Volume'
     },
     ca: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -56,12 +72,32 @@ var i18n = {
         showRanking: 'Mostrar Top 10',
         rankingTitle: 'Top 10',
         topPlayers: 'Top 5 jugadors',
-        gameOver: 'FI DE LA PARTIDA'
+        gameOver: 'FI DE LA PARTIDA',
+        bgMusicTitle: 'Música de fons',
+        bgMusicChoose: 'Tria un tema',
+        bgMusicPlay: 'Reprodueix música',
+        bgMusicPause: 'Atura la música',
+        bgMusicPrev: 'Anterior',
+        bgMusicNext: 'Següent',
+        bgMusicVolume: 'Volum'
     }
 };
 
 function t(key){
     return (i18n[lang] && i18n[lang][key]) || i18n.es[key];
+}
+
+function updateHostMusicLabels(){
+    if(!hostMusicPlayerInstance || typeof hostMusicPlayerInstance.updateLabels !== 'function') return;
+    hostMusicPlayerInstance.updateLabels({
+        title: t('bgMusicTitle'),
+        choose: t('bgMusicChoose'),
+        play: t('bgMusicPlay'),
+        pause: t('bgMusicPause'),
+        prev: t('bgMusicPrev'),
+        next: t('bgMusicNext'),
+        volume: t('bgMusicVolume')
+    });
 }
 
 function applyStaticText(){
@@ -89,6 +125,38 @@ function setLang(newLang){
     lang = newLang;
     localStorage.setItem('lang', lang);
     applyStaticText();
+    updateHostMusicLabels();
+}
+
+function initHostMusicPlayer(){
+    if(typeof initBackgroundMusic !== 'function') return;
+    hostMusicPlayerInstance = initBackgroundMusic('#host-music-player', {
+        storageKey: 'eduhoot-host-music',
+        randomStart: true,
+        volume: 0.7
+    });
+    updateHostMusicLabels();
+}
+
+function ensureHostMusicPlaying(){
+    if(!hostMusicPlayerInstance) return;
+    if(typeof hostMusicPlayerInstance.play === 'function'){
+        hostMusicPlayerInstance.play();
+        return;
+    }
+    if(!hostMusicPlayerInstance.audio) return;
+    var audio = hostMusicPlayerInstance.audio;
+    if(!audio.paused) return;
+    audio.play().catch(function(){});
+}
+
+function maybeAutoplayHostMusicFromLobby(){
+    try{
+        if(sessionStorage.getItem(HOST_AUTOPLAY_MUSIC_KEY) === '1'){
+            sessionStorage.removeItem(HOST_AUTOPLAY_MUSIC_KEY);
+            ensureHostMusicPlaying();
+        }
+    }catch(e){}
 }
 
 //When host connects to server
@@ -424,3 +492,10 @@ if(langSelectEl){
         setLang(langSelectEl.value);
     });
 }
+initHostMusicPlayer();
+maybeAutoplayHostMusicFromLobby();
+
+// Fallback: primer gesto del usuario en la vista de juego
+document.addEventListener('pointerdown', function(){
+    ensureHostMusicPlaying();
+}, { once: true, passive: true });

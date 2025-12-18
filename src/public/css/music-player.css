@@ -1,0 +1,105 @@
+.music-player-shell{
+    width: 100%;
+}
+.music-section{
+    width: 100%;
+    max-width: 1080px;
+    margin: 12px auto 22px;
+}
+.hero-music{
+    margin-top: 16px;
+}
+.host-music-player{
+    margin: 12px 0;
+}
+.music-player{
+    background: rgba(5,8,20,0.65);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 18px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #ecf2ff;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.24);
+}
+.music-player__header{
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    font-weight: 700;
+}
+.music-player__label{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #cbd5e1;
+}
+.music-player__label-text{
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8fb0d9;
+}
+.music-player__select{
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.26);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+}
+.music-player__controls{
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+.music-player__toggle{
+    border: none;
+    border-radius: 12px;
+    padding: 8px 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: linear-gradient(135deg, rgba(59,130,246,0.9), rgba(14,165,233,0.9));
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(15,23,42,0.45);
+    cursor: pointer;
+}
+.music-player__nav{
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: rgba(255,255,255,0.10);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(15,23,42,0.28);
+}
+.music-player__nav:hover{
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+}
+.music-player__toggle:hover{
+    transform: translateY(-1px);
+}
+.music-player__volume{
+    width: 140px;
+}
+@media (max-width: 960px){
+    .music-player__controls{
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .music-player__volume{
+        width: 100%;
+    }
+}

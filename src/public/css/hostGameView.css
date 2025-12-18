@@ -247,15 +247,35 @@ h3[id^="answer"]{
 }
 .modal-content{
     background: rgba(10,18,46,0.85);
-    margin: 8% auto;
-    padding: 20px;
+    margin: 5vh auto;
+    padding: 26px 24px;
     border: 1px solid var(--card-stroke);
     width: 90%;
-    max-width: 460px;
+    max-width: 860px;
+    max-height: 85vh;
+    overflow: auto;
     border-radius: 14px;
     text-align: center;
     color: var(--text-main);
     box-shadow: var(--shadow);
+}
+
+#rankingTitle{
+    margin: 0 0 10px;
+    font-size: 34px;
+    letter-spacing: -0.01em;
+}
+
+#rankingList{
+    margin: 0 auto;
+    padding-left: 26px;
+    max-width: 720px;
+}
+
+#rankingList li{
+    font-size: 28px;
+    line-height: 1.35;
+    padding: 8px 0;
 }
 .close{
     float: right;
@@ -276,6 +296,8 @@ h3[id^="answer"]{
     #questionImage, #questionVideo{ max-width: 100%; }
     #questionIframe{ width: 100%; max-width: 100%; height: 220px; }
     h3[id^="answer"]{ padding: 14px 12px; margin: 8px auto; }
-    #rankingList li{ font-size: 18px; }
-    .modal-content{ margin: 14% auto; padding: 16px; }
+    #rankingTitle{ font-size: 24px; }
+    #rankingList{ padding-left: 20px; }
+    #rankingList li{ font-size: 20px; padding: 6px 0; }
+    .modal-content{ margin: 10vh auto; padding: 18px 14px; max-height: 80vh; }
 }

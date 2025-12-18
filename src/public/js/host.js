@@ -12,6 +12,8 @@ var hostError = document.getElementById('host-error');
 var pinLoaded = false;
 var hostErrorTimeout = null;
 
+var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
+
 function buildJoinUrl(pin){
     if(pin){
         return baseJoinUrl + '?pin=' + encodeURIComponent(pin);
@@ -57,6 +59,7 @@ function syncLangStorage(val){
 
 function resumeLast(){
     try{
+        try{ sessionStorage.setItem(HOST_AUTOPLAY_MUSIC_KEY, '1'); }catch(e){}
         var saved = localStorage.getItem(lastHostKey);
         var pin = localStorage.getItem(lastPinKey);
         if(saved || pin){
@@ -150,6 +153,7 @@ socket.on('updatePlayerLobby', function(data){
 
 //Tell server to start game if button is clicked
 function startGame(){
+    try{ sessionStorage.setItem(HOST_AUTOPLAY_MUSIC_KEY, '1'); }catch(e){}
     var opts = {
         randomQuestions: document.getElementById('opt-rand-q') ? document.getElementById('opt-rand-q').checked : true,
         randomAnswers: document.getElementById('opt-rand-a') ? document.getElementById('opt-rand-a').checked : true,

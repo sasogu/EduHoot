@@ -3,6 +3,7 @@
     <head>
         <title>Modo individual | EduHoot</title>
         <link rel="stylesheet" href="../css/solo.css">
+        <link rel="stylesheet" href="../css/music-player.css">
         <link href="https://fonts.googleapis.com/css?family=Raleway:400,600,700" rel="stylesheet">
         <link rel="icon" href="/icons/logo.svg" type="image/svg+xml">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -85,14 +86,26 @@
                 </div>
             </section>
         </main>
-
         <div id="public-pagination" class="pagination hidden"></div>
+
+        <div class="music-section bottom-music">
+            <div id="solo-music-player" class="music-player-shell"></div>
+        </div>
 
         <div id="feedback-modal" class="solo-modal">
             <div class="solo-modal__content">
                 <h3 id="feedback-title"></h3>
                 <p id="feedback-body"></p>
                 <button id="feedback-close" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+
+        <div id="ranking-modal" class="solo-modal">
+            <div class="solo-modal__content ranking-modal__content">
+                <h3 id="ranking-modal-title" data-i18n="rankingTitle">Top 10 global</h3>
+                <p class="muted" data-i18n="rankingHint">Solo se muestra al finalizar la partida.</p>
+                <ol id="ranking-modal-list" class="ranking-list"></ol>
+                <button id="ranking-modal-close" class="btn btn-ghost" data-i18n="rankingClose">Cerrar</button>
             </div>
         </div>
 
@@ -117,6 +130,7 @@
             </div>
         </footer>
 
+        <script src="../js/music-player.js"></script>
         <script src="../js/solo.js"></script>
     </body>
 </html>

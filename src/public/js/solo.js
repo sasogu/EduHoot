@@ -18,6 +18,9 @@ var state = {
         awaitingConfirm: false,
         lastWrong: null
 };
+var soloMusicPlayerInstance = null;
+var SOLO_MUSIC_STORAGE_KEY = 'eduhoot-solo-music';
+var SOLO_MUSIC_STORAGE_KEY_LEGACY = 'eduhook-solo-music';
 
 function sortPublicQuizzes(list){
     if(!Array.isArray(list)) return list;
@@ -82,6 +85,16 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             selectedMeta: 'Preguntas: {count} · Etiquetas: {tags}',
             topName: 'Nombre',
         topScore: 'Puntos',
+        bgMusicTitle: 'Música de fondo',
+        bgMusicChoose: 'Elige un tema',
+        bgMusicPlay: 'Reproducir música',
+        bgMusicPause: 'Pausar música',
+            bgMusicPrev: 'Anterior',
+            bgMusicNext: 'Siguiente',
+        bgMusicVolume: 'Volumen',
+        viewRanking: 'Ver ranking',
+        rankingClose: 'Cerrar ranking',
+        rankingEmpty: 'Aún no hay puntuaciones.',
         footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
         en: {
@@ -132,6 +145,16 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             selectedMeta: 'Questions: {count} · Tags: {tags}',
             topName: 'Name',
             topScore: 'Score',
+            bgMusicTitle: 'Background music',
+            bgMusicChoose: 'Choose a track',
+            bgMusicPlay: 'Play music',
+            bgMusicPause: 'Pause music',
+            bgMusicPrev: 'Prev',
+            bgMusicNext: 'Next',
+            bgMusicVolume: 'Volume',
+            viewRanking: 'View ranking',
+            rankingClose: 'Close ranking',
+            rankingEmpty: 'No rankings yet.',
             footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
         ca: {
@@ -182,6 +205,16 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             selectedMeta: 'Preguntes: {count} · Etiquetes: {tags}',
             topName: 'Nom',
             topScore: 'Punts',
+            bgMusicTitle: 'Música de fons',
+            bgMusicChoose: 'Tria una pista',
+            bgMusicPlay: 'Reprodueix música',
+            bgMusicPause: 'Atura la música',
+            bgMusicPrev: 'Anterior',
+            bgMusicNext: 'Següent',
+            bgMusicVolume: 'Volum',
+            viewRanking: 'Veure rànquing',
+            rankingClose: 'Tancar rànquing',
+            rankingEmpty: 'Encara no hi ha puntuacions.',
             footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
         }
     };
@@ -214,13 +247,27 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         }
     }
 
-    function setLang(newLang){
-        lang = newLang;
-        localStorage.setItem('lang', lang);
-        applyStaticText();
-        renderList();
-        renderSelectedMeta();
-    }
+function setLang(newLang){
+    lang = newLang;
+    localStorage.setItem('lang', lang);
+    applyStaticText();
+    renderList();
+    renderSelectedMeta();
+    updateSoloMusicLabels();
+}
+
+function updateSoloMusicLabels(){
+    if(!soloMusicPlayerInstance || typeof soloMusicPlayerInstance.updateLabels !== 'function') return;
+    soloMusicPlayerInstance.updateLabels({
+        title: t('bgMusicTitle'),
+        choose: t('bgMusicChoose'),
+        play: t('bgMusicPlay'),
+        pause: t('bgMusicPause'),
+        prev: t('bgMusicPrev'),
+        next: t('bgMusicNext'),
+        volume: t('bgMusicVolume')
+    });
+}
 
     function normalizeName(str){
         return (str || '')
@@ -391,11 +438,23 @@ function renderList(){
             var btn = document.createElement('button');
             btn.className = 'btn btn-primary';
             btn.textContent = t('playCta');
-            btn.onclick = function(){ selectQuiz(q.id); };
+            btn.onclick = function(){ ensureSoloMusicPlaying(); selectQuiz(q.id); };
             card.appendChild(title);
             card.appendChild(meta);
             card.appendChild(tagsWrap);
             card.appendChild(stats);
+            var cardLinks = document.createElement('div');
+            cardLinks.className = 'card-links';
+            var rankingLink = document.createElement('button');
+            rankingLink.type = 'button';
+            rankingLink.className = 'card-link';
+            rankingLink.textContent = t('viewRanking');
+            rankingLink.onclick = function(e){
+                e.stopPropagation();
+                showQuizRanking(q.id);
+            };
+            cardLinks.appendChild(rankingLink);
+            card.appendChild(cardLinks);
             card.appendChild(btn);
             list.appendChild(card);
         });
@@ -437,6 +496,52 @@ function renderList(){
         controls.appendChild(next);
     }
 
+function initSoloMusicPlayer(){
+    if(typeof initBackgroundMusic !== 'function') return;
+
+    // Evita duplicar el widget si ya está inicializado.
+    if(soloMusicPlayerInstance && soloMusicPlayerInstance.audio) return;
+
+    // Migración: la clave antigua guardaba la URL de la pista.
+    try{
+        if(!localStorage.getItem(SOLO_MUSIC_STORAGE_KEY)){
+            var legacy = localStorage.getItem(SOLO_MUSIC_STORAGE_KEY_LEGACY);
+            if(legacy){
+                localStorage.setItem(SOLO_MUSIC_STORAGE_KEY, legacy);
+            }
+        }
+    }catch(e){}
+
+    soloMusicPlayerInstance = initBackgroundMusic('#solo-music-player', {
+        storageKey: SOLO_MUSIC_STORAGE_KEY,
+        randomStart: true,
+        volume: 0.6
+    });
+    updateSoloMusicLabels();
+}
+
+function ensureSoloMusicPlaying(){
+    if(!soloMusicPlayerInstance) return;
+    if(typeof soloMusicPlayerInstance.play === 'function'){
+        soloMusicPlayerInstance.play();
+        return;
+    }
+    if(!soloMusicPlayerInstance.audio) return;
+    var audio = soloMusicPlayerInstance.audio;
+    if(!audio.paused) return;
+    audio.play().catch(function(){});
+}
+
+function pauseSoloMusic(){
+    if(!soloMusicPlayerInstance) return;
+    if(typeof soloMusicPlayerInstance.pause === 'function'){
+        soloMusicPlayerInstance.pause();
+        return;
+    }
+    if(!soloMusicPlayerInstance.audio) return;
+    try{ soloMusicPlayerInstance.audio.pause(); }catch(e){}
+}
+
     function selectQuiz(id){
         var title = document.getElementById('selected-title');
         var startForm = document.getElementById('start-form');
@@ -466,7 +571,8 @@ function renderList(){
             });
     }
 
-    function startQuiz(){
+function startQuiz(){
+        ensureSoloMusicPlaying();
         if(!state.quizData || !Array.isArray(state.quizData.questions) || !state.quizData.questions.length){
             alert(t('startError'));
             return;
@@ -772,14 +878,55 @@ function renderList(){
             ranking.classList.remove('hidden');
             return;
         }
-        list.slice(0, 10).forEach(function(row){
+        appendRankingRows(rankingList, list);
+        ranking.classList.remove('hidden');
+    }
+
+    function appendRankingRows(targetList, rows){
+        rows.slice(0, 10).forEach(function(row){
             var li = document.createElement('li');
             var name = row.playerName || t('namePlaceholder');
             var score = row.score || 0;
             li.textContent = name + ' — ' + score + ' ' + t('scoreLabel');
-            rankingList.appendChild(li);
+            targetList.appendChild(li);
         });
-        ranking.classList.remove('hidden');
+    }
+
+    function showQuizRanking(id){
+        var modal = document.getElementById('ranking-modal');
+        var list = document.getElementById('ranking-modal-list');
+        var title = document.getElementById('ranking-modal-title');
+        if(!modal || !list || !title) return;
+        title.textContent = t('rankingTitle');
+        list.innerHTML = '';
+        var loading = document.createElement('li');
+        loading.textContent = t('loading');
+        list.appendChild(loading);
+        modal.classList.add('show');
+        fetch('/api/quizzes/' + encodeURIComponent(id) + '/solo-ranking')
+            .then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+            .then(function(payload){
+                list.innerHTML = '';
+                var rows = payload.ok && payload.body && Array.isArray(payload.body.top) ? payload.body.top : [];
+                if(!rows.length){
+                    var empty = document.createElement('li');
+                    empty.textContent = (payload.body && payload.body.error) ? payload.body.error : t('rankingEmpty');
+                    list.appendChild(empty);
+                    return;
+                }
+                appendRankingRows(list, rows);
+            })
+            .catch(function(){
+                list.innerHTML = '';
+                var empty = document.createElement('li');
+                empty.textContent = t('rankingError');
+                list.appendChild(empty);
+            });
+    }
+
+    function hideRankingModal(){
+        var modal = document.getElementById('ranking-modal');
+        if(modal) modal.classList.remove('show');
     }
 
     function openNameModal(){
@@ -857,12 +1004,19 @@ function renderList(){
         if(meta) meta.textContent = t('startSelect');
         setMedia(null, null);
         document.body.classList.remove('playing');
+        pauseSoloMusic();
         state.awaitingConfirm = false;
         state.lastWrong = null;
         state.questions = [];
     }
 
     function bindEvents(){
+        var backLink = document.querySelector('a.back-link');
+        if(backLink){
+            backLink.addEventListener('click', function(){
+                pauseSoloMusic();
+            });
+        }
         var langSelect = document.getElementById('lang-select');
         if(langSelect){
             langSelect.addEventListener('change', function(){
@@ -910,6 +1064,18 @@ function renderList(){
                 }
             });
         }
+        var rankingModalClose = document.getElementById('ranking-modal-close');
+        if(rankingModalClose){
+            rankingModalClose.addEventListener('click', hideRankingModal);
+        }
+        var rankingModal = document.getElementById('ranking-modal');
+        if(rankingModal){
+            rankingModal.addEventListener('click', function(e){
+                if(e.target === rankingModal){
+                    hideRankingModal();
+                }
+            });
+        }
         var nameSave = document.getElementById('name-save');
         if(nameSave){
             nameSave.addEventListener('click', function(){
@@ -939,6 +1105,7 @@ function renderList(){
     }
 
     applyStaticText();
+    initSoloMusicPlayer();
     bindEvents();
     fetchPublicQuizzes();
 })();

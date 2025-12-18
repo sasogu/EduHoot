@@ -106,6 +106,15 @@ a{
     margin-left: auto;
     margin-right: auto;
 }
+
+.music-section{
+    max-width: 1080px;
+    margin: 14px auto 0;
+}
+
+body.playing .music-section{
+    display: none;
+}
 body.playing .grid{
     grid-template-columns: 1fr;
 }
@@ -283,6 +292,25 @@ body.playing #public-pagination{
     font-size: 18px;
 }
 
+.card-links{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+.card-link{
+    font-size: 13px;
+    border: none;
+    background: none;
+    color: #9fb1d9;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+}
+.card-link:hover{
+    color: #ffffff;
+}
+
 .card-stats{
     display: flex;
     flex-wrap: wrap;
@@ -296,10 +324,6 @@ body.playing #public-pagination{
     border-radius: 999px;
     background: rgba(255,255,255,0.07);
     border: 1px solid rgba(255,255,255,0.15);
-}
-.
-card-stats{
-    display: flex;
 }
 .tag{
     display: inline-block;
@@ -556,6 +580,15 @@ body.playing #game-panel{
     padding: 18px;
     box-shadow: var(--shadow);
     text-align: center;
+}
+.ranking-modal__content .ranking-list{
+    margin: 4px 0 12px;
+    padding-left: 18px;
+    text-align: left;
+}
+.ranking-modal__content .muted{
+    margin-top: 0;
+    margin-bottom: 6px;
 }
 .solo-modal__content h3{
     margin: 0 0 10px;
