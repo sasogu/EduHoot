@@ -5,6 +5,7 @@ var state = {
         currentQuiz: null,
         quizData: null,
         questions: [],
+    desiredQuestionCount: null,
         page: 0,
         pageSize: 12,
         idx: 0,
@@ -58,6 +59,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             nameSave: 'Guardar',
             nameSkip: 'Omitir',
             namePlaceholder: 'AAA',
+        questionCountLabel: 'Preguntas a responder',
+        questionCountTotal: 'de {total}',
         startButton: 'Jugar en solitario',
         startHint: 'El tiempo por pregunta se respeta si el quiz lo define.',
         questionOf: 'Pregunta {current} de {total}',
@@ -117,6 +120,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             nameSave: 'Save',
             nameSkip: 'Skip',
             namePlaceholder: 'AAA',
+            questionCountLabel: 'Questions to answer',
+            questionCountTotal: 'of {total}',
             startButton: 'Play solo',
             startHint: 'Per-question timers are respected if set on the quiz.',
             questionOf: 'Question {current} of {total}',
@@ -177,6 +182,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             nameSave: 'Desar',
             nameSkip: 'Ometre',
             namePlaceholder: 'AAA',
+            questionCountLabel: 'Preguntes a respondre',
+            questionCountTotal: 'de {total}',
             startButton: 'Jugar en solitari',
             startHint: 'El temps per pregunta es respecta si el quiz el defineix.',
             questionOf: 'Pregunta {current} de {total}',
@@ -267,6 +274,72 @@ function updateSoloMusicLabels(){
         next: t('bgMusicNext'),
         volume: t('bgMusicVolume')
     });
+}
+
+function clampInt(val, min, max){
+    var n = parseInt(val, 10);
+    if(isNaN(n)) return null;
+    if(typeof min === 'number' && n < min) n = min;
+    if(typeof max === 'number' && n > max) n = max;
+    return n;
+}
+
+function getQuizTotalQuestions(){
+    if(state.quizData && Array.isArray(state.quizData.questions)) return state.quizData.questions.length;
+    return 0;
+}
+
+function syncQuestionCountControls(){
+    var input = document.getElementById('question-count');
+    var totalEl = document.getElementById('question-count-total');
+    var total = getQuizTotalQuestions();
+
+    if(totalEl){
+        totalEl.textContent = total ? format(t('questionCountTotal'), { total: total }) : '';
+    }
+    if(!input) return;
+
+    if(total > 0){
+        input.max = String(total);
+        input.disabled = false;
+        // Por defecto: máximo.
+        if(state.desiredQuestionCount == null){
+            input.value = String(total);
+        }
+    }else{
+        input.max = '';
+        input.value = '';
+        input.disabled = true;
+    }
+}
+
+function getDesiredQuestionCount(){
+    var total = getQuizTotalQuestions();
+    if(total <= 0) return 0;
+
+    // Si ya se ha elegido una vez (p.ej. Play again), reutiliza.
+    if(typeof state.desiredQuestionCount === 'number' && isFinite(state.desiredQuestionCount) && state.desiredQuestionCount > 0){
+        return Math.max(1, Math.min(total, Math.round(state.desiredQuestionCount)));
+    }
+
+    var input = document.getElementById('question-count');
+    var chosen = input ? clampInt(input.value, 1, total) : null;
+    if(chosen == null) chosen = total;
+    return chosen;
+}
+
+function renderSelectedMeta(){
+    var meta = document.getElementById('selected-meta');
+    if(!meta) return;
+    if(!state.quizData){
+        meta.textContent = t('startSelect');
+        syncQuestionCountControls();
+        return;
+    }
+    var count = Array.isArray(state.quizData.questions) ? state.quizData.questions.length : 0;
+    var tags = Array.isArray(state.quizData.tags) ? state.quizData.tags.join(', ') : (Array.isArray(state.quizData.questionsTags) ? state.quizData.questionsTags.join(', ') : '');
+    meta.textContent = format(t('selectedMeta'), { count: count, tags: tags || '—' });
+    syncQuestionCountControls();
 }
 
     function normalizeName(str){
@@ -564,7 +637,10 @@ function pauseSoloMusic(){
                 if(title) title.textContent = payload.body.name || t('soloTitle');
                 document.body.classList.add('playing');
                 if(gamePanel) gamePanel.classList.remove('hidden');
-                startQuiz();
+                // Nuevo flujo: antes de empezar, elegir cuántas preguntas jugar.
+                state.desiredQuestionCount = null;
+                renderSelectedMeta();
+                if(startForm) startForm.classList.remove('hidden');
             })
             .catch(function(){
                 if(title) title.textContent = t('startError');
@@ -582,7 +658,14 @@ function startQuiz(){
         state.score = 0;
         state.correct = 0;
         state.locked = false;
-        state.questions = randomizeQuestions(state.quizData.questions || []);
+        var desiredCount = getDesiredQuestionCount();
+        state.desiredQuestionCount = desiredCount;
+        var randomized = randomizeQuestions(state.quizData.questions || []);
+        if(desiredCount > 0 && desiredCount < randomized.length){
+            state.questions = randomized.slice(0, desiredCount);
+        }else{
+            state.questions = randomized;
+        }
         var nameInput = document.getElementById('player-name');
         var cleanName = nameInput && nameInput.value ? normalizeName(nameInput.value) : '';
         state.playerName = cleanName || t('namePlaceholder');
@@ -992,6 +1075,7 @@ function startQuiz(){
     function resetSelection(){
         state.quizData = null;
         state.currentQuiz = null;
+        state.desiredQuestionCount = null;
         var startForm = document.getElementById('start-form');
         var gameArea = document.getElementById('game-area');
         var resultArea = document.getElementById('result-area');
@@ -1002,6 +1086,7 @@ function startQuiz(){
         if(resultArea) resultArea.classList.add('hidden');
         if(title) title.textContent = t('soloTitle');
         if(meta) meta.textContent = t('startSelect');
+        syncQuestionCountControls();
         setMedia(null, null);
         document.body.classList.remove('playing');
         pauseSoloMusic();
@@ -1033,6 +1118,17 @@ function startQuiz(){
         var startBtn = document.getElementById('start-btn');
         if(startBtn){
             startBtn.addEventListener('click', startQuiz);
+        }
+        var questionCount = document.getElementById('question-count');
+        if(questionCount){
+            questionCount.addEventListener('input', function(){
+                var total = getQuizTotalQuestions();
+                if(total <= 0) return;
+                var v = clampInt(questionCount.value, 1, total);
+                if(v == null) return;
+                questionCount.value = String(v);
+                state.desiredQuestionCount = v;
+            });
         }
         var playAgain = document.getElementById('play-again');
         if(playAgain){
@@ -1107,5 +1203,7 @@ function startQuiz(){
     applyStaticText();
     initSoloMusicPlayer();
     bindEvents();
+    // Asegura que el selector quede consistente al cargar.
+    syncQuestionCountControls();
     fetchPublicQuizzes();
 })();

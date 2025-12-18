@@ -398,6 +398,18 @@ body.playing #game-panel{
     margin-top: 10px;
 }
 .start-form input{ width: 100%; }
+.question-count-controls{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.question-count-controls input{
+    flex: 1;
+    min-width: 140px;
+}
+.question-count-controls .muted{
+    white-space: nowrap;
+}
 .muted{ color: var(--muted); }
 
 .game-area{ margin-top: 14px; }

@@ -51,6 +51,19 @@
                     </div>
                 </div>
 
+                <div id="start-form" class="start-form hidden">
+                    <p id="selected-meta" class="muted" data-i18n="startSelect">Selecciona un juego público para empezar.</p>
+
+                    <label for="question-count" class="muted" data-i18n="questionCountLabel">Preguntas a responder</label>
+                    <div class="question-count-controls">
+                        <input id="question-count" type="number" min="1" step="1" inputmode="numeric" autocomplete="off">
+                        <span id="question-count-total" class="muted"></span>
+                    </div>
+
+                    <button id="start-btn" class="btn btn-primary" data-i18n="startButton">Jugar en solitario</button>
+                    <p class="muted" data-i18n="startHint">El tiempo por pregunta se respeta si el quiz lo define.</p>
+                </div>
+
                 <div id="game-area" class="game-area hidden">
                     <div class="game-progress">
                         <span id="question-progress" class="pill"></span>
