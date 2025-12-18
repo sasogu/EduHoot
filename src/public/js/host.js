@@ -3,7 +3,15 @@ var params = jQuery.deparam(window.location.search);
 var lastHostKey = 'lastHostId';
 var lastPinKey = 'lastGamePin';
 var hostLangSelect = document.getElementById('host-lang-select');
-var baseJoinUrl = 'https://eduhoot.edutictac.es/';
+var baseJoinUrl = (function(){
+    try{
+        var origin = window.location.origin;
+        if(origin){
+            return origin.replace(/\/$/, '') + '/join.html';
+        }
+    }catch(e){}
+    return 'https://eduhoot.edutictac.es/join.html';
+})();
 var joinQrImg = document.getElementById('join-qr');
 var joinUrlAnchor = document.getElementById('join-url');
 var gamePinText = document.getElementById('gamePinText');
@@ -206,7 +214,12 @@ function updateJoinQr(pin){
     }
     if(joinUrlAnchor){
         joinUrlAnchor.href = url;
-        joinUrlAnchor.textContent = url.replace(/^https?:\/\/(www\.)?/, '');
+        try{
+            var parsed = new URL(url);
+            joinUrlAnchor.textContent = parsed.host + (pin ? (' · PIN ' + pin) : '');
+        }catch(e){
+            joinUrlAnchor.textContent = (pin ? ('PIN ' + pin) : 'Unirse');
+        }
     }
 }
 
