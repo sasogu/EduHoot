@@ -5,6 +5,9 @@ var lastHostKey = 'lastHostId';
 var lastPinKey = 'lastGamePin';
 var pinBadge = document.getElementById('pin-badge');
 var rankingNextBtn = document.getElementById('rankingNextBtn');
+var resultsChartEl = document.getElementById('resultsChart');
+var resultsStepChartEl = document.getElementById('resultsStepChart');
+var resultsStepRankingEl = document.getElementById('resultsStepRanking');
 
 // Fallback: si faltan id o pin en la URL, usa localStorage
 try{
@@ -40,6 +43,8 @@ var currentAnswerTexts = ['', '', '', ''];
 var gongAudio = null;
 var gongUrl = '/effects/gong.mp3';
 var GONG_VOLUME_BOOST = 1.25;
+var hostModalStep = 'chart';
+var hostResultsHasRanking = true;
 var i18n = {
     es: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -60,7 +65,10 @@ var i18n = {
         bgMusicVolume: 'Volumen',
         musicActivationTitle: 'Activar audio',
         musicActivationBody: '',
-        musicActivationEnable: '¡Empezamos!'
+        musicActivationEnable: '¡Empezamos!',
+        resultsTitle: 'Resultados',
+        resultsNextToRanking: 'Ver clasificación',
+        resultsNextQuestion: 'Siguiente pregunta (Enter)'
     },
     en: {
         questionXofY: function(n, t){ return 'Question ' + n + ' / ' + t; },
@@ -81,7 +89,10 @@ var i18n = {
         bgMusicVolume: 'Volume',
         musicActivationTitle: 'Enable audio',
         musicActivationBody: '',
-        musicActivationEnable: "Let's go!"
+        musicActivationEnable: "Let's go!",
+        resultsTitle: 'Results',
+        resultsNextToRanking: 'Show leaderboard',
+        resultsNextQuestion: 'Next question (Enter)'
     },
     ca: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -102,7 +113,10 @@ var i18n = {
         bgMusicVolume: 'Volum',
         musicActivationTitle: 'Activar àudio',
         musicActivationBody: '',
-        musicActivationEnable: 'Comencem!'
+        musicActivationEnable: 'Comencem!',
+        resultsTitle: 'Resultats',
+        resultsNextToRanking: 'Veure classificació',
+        resultsNextQuestion: 'Següent pregunta (Enter)'
     }
 };
 
@@ -140,8 +154,82 @@ function applyStaticText(){
     if(showRanking) showRanking.textContent = t('showRanking');
     var rankingTitle = document.getElementById('rankingTitle');
     if(rankingTitle) rankingTitle.textContent = t('rankingTitle');
+    var resultsTitle = document.getElementById('resultsTitle');
+    if(resultsTitle) resultsTitle.textContent = t('resultsTitle');
     var winnerTitle = document.getElementById('winnerTitle');
     if(winnerTitle) winnerTitle.textContent = t('topPlayers');
+
+    updateModalNextButtonLabel();
+}
+
+function updateModalNextButtonLabel(){
+    if(!rankingNextBtn) return;
+    if(hostModalStep === 'chart'){
+        rankingNextBtn.textContent = hostResultsHasRanking ? t('resultsNextToRanking') : t('resultsNextQuestion');
+        return;
+    }
+    rankingNextBtn.textContent = t('resultsNextQuestion');
+}
+
+function setHostModalStep(step){
+    hostModalStep = step === 'ranking' ? 'ranking' : 'chart';
+    if(resultsStepChartEl) resultsStepChartEl.style.display = hostModalStep === 'chart' ? 'block' : 'none';
+    if(resultsStepRankingEl) resultsStepRankingEl.style.display = hostModalStep === 'ranking' ? 'block' : 'none';
+    updateModalNextButtonLabel();
+}
+
+function renderResultsChart(answerCounts, totalPlayers){
+    if(!resultsChartEl) return;
+    resultsChartEl.innerHTML = '';
+
+    var total = (typeof totalPlayers === 'number' && totalPlayers > 0) ? totalPlayers : 0;
+    var denom = total > 0 ? total : 1;
+    var visible = getVisibleAnswerFlags();
+    var letters = ['A', 'B', 'C', 'D'];
+
+    for(var i = 0; i < 4; i++){
+        if(!visible[i]) continue;
+        var count = Number((answerCounts && answerCounts[i]) || 0);
+        if(Number.isNaN(count) || count < 0) count = 0;
+        var pct = Math.round((count / denom) * 100);
+        if(pct < 0) pct = 0;
+        if(pct > 100) pct = 100;
+
+        var bar = document.createElement('div');
+        bar.className = 'results-bar results-bar--' + (i + 1);
+
+        var track = document.createElement('div');
+        track.className = 'results-bar-track';
+        var fill = document.createElement('div');
+        fill.className = 'results-bar-fill';
+        fill.style.height = pct + '%';
+        track.appendChild(fill);
+
+        var meta = document.createElement('div');
+        meta.className = 'results-bar-meta';
+
+        var key = document.createElement('div');
+        key.className = 'results-bar-key';
+        key.textContent = letters[i];
+
+        var stats = document.createElement('div');
+        stats.className = 'results-bar-stats';
+        stats.innerHTML = pct + '% <span>(' + count + ')</span>';
+
+        var text = document.createElement('div');
+        text.className = 'results-bar-text';
+        text.textContent = (currentAnswerTexts[i] || '').trim();
+
+        meta.appendChild(key);
+        meta.appendChild(stats);
+        if(text.textContent){
+            meta.appendChild(text);
+        }
+
+        bar.appendChild(track);
+        bar.appendChild(meta);
+        resultsChartEl.appendChild(bar);
+    }
 }
 
 function setLang(newLang){
@@ -434,6 +522,13 @@ function openRankingModal(playGongOnce){
     if(!modal) return;
     modal.style.display = 'block';
 
+    // En fin de pregunta, forzamos el flujo Resultados -> Ranking -> Siguiente.
+    // Si el host abre manualmente el modal en mitad de la pregunta, permitimos cerrar.
+    var closeBtn = document.getElementById('closeRanking');
+    if(closeBtn){
+        closeBtn.style.display = hostQuestionEnded ? 'none' : 'block';
+    }
+
     // Solo actuamos (parar música + gong) cuando es fin de pregunta.
     if(!hostQuestionEnded) return;
     pauseHostMusicForRanking();
@@ -536,17 +631,35 @@ socket.on('hostSession', function(data){
 });
 
 // Control: botón y tecla Enter para pasar a la siguiente pregunta desde el modal
+function handleResultsModalNext(){
+    if(hostModalStep === 'chart'){
+        if(hostResultsHasRanking){
+            setHostModalStep('ranking');
+            return;
+        }
+        if(hostQuestionEnded){
+            nextQuestion();
+        }
+        closeRankingModal();
+        return;
+    }
+    // Paso ranking
+    if(hostQuestionEnded){
+        nextQuestion();
+    }
+    closeRankingModal();
+}
+
 if(rankingNextBtn){
     rankingNextBtn.addEventListener('click', function(){
-        nextQuestion();
-        closeRankingModal();
+        handleResultsModalNext();
     });
 }
+
 document.addEventListener('keydown', function(ev){
     if(ev.key === 'Enter' && document.getElementById('rankingModal') && document.getElementById('rankingModal').style.display === 'block'){
         ev.preventDefault();
-        nextQuestion();
-        closeRankingModal();
+        handleResultsModalNext();
     }
 });
 
@@ -573,12 +686,16 @@ socket.on('questionOver', function(playerData, payload){
             incrementAnswer(answer);
         }
     });
-    updateSquareHeights(answerCounts, totalPlayers);
+    // La gráfica se muestra dentro del modal (más visible) en lugar de en la vista principal.
+    hideAnswerSquares();
+    renderResultsChart(answerCounts, totalPlayers);
     
-    document.getElementById('nextQButton').style.display = "block";
+    // El avance se hace desde el modal (Resultados -> Ranking -> Siguiente).
+    document.getElementById('nextQButton').style.display = "none";
     document.getElementById('skipQButton').style.display = "none";
 
-    if (window.hostShowScores !== false) {
+    hostResultsHasRanking = (window.hostShowScores !== false);
+    if(hostResultsHasRanking){
         // Update ranking list
         var rankingList = document.getElementById('rankingList');
         rankingList.innerHTML = '';
@@ -592,9 +709,11 @@ socket.on('questionOver', function(playerData, payload){
             li.textContent = icon + top[r].name + ' - ' + (top[r].gameData.score || 0);
             rankingList.appendChild(li);
         }
-        // Open ranking modal automatically after each question
-        openRankingModal(true);
     }
+
+    // Abrimos el modal primero en el paso de resultados (gráfica)
+    setHostModalStep('chart');
+    openRankingModal(true);
     
 });
 
@@ -605,6 +724,8 @@ function toggleRanking(){
         closeRankingModal();
         return;
     }
+    // Apertura manual: enseñamos directamente el ranking.
+    setHostModalStep('ranking');
     // Si el host abre el ranking manualmente en mitad de la pregunta, no paramos música ni gong.
     // Si es fin de pregunta, solo paramos música (gong ya se habrá disparado en la auto-apertura).
     openRankingModal(false);

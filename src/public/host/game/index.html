@@ -55,9 +55,15 @@
         <div id="rankingModal" class="modal">
             <div class="modal-content">
                 <span id="closeRanking" class="close">&times;</span>
-                <h3 id="rankingTitle">Top 10</h3>
-                <ol id="rankingList"></ol>
-                <button id="rankingNextBtn" class="ranking-next">Siguiente pregunta (Enter)</button>
+                <div id="resultsStepChart" class="results-step">
+                    <h3 id="resultsTitle">Resultados</h3>
+                    <div id="resultsChart" class="results-chart" aria-label="Resultados por respuesta"></div>
+                </div>
+                <div id="resultsStepRanking" class="results-step" style="display:none;">
+                    <h3 id="rankingTitle">Top 10</h3>
+                    <ol id="rankingList"></ol>
+                </div>
+                <button id="rankingNextBtn" class="ranking-next">Siguiente</button>
             </div>
         </div>
         <h2 id = "winnerTitle">Top 5 Players</h4>
