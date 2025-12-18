@@ -358,12 +358,13 @@
     if(!answers.length){
       answers.push(1);
     }
+    var maxAnswerIndex = (type === 'true-false') ? 2 : 4;
     return {
       type: type,
       correctAnswers: answers.map(function(value){
         var num = parseInt(value, 10);
         if(Number.isNaN(num)) return 1;
-        return Math.max(1, Math.min(4, num));
+        return Math.max(1, Math.min(maxAnswerIndex, num));
       })
     };
   }
@@ -373,12 +374,19 @@
   }
 
   function randomizeOneQuestion(q){
+    var meta = normalizeQuestionMeta(q);
+
     var answers = Array.isArray(q && q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
     while(answers.length < 4) answers.push('');
-    var correctIdx = Math.max(0, Math.min(answers.length - 1, (parseInt(q && q.correct, 10) || 1) - 1));
-    var answerOrder = shuffleArray([0,1,2,3]);
+
+    // En true/false solo se muestran 2 opciones: barajamos solo 2.
+    var baseOrder = (meta.type === 'true-false') ? [0, 1] : [0, 1, 2, 3];
+    var answerOrder = shuffleArray(baseOrder);
     var newAnswers = answerOrder.map(function(idx){ return answers[idx]; });
-    var meta = normalizeQuestionMeta(q);
+    if(meta.type === 'true-false'){
+      while(newAnswers.length < 4) newAnswers.push('');
+    }
+
     var newCorrectAnswers = [];
     meta.correctAnswers.forEach(function(orig){
       var zero = Math.max(0, Math.min(3, orig - 1));
@@ -1173,10 +1181,6 @@
         btn.className = 'answer';
         btn.textContent = ans || ('A' + (idx + 1));
         btn.setAttribute('data-answer', String(idx + 1));
-        btn.addEventListener('pointerdown', function(ev){
-          ev.preventDefault();
-          handlePlayerAnswerClick(p.id, idx + 1);
-        });
         btn.addEventListener('click', function(){ handlePlayerAnswerClick(p.id, idx + 1); });
         answersWrap.appendChild(btn);
       });
@@ -1335,7 +1339,11 @@
     p.selectedAnswers = [choice];
     p.multiSelections = [choice];
 
-    var isCorrect = choice === parseInt(q.correct, 10);
+    var meta = normalizeQuestionMeta(q);
+    var correctList = Array.isArray(meta.correctAnswers) && meta.correctAnswers.length
+      ? meta.correctAnswers
+      : [(parseInt(q.correct, 10) || 1)];
+    var isCorrect = choice === (correctList[0] || 1);
     if(isCorrect){
       p.correct += 1;
       var bonus = Math.max(100, Math.round(1000 * (state.timerLeft / state.timerTotal)));
