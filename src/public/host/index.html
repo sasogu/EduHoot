@@ -4,6 +4,7 @@
         <title>Host | EduHoot</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel = "stylesheet" href = "../css/host.css">
+        <link rel = "stylesheet" href = "../css/music-player.css">
         <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css?family=Tajawal" rel="stylesheet">
         <link rel="icon" href="/icons/logo.svg" type="image/svg+xml">
@@ -50,13 +51,16 @@
         <div id="players" class="players-list"></div>
         <br>
         <button id = 'start' onclick = "startGame()" data-i18n-host="start_btn">Iniciar partida</button>
-        <button id = 'resume-last' style="display:none;" onclick="resumeLast()" data-i18n-host="resume_btn">Reanudar última partida</button>
         <br>
         <br>
+
+        <div id="host-lobby-music-player" class="music-player-shell host-lobby-music-player"></div>
+
         <script src = "../socket.io/socket.io.js"></script>
         <script src = "../js/libs/jqueryLibrary.js"></script>
         <script src = "../js/libs//deparam.js"></script>
         <script src = "../js/i18n-host.js"></script>
+        <script src = "../js/music-player.js"></script>
         <script src = "../js/host.js"></script>
     </body>
 </html>

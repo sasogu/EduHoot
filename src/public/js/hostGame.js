@@ -577,7 +577,17 @@ if(langSelectEl){
 initHostMusicPlayer();
 maybeAutoplayHostMusicFromLobby();
 
-// Fallback: primer gesto del usuario en la vista de juego
-document.addEventListener('pointerdown', function(){
-    ensureHostMusicPlaying();
-}, { once: true, passive: true });
+// Fallback: primer gesto del usuario en la vista de juego.
+// Algunos navegadores (p.ej. iOS) pueden no disparar Pointer Events.
+(function armFirstGestureAutoplay(){
+    var fired = false;
+    function handler(){
+        if(fired) return;
+        fired = true;
+        ensureHostMusicPlaying();
+    }
+    document.addEventListener('pointerdown', handler, { once: true, passive: true });
+    document.addEventListener('touchstart', handler, { once: true, passive: true });
+    document.addEventListener('mousedown', handler, { once: true, passive: true });
+    document.addEventListener('keydown', handler, { once: true });
+})();

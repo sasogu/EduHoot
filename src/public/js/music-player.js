@@ -1,14 +1,34 @@
 (function(){
     var defaultTracks = [
         {
+            id: '8bit-game',
+            label: '8-bit game',
+            url: '/music/8-bit-game-158815.mp3'
+        },
+        {
+            id: 'best-game-console',
+            label: 'Best game console',
+            url: '/music/best-game-console-301284.mp3'
+        },
+        {
             id: 'roblox-fortnite',
             label: 'Roblox & Fortnite energy',
             url: '/music/roblox-minecraft-fortnite-video-game-music-358426.mp3'
         },
         {
+            id: 'game-is-on',
+            label: 'Game is on',
+            url: '/music/game-is-on-video-game-music-no-copyright-426131.mp3'
+        },
+        {
             id: 'minecraft-anthem',
             label: 'Minecraft gaming loop',
             url: '/music/game-gaming-minecraft-background-music-377647.mp3'
+        },
+        {
+            id: 'minecraft-loop-2',
+            label: 'Minecraft background (alt)',
+            url: '/music/game-gaming-minecraft-background-music-370830.mp3'
         },
         {
             id: 'retro-arcade-1',
@@ -24,6 +44,16 @@
             id: 'retro-arcade-2',
             label: 'Retro arcade anthem',
             url: '/music/retro-arcade-game-music-408074.mp3'
+        },
+        {
+            id: '8bit-console-love',
+            label: 'I love my 8-bit console',
+            url: '/music/i-love-my-8-bit-game-console-301272.mp3'
+        },
+        {
+            id: '8bit-happy',
+            label: 'So happy with my 8-bit game',
+            url: '/music/so-happy-with-my-8-bit-game-301275.mp3'
         }
     ];
 
@@ -67,10 +97,23 @@
         var opts = options || {};
         var labels = opts.labels || {};
         var storageKey = opts.storageKey;
+        var volumeStorageKey = opts.volumeStorageKey || (storageKey ? (storageKey + ':volume') : null);
         var savedTrack = storageKey ? safeGetStorage(storageKey) : null;
         if(savedTrack && !trackExists(savedTrack)){
             savedTrack = null;
         }
+
+        var savedVolume = volumeStorageKey ? safeGetStorage(volumeStorageKey) : null;
+        var initialVolume = typeof opts.volume === 'number' ? opts.volume : 0.6;
+        if(savedVolume != null){
+            var parsed = parseFloat(savedVolume);
+            if(!isNaN(parsed)){
+                if(parsed < 0) parsed = 0;
+                if(parsed > 1) parsed = 1;
+                initialVolume = parsed;
+            }
+        }
+
         var selectedTrack = savedTrack;
         // Solo rotamos aleatoriamente si:
         // - randomStart está activo
@@ -142,7 +185,7 @@
         volumeInput.min = '0';
         volumeInput.max = '1';
         volumeInput.step = '0.05';
-        volumeInput.value = typeof opts.volume === 'number' ? opts.volume : 0.6;
+        volumeInput.value = initialVolume;
         volumeInput.className = 'music-player__volume';
         volumeLabel.appendChild(volumeText);
         volumeLabel.appendChild(volumeInput);
@@ -157,7 +200,7 @@
         var audio = document.createElement('audio');
         audio.preload = 'auto';
         audio.loop = !randomRotationEnabled;
-        audio.volume = typeof opts.volume === 'number' ? opts.volume : 0.6;
+        audio.volume = initialVolume;
         audio.src = selectedTrack;
         audio.style.display = 'none';
         wrapper.appendChild(audio);
@@ -255,7 +298,14 @@
             applyUserTrackSelection(value);
         });
         volumeInput.addEventListener('input', function(){
-            audio.volume = parseFloat(volumeInput.value);
+            var v = parseFloat(volumeInput.value);
+            if(isNaN(v)) return;
+            if(v < 0) v = 0;
+            if(v > 1) v = 1;
+            audio.volume = v;
+            if(volumeStorageKey){
+                safeSetStorage(volumeStorageKey, String(v));
+            }
         });
         function updateLabels(newLabels){
             if(!newLabels) return;

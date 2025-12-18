@@ -2,7 +2,6 @@ var socket = io();
 var params = jQuery.deparam(window.location.search);
 var lastHostKey = 'lastHostId';
 var lastPinKey = 'lastGamePin';
-var resumeBtn = document.getElementById('resume-last');
 var hostLangSelect = document.getElementById('host-lang-select');
 var baseJoinUrl = 'https://eduhoot.edutictac.es/';
 var joinQrImg = document.getElementById('join-qr');
@@ -13,6 +12,82 @@ var pinLoaded = false;
 var hostErrorTimeout = null;
 
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
+
+var hostLobbyMusicPlayerInstance = null;
+
+var hostLobbyMusicI18n = {
+    es: {
+        bgMusicTitle: 'Música de fondo',
+        bgMusicChoose: 'Elige un tema',
+        bgMusicPlay: 'Reproducir música',
+        bgMusicPause: 'Pausar música',
+        bgMusicPrev: 'Anterior',
+        bgMusicNext: 'Siguiente',
+        bgMusicVolume: 'Volumen'
+    },
+    en: {
+        bgMusicTitle: 'Background music',
+        bgMusicChoose: 'Choose a track',
+        bgMusicPlay: 'Play music',
+        bgMusicPause: 'Pause music',
+        bgMusicPrev: 'Prev',
+        bgMusicNext: 'Next',
+        bgMusicVolume: 'Volume'
+    },
+    ca: {
+        bgMusicTitle: 'Música de fons',
+        bgMusicChoose: 'Tria un tema',
+        bgMusicPlay: 'Reprodueix música',
+        bgMusicPause: 'Atura la música',
+        bgMusicPrev: 'Anterior',
+        bgMusicNext: 'Següent',
+        bgMusicVolume: 'Volum'
+    }
+};
+
+function getHostLobbyLang(){
+    var l = null;
+    try{ l = localStorage.getItem('lang-host') || localStorage.getItem('lang'); }catch(e){}
+    if(l && hostLobbyMusicI18n[l]) return l;
+    return 'es';
+}
+
+function hostLobbyT(key){
+    var l = getHostLobbyLang();
+    return (hostLobbyMusicI18n[l] && hostLobbyMusicI18n[l][key]) || hostLobbyMusicI18n.es[key] || key;
+}
+
+function updateHostLobbyMusicLabels(){
+    if(!hostLobbyMusicPlayerInstance || typeof hostLobbyMusicPlayerInstance.updateLabels !== 'function') return;
+    hostLobbyMusicPlayerInstance.updateLabels({
+        title: hostLobbyT('bgMusicTitle'),
+        choose: hostLobbyT('bgMusicChoose'),
+        play: hostLobbyT('bgMusicPlay'),
+        pause: hostLobbyT('bgMusicPause'),
+        prev: hostLobbyT('bgMusicPrev'),
+        next: hostLobbyT('bgMusicNext'),
+        volume: hostLobbyT('bgMusicVolume')
+    });
+}
+
+function initHostLobbyMusicPlayer(){
+    if(typeof initBackgroundMusic !== 'function') return;
+    hostLobbyMusicPlayerInstance = initBackgroundMusic('#host-lobby-music-player', {
+        // Reutiliza la misma selección que en la vista de juego.
+        storageKey: 'eduhoot-host-music',
+        randomStart: true,
+        volume: 0.7,
+        labels: {
+            title: hostLobbyT('bgMusicTitle'),
+            choose: hostLobbyT('bgMusicChoose'),
+            play: hostLobbyT('bgMusicPlay'),
+            pause: hostLobbyT('bgMusicPause'),
+            prev: hostLobbyT('bgMusicPrev'),
+            next: hostLobbyT('bgMusicNext'),
+            volume: hostLobbyT('bgMusicVolume')
+        }
+    });
+}
 
 function buildJoinUrl(pin){
     if(pin){
@@ -57,27 +132,9 @@ function syncLangStorage(val){
     }catch(e){}
 }
 
-function resumeLast(){
-    try{
-        try{ sessionStorage.setItem(HOST_AUTOPLAY_MUSIC_KEY, '1'); }catch(e){}
-        var saved = localStorage.getItem(lastHostKey);
-        var pin = localStorage.getItem(lastPinKey);
-        if(saved || pin){
-            var url = "/host/game/?";
-            var parts = [];
-            if(saved) parts.push('id=' + encodeURIComponent(saved));
-            if(pin) parts.push('pin=' + encodeURIComponent(pin));
-            window.location.href = url + parts.join('&');
-        }
-    }catch(e){}
-}
-
 // Mostrar botón de reanudar si hay partida activa guardada
 try{
     var savedHost = localStorage.getItem(lastHostKey);
-    if((savedHost || localStorage.getItem(lastPinKey)) && resumeBtn){
-        resumeBtn.style.display = 'inline-block';
-    }
     var storedPin = localStorage.getItem(lastPinKey);
     if(storedPin){
         setDisplayedPin(storedPin);
@@ -98,8 +155,11 @@ if(hostLangSelect){
         if(window.applyHostTranslations){
             window.applyHostTranslations(hostLangSelect.value);
         }
+        updateHostLobbyMusicLabels();
     });
 }
+
+initHostLobbyMusicPlayer();
 
 //When host connects to server
 socket.on('connect', function() {

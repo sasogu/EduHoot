@@ -241,6 +241,11 @@ body{
     color: #fff;
 }
 
+.host-lobby-music-player{
+    max-width: 960px;
+    margin: 14px auto 0;
+}
+
 @media (max-width: 600px){
     body{ padding: 12px; }
     #title{ font-size: 24px; margin-bottom: 8px; }
