@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
+const { normalizeQuestionMeta } = require('./questionUtils');
 
 // Simple CSV parser for qplay-style files (semicolon separator, quoted fields).
 function splitSemicolons(line) {
@@ -59,12 +60,17 @@ function parseCsv(content) {
 
 function toQuestion(row) {
   const answers = [row.r1, row.r2, row.r3, row.r4];
-  const correct = parseInt(row.correcta, 10);
+  const meta = normalizeQuestionMeta({
+    type: row.tipo,
+    correct: row.correcta
+  });
 
   return {
     question: row.pregunta,
     answers,
-    correct: Number.isNaN(correct) ? 1 : correct,
+    type: meta.type,
+    correct: meta.correct,
+    correctAnswers: meta.correctAnswers,
     time: Number(row.tiempo) || 0,
     image: row.imagen || '',
     video: row.video || ''

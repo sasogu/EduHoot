@@ -197,6 +197,30 @@ body{
     text-align: center;
 }
 
+.button.multi-selected{
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.4);
+    transform: translateY(-2px);
+}
+
+#multiSubmitRow{
+    width: 100%;
+    max-width: 720px;
+    margin-top: 12px;
+    display: none;
+    justify-content: center;
+}
+
+.multi-submit{
+    width: 100%;
+    margin: 0;
+    min-height: 54px;
+    font-size: 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.15);
+    box-shadow: none;
+}
+
 #lang-switcher{
     position: fixed;
     right: 12px;

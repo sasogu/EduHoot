@@ -480,6 +480,11 @@ body.playing #game-panel{
 .answer:nth-child(4){ background: linear-gradient(135deg, #f43f5e, #e11d48); }
 .answer:hover{ transform: translateY(-1px); filter: brightness(1.05); }
 .answer:active{ transform: translateY(0); filter: brightness(0.95); }
+.answer.multi-selected{
+    outline: 3px solid rgba(255,255,255,0.45);
+    outline-offset: 2px;
+    transform: translateY(-2px);
+}
 .answer.correct{
     border: 2px solid #bbf7d0;
     box-shadow: 0 12px 24px rgba(34,197,94,0.4);
@@ -570,6 +575,23 @@ body.playing #game-panel{
 }
 
 .hidden{ display: none !important; }
+
+.multi-submit-row{
+    margin-top: 12px;
+}
+.btn.multi-submit{
+    width: 100%;
+    letter-spacing: 0.04em;
+    background: rgba(255,255,255,0.12);
+    text-transform: uppercase;
+}
+.btn.multi-submit.has-selection{
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+.btn.multi-submit:disabled{
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
 .solo-modal{
     position: fixed;

@@ -17,7 +17,8 @@ var state = {
         locked: false,
         playerName: 'Anónimo',
         awaitingConfirm: false,
-        lastWrong: null
+        lastWrong: null,
+        multiSelections: []
 };
 var soloMusicPlayerInstance = null;
 var SOLO_MUSIC_STORAGE_KEY = 'eduhoot-solo-music';
@@ -68,25 +69,26 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         timer: 'Tiempo',
         correctText: '¡Correcto!',
         wrongText: 'Respuesta incorrecta',
+        correctLabel: 'Respuesta correcta:',
         timeup: 'Tiempo agotado',
         finishTitle: 'Partida terminada',
         playAgain: 'Repetir quiz',
         pickAnother: 'Elegir otro quiz',
         rankingTitle: 'Top 10 global',
             rankingHint: 'Solo se muestra al finalizar la partida.',
-            resultSummary: 'Acertadas {correct}/{total} · {score} pts',
-            publicEmpty: 'No hay juegos públicos disponibles.',
-            loading: 'Cargando...',
-            startSelect: 'Selecciona un juego público para empezar.',
-            saving: 'Guardando puntuación...',
-            rankingError: 'No se pudo cargar el ranking.',
-            startError: 'No se pudo cargar el quiz.',
-            playCta: 'Jugar en solitario',
-            byline: 'Preguntas: {count}',
-            scoreLabel: 'Puntos',
-            timerLabel: 'Tiempo',
-            selectedMeta: 'Preguntas: {count} · Etiquetas: {tags}',
-            topName: 'Nombre',
+        resultSummary: 'Acertadas {correct}/{total} · {score} pts',
+        publicEmpty: 'No hay juegos públicos disponibles.',
+        loading: 'Cargando...',
+        startSelect: 'Selecciona un juego público para empezar.',
+        saving: 'Guardando puntuación...',
+        rankingError: 'No se pudo cargar el ranking.',
+        startError: 'No se pudo cargar el quiz.',
+        playCta: 'Jugar en solitario',
+        byline: 'Preguntas: {count}',
+        scoreLabel: 'Puntos',
+        timerLabel: 'Tiempo',
+        selectedMeta: 'Preguntas: {count} · Etiquetas: {tags}',
+        topName: 'Nombre',
         topScore: 'Puntos',
         bgMusicTitle: 'Música de fondo',
         bgMusicChoose: 'Elige un tema',
@@ -98,6 +100,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         viewRanking: 'Ver ranking',
         rankingClose: 'Cerrar ranking',
         rankingEmpty: 'Aún no hay puntuaciones.',
+        submitAnswers: 'Enviar respuestas',
         footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
         en: {
@@ -160,6 +163,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             viewRanking: 'View ranking',
             rankingClose: 'Close ranking',
             rankingEmpty: 'No rankings yet.',
+            submitAnswers: 'Submit answers',
             footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
         ca: {
@@ -222,6 +226,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             viewRanking: 'Veure rànquing',
             rankingClose: 'Tancar rànquing',
             rankingEmpty: 'Encara no hi ha puntuacions.',
+            submitAnswers: 'Enviar respostes',
             footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
         }
     };
@@ -371,25 +376,91 @@ function renderSelectedMeta(){
         return copy;
     }
 
+    function normalizeQuestionMeta(q){
+        var type = (q && q.type) ? String(q.type).toLowerCase() : 'quiz';
+        if(type !== 'multiple' && type !== 'true-false'){
+            type = 'quiz';
+        }
+        var answers = Array.isArray(q && q.correctAnswers) ? q.correctAnswers.slice() : [];
+        if(!answers.length && q && typeof q.correct !== 'undefined'){
+            var parsed = parseInt(q.correct, 10);
+            if(!Number.isNaN(parsed)){
+                answers.push(parsed);
+            }
+        }
+        if(!answers.length){
+            answers.push(1);
+        }
+        var normalized = answers.map(function(value){
+            var num = parseInt(value, 10);
+            if(Number.isNaN(num)) return 1;
+            return Math.max(1, Math.min(4, num));
+        });
+        var first = normalized.length ? normalized[0] : 1;
+        return {
+            type: type,
+            correctAnswers: normalized,
+            correct: first
+        };
+    }
+
+    function getVisibleAnswers(q, type){
+        var answers = Array.isArray(q && q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
+        while(answers.length < 4) answers.push('');
+        if(type === 'true-false'){
+            return answers.slice(0, 2);
+        }
+        return answers;
+    }
+
+    function areAnswerSetsEqual(left, right){
+        if(!Array.isArray(left) || !Array.isArray(right)) return false;
+        var sortedLeft = left.slice().sort(function(a, b){ return a - b; });
+        var sortedRight = right.slice().sort(function(a, b){ return a - b; });
+        if(sortedLeft.length !== sortedRight.length) return false;
+        for(var i = 0; i < sortedLeft.length; i++){
+            if(sortedLeft[i] !== sortedRight[i]) return false;
+        }
+        return true;
+    }
+
+    function randomizeOneQuestion(q){
+        var answers = Array.isArray(q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
+        while(answers.length < 4) answers.push('');
+        var answerOrder = shuffleArray([0,1,2,3]);
+        var newAnswers = answerOrder.map(function(idx){ return answers[idx]; });
+        var meta = normalizeQuestionMeta(q);
+        var newCorrectAnswers = [];
+        meta.correctAnswers.forEach(function(orig){
+            var zero = Math.max(0, Math.min(3, orig - 1));
+            var newIdx = answerOrder.indexOf(zero);
+            if(newIdx !== -1){
+                var candidate = newIdx + 1;
+                if(newCorrectAnswers.indexOf(candidate) === -1){
+                    newCorrectAnswers.push(candidate);
+                }
+            }
+        });
+        if(!newCorrectAnswers.length){
+            newCorrectAnswers.push(1);
+        }
+        var newCorrect = newCorrectAnswers[0];
+        return {
+            question: q.question || '',
+            answers: newAnswers,
+            correct: newCorrect,
+            correctAnswers: newCorrectAnswers,
+            type: meta.type,
+            image: q.image || '',
+            video: q.video || '',
+            time: q.time
+        };
+    }
+
     function randomizeQuestions(baseQuestions){
         var source = Array.isArray(baseQuestions) ? baseQuestions : [];
         var shuffledOrder = shuffleArray(source);
-        return shuffledOrder.map(function(q){
-            var answers = Array.isArray(q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
-            while(answers.length < 4) answers.push('');
-            var correctIdx = Math.max(0, Math.min(answers.length - 1, (parseInt(q.correct, 10) || 1) - 1));
-            var answerOrder = shuffleArray([0,1,2,3]);
-            var newAnswers = answerOrder.map(function(idx){ return answers[idx]; });
-            var newCorrect = answerOrder.indexOf(correctIdx) + 1;
-            return {
-                question: q.question || '',
-                answers: newAnswers,
-                correct: newCorrect,
-                image: q.image || '',
-                video: q.video || '',
-                time: q.time
-            };
-        });
+        return shuffledOrder.map(function(q){ return randomizeOneQuestion(q); });
     }
 
     function getQuestions(){
@@ -689,6 +760,7 @@ function startQuiz(){
         }
         state.locked = false;
         var q = questions[state.idx];
+        var meta = normalizeQuestionMeta(q);
         var questionEl = document.getElementById('question-text');
         if(questionEl) questionEl.textContent = q.question || '';
         setMedia(q.image, q.video);
@@ -700,7 +772,10 @@ function startQuiz(){
             progress.setAttribute('aria-label', current + ' / ' + total);
         }
         updateScorePill();
-        renderAnswers(q);
+        state.multiSelections = [];
+        renderAnswers(q, meta);
+        updateSoloSelectionStyles();
+        updateSoloMultiSubmitVisibility(meta);
         var time = (typeof q.time === 'number' && q.time > 0) ? q.time : 20;
         startTimer(time);
         var feedback = document.getElementById('feedback');
@@ -765,20 +840,89 @@ function startQuiz(){
         }
     }
 
-    function renderAnswers(q){
+    function renderAnswers(q, meta){
         var answersWrap = document.getElementById('answers');
         if(!answersWrap) return;
         answersWrap.innerHTML = '';
-        var answers = Array.isArray(q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
-        while(answers.length < 4) answers.push('');
+        var metaInfo = meta || normalizeQuestionMeta(q);
+        var answers = getVisibleAnswers(q, metaInfo.type);
         answers.forEach(function(ans, idx){
             var btn = document.createElement('button');
             btn.className = 'answer';
             btn.type = 'button';
             btn.textContent = ans || ('Respuesta ' + (idx + 1));
-            btn.onclick = function(){ answerQuestion(idx + 1); };
+            btn.setAttribute('data-answer', String(idx + 1));
+            btn.addEventListener('pointerdown', function(ev){
+                ev.preventDefault();
+                handleSoloAnswerInteraction(idx + 1);
+            });
+            btn.addEventListener('click', function(){ handleSoloAnswerInteraction(idx + 1); });
             answersWrap.appendChild(btn);
         });
+    }
+
+    function updateSoloSelectionStyles(){
+        var answersWrap = document.getElementById('answers');
+        if(!answersWrap) return;
+        Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
+            var n = idx + 1;
+            if(Array.isArray(state.multiSelections) && state.multiSelections.indexOf(n) !== -1){
+                btn.classList.add('multi-selected');
+            }else{
+                btn.classList.remove('multi-selected');
+            }
+        });
+    }
+
+    function updateSoloMultiSubmitVisibility(meta){
+        var btn = document.getElementById('multi-submit');
+        if(!btn) return;
+        var questions = getQuestions();
+        var question = questions[state.idx] || {};
+        var currentMeta = meta || normalizeQuestionMeta(question);
+        var isMultiple = currentMeta && currentMeta.type === 'multiple';
+        var show = isMultiple && !state.locked;
+        btn.classList.toggle('hidden', !show);
+        var hasSelection = Array.isArray(state.multiSelections) && state.multiSelections.length > 0;
+        btn.disabled = !hasSelection;
+        if(show){
+            btn.classList.toggle('has-selection', hasSelection);
+        }else{
+            btn.classList.remove('has-selection');
+        }
+    }
+
+    function toggleSoloMultiSelection(choice){
+        if(state.locked) return;
+        var questions = getQuestions();
+        var q = questions[state.idx];
+        if(!q) return;
+        if(normalizeQuestionMeta(q).type !== 'multiple') return;
+        var idx = state.multiSelections.indexOf(choice);
+        if(idx === -1){
+            state.multiSelections.push(choice);
+        }else{
+            state.multiSelections.splice(idx, 1);
+        }
+        updateSoloSelectionStyles();
+        updateSoloMultiSubmitVisibility();
+    }
+
+    function handleSoloAnswerInteraction(choice){
+        var questions = getQuestions();
+        var q = questions[state.idx];
+        if(!q) return;
+        if(normalizeQuestionMeta(q).type === 'multiple'){
+            toggleSoloMultiSelection(choice);
+            return;
+        }
+        answerQuestion(choice);
+    }
+
+    function submitSoloMultiAnswers(){
+        if(state.locked) return;
+        if(!Array.isArray(state.multiSelections) || !state.multiSelections.length) return;
+        answerQuestion(state.multiSelections.slice());
     }
 
     function startTimer(seconds){
@@ -823,9 +967,24 @@ function startQuiz(){
         stopTimer();
         var questions = getQuestions();
         var q = questions[state.idx];
+        var meta = normalizeQuestionMeta(q);
         var answersWrap = document.getElementById('answers');
         var feedback = document.getElementById('feedback');
-        var isCorrect = choice !== null && choice === parseInt(q.correct, 10);
+        var selected = [];
+        if(timedOut){
+            selected = [];
+        }else if(Array.isArray(choice)){
+            selected = choice.slice();
+        }else if(choice !== null && typeof choice !== 'undefined'){
+            selected = [choice];
+        }
+        var correctList = Array.isArray(meta.correctAnswers) && meta.correctAnswers.length ? meta.correctAnswers : [(parseInt(q.correct, 10) || 1)];
+        var isCorrect = false;
+        if(meta.type === 'multiple'){
+            isCorrect = areAnswerSetsEqual(selected, correctList);
+        }else{
+            isCorrect = selected.length && selected[0] === parseInt(q.correct, 10);
+        }
         if(isCorrect){
             state.correct += 1;
             var bonus = Math.max(100, Math.round(1000 * (state.timerLeft / state.timerTotal)));
@@ -833,13 +992,14 @@ function startQuiz(){
         }
         if(answersWrap){
             Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
-                if(idx + 1 === parseInt(q.correct, 10)){
+                var n = idx + 1;
+                btn.disabled = true;
+                if(correctList.indexOf(n) !== -1){
                     btn.classList.add('correct');
                 }
-                if(choice !== null && idx + 1 === choice && !isCorrect){
+                if(selected.indexOf(n) !== -1 && !isCorrect){
                     btn.classList.add('wrong');
                 }
-                btn.disabled = true;
             });
         }
         if(feedback){
@@ -856,10 +1016,13 @@ function startQuiz(){
                 feedback.classList.add('feedback--error');
                 var correctAnswerText = '';
                 if(Array.isArray(q.answers)){
-                    var correctIdx = parseInt(q.correct, 10) - 1;
-                    if(correctIdx >= 0 && q.answers[correctIdx]){
-                        correctAnswerText = q.answers[correctIdx];
-                    }
+                    var list = [];
+                    correctList.forEach(function(idx){
+                        if(idx && q.answers[idx - 1]){
+                            list.push(q.answers[idx - 1]);
+                        }
+                    });
+                    correctAnswerText = list.join(', ');
                 }
                 var label = t('correctLabel');
                 feedback.textContent = correctAnswerText
@@ -867,21 +1030,28 @@ function startQuiz(){
                     : t('wrongText');
             }
         }
-        updateScorePill();
+        state.multiSelections = [];
+        updateSoloSelectionStyles();
+        updateSoloMultiSubmitVisibility();
+        state.lastWrong = null;
         if(isCorrect){
+            updateScorePill();
             setTimeout(function(){
                 state.idx += 1;
                 renderQuestion();
             }, 1200);
-        }else{
-            state.awaitingConfirm = true;
-            state.lastWrong = {
-                correct: q.correct,
-                correctText: Array.isArray(q.answers) ? q.answers[parseInt(q.correct, 10) - 1] : '',
-                question: q.question || ''
-            };
-            showFeedbackModal();
+            return;
         }
+        updateScorePill();
+        state.awaitingConfirm = true;
+        state.lastWrong = {
+            correct: correctList,
+            correctText: Array.isArray(q.answers) ? correctList.map(function(idx){
+                return q.answers[idx - 1] || '';
+            }).filter(Boolean).join(', ') : '',
+            question: q.question || ''
+        };
+        showFeedbackModal();
     }
 
     function finishQuiz(){
@@ -1092,6 +1262,7 @@ function startQuiz(){
         pauseSoloMusic();
         state.awaitingConfirm = false;
         state.lastWrong = null;
+        state.multiSelections = [];
         state.questions = [];
     }
 
@@ -1118,6 +1289,10 @@ function startQuiz(){
         var startBtn = document.getElementById('start-btn');
         if(startBtn){
             startBtn.addEventListener('click', startQuiz);
+        }
+        var multiSubmitBtn = document.getElementById('multi-submit');
+        if(multiSubmitBtn){
+            multiSubmitBtn.addEventListener('click', submitSoloMultiAnswers);
         }
         var questionCount = document.getElementById('question-count');
         if(questionCount){

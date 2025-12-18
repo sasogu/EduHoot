@@ -333,6 +333,25 @@ input[type="search"]::placeholder{ color: #9fb1d9; }
   border: 1px solid var(--card-stroke);
 }
 
+.btn.multi-submit{
+  width: 100%;
+  padding: 10px 12px;
+  letter-spacing: 0.04em;
+  font-size: 0.9rem;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  margin-top: 6px;
+}
+
+.btn.multi-submit.has-selection{
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.btn.multi-submit:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn:hover{ transform: translateY(-1px); }
 
 .pagination{
@@ -611,6 +630,12 @@ body.mode-per-player .question-card{
 .answer:nth-child(4){ background: linear-gradient(135deg, #f43f5e, #e11d48); }
 
 .answer:active{ transform: translateY(0); filter: brightness(0.95); }
+
+.answer.multi-selected{
+  outline: 3px solid rgba(255,255,255,0.45);
+  outline-offset: 2px;
+  transform: translateY(-2px);
+}
 
 .answer.correct{ border: 2px solid #bbf7d0; }
 .answer.wrong{ border: 2px solid #fecaca; }

@@ -78,7 +78,8 @@
       timeup: 'Tiempo',
       finishTitle: 'Partida terminada',
       playAgain: 'Repetir',
-      pickAnother: 'Elegir otro quiz'
+      pickAnother: 'Elegir otro quiz',
+      submitAnswers: 'Enviar respuestas'
     },
     en: {
       back: 'Back',
@@ -123,7 +124,8 @@
       timeup: 'Time',
       finishTitle: 'Match finished',
       playAgain: 'Play again',
-      pickAnother: 'Pick another quiz'
+      pickAnother: 'Pick another quiz',
+      submitAnswers: 'Submit answers'
     },
     ca: {
       back: 'Tornar',
@@ -168,12 +170,96 @@
       timeup: 'Temps',
       finishTitle: 'Partida acabada',
       playAgain: 'Tornar a jugar',
-      pickAnother: 'Triar un altre quiz'
+      pickAnother: 'Triar un altre quiz',
+      submitAnswers: 'Enviar respostes'
     }
   };
 
   function t(key){
     return (i18n[lang] && i18n[lang][key]) || (i18n.es && i18n.es[key]) || key;
+  }
+
+  function getPlayerPanel(playerId){
+    var wrap = document.getElementById('players');
+    if(!wrap) return null;
+    return wrap.querySelector('.player-panel[data-player="' + playerId + '"]');
+  }
+
+  function updateMultiSubmitState(panel, player){
+    if(!panel || !player) return;
+    var multiSubmit = panel.querySelector('[data-multi-submit]');
+    if(!multiSubmit) return;
+    var hasSelection = Array.isArray(player.multiSelections) && player.multiSelections.length > 0;
+    multiSubmit.disabled = !hasSelection;
+    multiSubmit.classList.toggle('has-selection', hasSelection);
+  }
+
+  function togglePlayerMultiSelection(playerId, choice){
+    if(state.phaseLocked) return;
+    var q = getQuestionForPlayer(playerId);
+    if(!q || normalizeQuestionMeta(q).type !== 'multiple') return;
+    var player = state.players[playerId];
+    if(!player || player.answered) return;
+    var panel = getPlayerPanel(playerId);
+    if(!panel) return;
+    var answersWrap = panel.querySelector('[data-answers]');
+    if(!answersWrap) return;
+    var btn = answersWrap.querySelector('[data-answer="' + choice + '"]');
+    if(!btn) return;
+    var selections = Array.isArray(player.multiSelections) ? player.multiSelections.slice() : [];
+    var existingIdx = selections.indexOf(choice);
+    if(existingIdx === -1){
+      selections.push(choice);
+    }else{
+      selections.splice(existingIdx, 1);
+    }
+    player.multiSelections = selections;
+    btn.classList.toggle('multi-selected', existingIdx === -1);
+    updateMultiSubmitState(panel, player);
+  }
+
+  function handlePlayerAnswerClick(playerId, choice){
+    var q = getQuestionForPlayer(playerId);
+    if(!q) return;
+    if(normalizeQuestionMeta(q).type === 'multiple'){
+      togglePlayerMultiSelection(playerId, choice);
+      return;
+    }
+    answerForPlayer(playerId, choice);
+  }
+
+  function submitMultiAnswer(playerId){
+    if(state.phaseLocked) return;
+    var player = state.players[playerId];
+    if(!player || player.answered) return;
+    var q = getQuestionForPlayer(playerId);
+    if(!q) return;
+    var meta = normalizeQuestionMeta(q);
+    if(meta.type !== 'multiple') return;
+    var selections = Array.isArray(player.multiSelections) ? player.multiSelections.slice() : [];
+    if(!selections.length) return;
+    var normalizedSelections = selections.slice().sort(function(a, b){ return a - b; });
+    player.selectedAnswers = normalizedSelections;
+    player.choice = null;
+    player.multiSelections = normalizedSelections.slice();
+    player.answered = true;
+    player.outcome = areAnswerSetsEqual(normalizedSelections, meta.correctAnswers) ? 'ok' : 'bad';
+    if(player.outcome === 'ok'){
+      player.correct += 1;
+      var bonus = Math.max(100, Math.round(1000 * (state.timerLeft / state.timerTotal)));
+      player.score += bonus;
+    }
+    var panel = getPlayerPanel(playerId);
+    if(panel){
+      var multiSubmit = panel.querySelector('[data-multi-submit]');
+      if(multiSubmit){
+        multiSubmit.classList.add('hidden');
+      }
+    }
+    lockPlayerSelection(playerId);
+    if(allAnswered()){
+      finishRoundAndContinue();
+    }
   }
 
   function format(str, data){
@@ -259,21 +345,85 @@
     });
   }
 
+  function normalizeQuestionMeta(q){
+    var type = (q && q.type) ? String(q.type).toLowerCase() : 'quiz';
+    if(type !== 'multiple' && type !== 'true-false') type = 'quiz';
+    var answers = Array.isArray(q && q.correctAnswers) ? q.correctAnswers.slice() : [];
+    if(!answers.length && q && typeof q.correct !== 'undefined'){
+      var parsed = parseInt(q.correct, 10);
+      if(!Number.isNaN(parsed)){
+        answers.push(parsed);
+      }
+    }
+    if(!answers.length){
+      answers.push(1);
+    }
+    return {
+      type: type,
+      correctAnswers: answers.map(function(value){
+        var num = parseInt(value, 10);
+        if(Number.isNaN(num)) return 1;
+        return Math.max(1, Math.min(4, num));
+      })
+    };
+  }
+
+  function isMultipleQuestion(q){
+    return normalizeQuestionMeta(q).type === 'multiple';
+  }
+
   function randomizeOneQuestion(q){
     var answers = Array.isArray(q && q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
     while(answers.length < 4) answers.push('');
     var correctIdx = Math.max(0, Math.min(answers.length - 1, (parseInt(q && q.correct, 10) || 1) - 1));
     var answerOrder = shuffleArray([0,1,2,3]);
     var newAnswers = answerOrder.map(function(idx){ return answers[idx]; });
-    var newCorrect = answerOrder.indexOf(correctIdx) + 1;
+    var meta = normalizeQuestionMeta(q);
+    var newCorrectAnswers = [];
+    meta.correctAnswers.forEach(function(orig){
+      var zero = Math.max(0, Math.min(3, orig - 1));
+      var newIdx = answerOrder.indexOf(zero);
+      if(newIdx !== -1){
+        var candidate = newIdx + 1;
+        if(newCorrectAnswers.indexOf(candidate) === -1){
+          newCorrectAnswers.push(candidate);
+        }
+      }
+    });
+    if(!newCorrectAnswers.length){
+      newCorrectAnswers.push(1);
+    }
+    var newCorrect = newCorrectAnswers[0];
     return {
       question: (q && q.question) || '',
       answers: newAnswers,
       correct: newCorrect,
+      correctAnswers: newCorrectAnswers,
+      type: meta.type,
       image: (q && q.image) || '',
       video: (q && q.video) || '',
       time: q && q.time
     };
+  }
+
+  function getVisibleAnswers(q, type){
+    var answers = Array.isArray(q && q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
+    while(answers.length < 4) answers.push('');
+    if(type === 'true-false'){
+      return answers.slice(0, 2);
+    }
+    return answers;
+  }
+
+  function areAnswerSetsEqual(left, right){
+    if(!Array.isArray(left) || !Array.isArray(right)) return false;
+    var sortedLeft = left.slice().sort(function(a, b){ return a - b; });
+    var sortedRight = right.slice().sort(function(a, b){ return a - b; });
+    if(sortedLeft.length !== sortedRight.length) return false;
+    for(var i = 0; i < sortedLeft.length; i++){
+      if(sortedLeft[i] !== sortedRight[i]) return false;
+    }
+    return true;
   }
 
   function buildRounds(baseQuestions, playerCount, roundsCount){
@@ -834,7 +984,9 @@
         correct: 0,
         answered: false,
         choice: null,
-        outcome: null
+        outcome: null,
+        multiSelections: [],
+        selectedAnswers: []
       });
     }
 
@@ -954,6 +1106,13 @@
       panel.appendChild(header);
       panel.appendChild(feedback);
       panel.appendChild(answers);
+      var multiSubmit = document.createElement('button');
+      multiSubmit.type = 'button';
+      multiSubmit.className = 'btn multi-submit hidden';
+      multiSubmit.setAttribute('data-multi-submit', '1');
+      multiSubmit.textContent = t('submitAnswers');
+      multiSubmit.addEventListener('click', function(){ submitMultiAnswer(p.id); });
+      panel.appendChild(multiSubmit);
       wrap.appendChild(panel);
     });
 
@@ -981,6 +1140,8 @@
       p.answered = false;
       p.choice = null;
       p.outcome = null;
+      p.multiSelections = [];
+      p.selectedAnswers = [];
 
       var panel = wrap.querySelector('.player-panel[data-player="' + p.id + '"]');
       if(!panel) return;
@@ -1004,19 +1165,32 @@
       answersWrap.innerHTML = '';
 
       var qForPanel = getQuestionForPlayer(p.id) || q;
-      (qForPanel.answers || []).slice(0, 4).forEach(function(ans, idx){
+      var meta = normalizeQuestionMeta(qForPanel);
+      var answersToShow = getVisibleAnswers(qForPanel, meta.type);
+      answersToShow.forEach(function(ans, idx){
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'answer';
         btn.textContent = ans || ('A' + (idx + 1));
+        btn.setAttribute('data-answer', String(idx + 1));
         btn.addEventListener('pointerdown', function(ev){
           ev.preventDefault();
-          answerForPlayer(p.id, idx + 1);
+          handlePlayerAnswerClick(p.id, idx + 1);
         });
-        // fallback mouse
-        btn.addEventListener('click', function(){ answerForPlayer(p.id, idx + 1); });
+        btn.addEventListener('click', function(){ handlePlayerAnswerClick(p.id, idx + 1); });
         answersWrap.appendChild(btn);
       });
+
+      var multiSubmit = panel.querySelector('[data-multi-submit]');
+      if(multiSubmit){
+        if(meta.type === 'multiple'){
+          multiSubmit.classList.remove('hidden');
+          multiSubmit.disabled = true;
+          multiSubmit.classList.remove('has-selection');
+        }else{
+          multiSubmit.classList.add('hidden');
+        }
+      }
     });
   }
 
@@ -1069,10 +1243,20 @@
 
     var answersWrap = panel.querySelector('[data-answers]');
     if(!answersWrap) return;
+    var player = state.players[playerId];
+    var finalSelections = [];
+    if(player){
+      if(Array.isArray(player.selectedAnswers) && player.selectedAnswers.length){
+        finalSelections = player.selectedAnswers.slice();
+      }else if(player.choice !== null){
+        finalSelections = [player.choice];
+      }
+    }
     Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
       btn.disabled = true;
+      btn.classList.remove('multi-selected');
       var n = idx + 1;
-      if(state.players[playerId] && state.players[playerId].choice === n){
+      if(finalSelections.indexOf(n) !== -1){
         btn.classList.add('selected');
       }
     });
@@ -1112,13 +1296,17 @@
 
       var answersWrap = panel.querySelector('[data-answers]');
       if(!answersWrap) return;
+      var correctList = Array.isArray(q.correctAnswers) && q.correctAnswers.length ? q.correctAnswers : [(parseInt(q.correct, 10) || 1)];
+      var playerSelections = Array.isArray(p.selectedAnswers) && p.selectedAnswers.length ? p.selectedAnswers : (p.choice !== null ? [p.choice] : []);
       Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
         var n = idx + 1;
         btn.disabled = true;
-        // Marca siempre la correcta.
-        if(n === parseInt(q.correct, 10)) btn.classList.add('correct');
-        // Marca la elegida si es fallo.
-        if(p.choice !== null && n === p.choice && p.outcome === 'bad') btn.classList.add('wrong');
+        if(correctList.indexOf(n) !== -1){
+          btn.classList.add('correct');
+        }
+        if(playerSelections.indexOf(n) !== -1 && p.outcome === 'bad' && correctList.indexOf(n) === -1){
+          btn.classList.add('wrong');
+        }
       });
     });
   }
@@ -1144,6 +1332,8 @@
 
     p.answered = true;
     p.choice = choice;
+    p.selectedAnswers = [choice];
+    p.multiSelections = [choice];
 
     var isCorrect = choice === parseInt(q.correct, 10);
     if(isCorrect){
@@ -1171,6 +1361,8 @@
       p.answered = true;
       p.choice = null;
       p.outcome = 'timeout';
+      p.selectedAnswers = [];
+      p.multiSelections = [];
     });
 
     finishRoundAndContinue();

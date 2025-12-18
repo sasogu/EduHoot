@@ -14,6 +14,8 @@ var rankingTimeout = null;
 var timerTotal = 20;
 var timerLeft = 20;
 var timerInterval = null;
+var currentQuestionType = 'quiz';
+var multiSelections = [];
 
 function tPlayer(key, fallback){
     return window.i18nPlayer ? window.i18nPlayer.t(key) : (fallback || key);
@@ -108,23 +110,92 @@ socket.on('noGameFound', function(){
     window.location.href = '../../';//Redirect user to 'join game' page 
 });
 
-function answerSubmitted(num){
-    if(playerAnswered == false){
-        playerAnswered = true;
-        
-        socket.emit('playerAnswer', num);//Sends player answer to server
-        
-        //Hiding buttons from user
-        document.getElementById('answer1').style.visibility = "hidden";
-        document.getElementById('answer2').style.visibility = "hidden";
-        document.getElementById('answer3').style.visibility = "hidden";
-        document.getElementById('answer4').style.visibility = "hidden";
-        document.getElementById('message').style.display = "block";
-        var submitted = window.i18nPlayer ? window.i18nPlayer.t('submitted') : "Answer Submitted! Waiting on other players...";
-        document.getElementById('message').innerHTML = submitted;
-        setAnswerStatus('submitted');
-        
+function updateMultiSubmitVisibility(){
+    var row = document.getElementById('multiSubmitRow');
+    if(!row) return;
+    row.style.display = (currentQuestionType === 'multiple' && !playerAnswered) ? 'flex' : 'none';
+}
+
+function updateMultiSelectionStyles(){
+    for(var i = 1; i <= 4; i++){
+        var btn = document.getElementById('answer' + i);
+        if(!btn) continue;
+        if(multiSelections.indexOf(i) !== -1){
+            btn.classList.add('multi-selected');
+        }else{
+            btn.classList.remove('multi-selected');
+        }
     }
+}
+
+function toggleMultiAnswer(num){
+    if(playerAnswered) return;
+    if(currentQuestionType !== 'multiple') return;
+    var idx = multiSelections.indexOf(num);
+    if(idx === -1){
+        multiSelections.push(num);
+    }else{
+        multiSelections.splice(idx, 1);
+    }
+    updateMultiSelectionStyles();
+    updateMultiSubmitVisibility();
+}
+
+function hidePlayerOptionsAfterSubmit(){
+    for(var i = 1; i <= 4; i++){
+        var el = document.getElementById('answer' + i);
+        if(el) el.style.visibility = "hidden";
+    }
+    var msgEl = document.getElementById('message');
+    if(msgEl){
+        msgEl.style.display = "block";
+        var submitted = window.i18nPlayer ? window.i18nPlayer.t('submitted') : "Answer Submitted! Waiting on other players...";
+        msgEl.innerHTML = submitted;
+    }
+    setAnswerStatus('submitted');
+    var multiRow = document.getElementById('multiSubmitRow');
+    if(multiRow) multiRow.style.display = 'none';
+    multiSelections = [];
+    updateMultiSelectionStyles();
+}
+
+function submitAnswerPayload(payload){
+    if(playerAnswered) return;
+    playerAnswered = true;
+    socket.emit('playerAnswer', payload);
+    hidePlayerOptionsAfterSubmit();
+}
+
+function submitMultiAnswers(){
+    if(playerAnswered || !multiSelections.length) return;
+    submitAnswerPayload(multiSelections.slice());
+}
+
+function updatePlayerAnswerButtons(answers, type){
+    currentQuestionType = type || 'quiz';
+    multiSelections = [];
+    updateMultiSelectionStyles();
+    for(var i = 1; i <= 4; i++){
+        var btn = document.getElementById('answer' + i);
+        if(!btn) continue;
+        var text = answers[i - 1] || '';
+        btn.textContent = text;
+        btn.style.display = text && text.trim() ? 'inline-block' : 'none';
+        btn.style.visibility = 'visible';
+    }
+    var submitBtn = document.getElementById('multiSubmitBtn');
+    if(submitBtn){
+        submitBtn.textContent = tPlayer('submit_multiple') || 'Submit answers';
+    }
+    updateMultiSubmitVisibility();
+}
+
+function answerSubmitted(num){
+    if(currentQuestionType === 'multiple'){
+        toggleMultiAnswer(num);
+        return;
+    }
+    submitAnswerPayload(num);
 }
 
 //Get results on last question
@@ -159,8 +230,10 @@ function updatePlayerRank(playerData){
     }
 }
 
-socket.on('questionOver', function(playerData, correctAnswer){
+socket.on('questionOver', function(playerData, payload){
     setMedia(null, null);
+    var multiRow = document.getElementById('multiSubmitRow');
+    if(multiRow) multiRow.style.display = 'none';
     if(correct == true){
         document.body.style.backgroundColor = "#4CAF50";
         document.getElementById('message').style.display = "block";
@@ -170,7 +243,14 @@ socket.on('questionOver', function(playerData, correctAnswer){
         document.getElementById('message').style.display = "block";
         var incorrectMsg = window.i18nPlayer ? window.i18nPlayer.t('incorrect') : "Incorrect!";
         var correctLabel = window.i18nPlayer ? window.i18nPlayer.t('correct_answer') : "Correct answer:";
-        var answerTxt = (lastAnswers && correctAnswer && lastAnswers[correctAnswer - 1]) ? lastAnswers[correctAnswer - 1] : '';
+        var correctAnswers = (payload && Array.isArray(payload.correctAnswers)) ? payload.correctAnswers : [];
+        var answerList = [];
+        (correctAnswers || []).forEach(function(idx){
+            if(lastAnswers && idx && lastAnswers[idx - 1]){
+                answerList.push(lastAnswers[idx - 1]);
+            }
+        });
+        var answerTxt = answerList.join(', ');
         document.getElementById('message').innerHTML = incorrectMsg + (answerTxt ? '<span class="player-correct-answer">' + correctLabel + ' ' + answerTxt + '</span>' : '');
     }
     setAnswerStatus('over');
@@ -201,6 +281,10 @@ socket.on('nextQuestionPlayer', function(){
         clearTimeout(rankingTimeout);
         rankingTimeout = null;
     }
+    currentQuestionType = 'quiz';
+    multiSelections = [];
+    updateMultiSelectionStyles();
+    updateMultiSubmitVisibility();
     
     document.getElementById('answer1').style.visibility = "visible";
     document.getElementById('answer2').style.visibility = "visible";
@@ -241,13 +325,8 @@ socket.on('playerQuestion', function(data){
     if(data.question){
         document.getElementById('questionText').textContent = data.question;
     }
-    if(data.answers && data.answers.length >= 4){
-        document.getElementById('answer1').textContent = data.answers[0];
-        document.getElementById('answer2').textContent = data.answers[1];
-        document.getElementById('answer3').textContent = data.answers[2];
-        document.getElementById('answer4').textContent = data.answers[3];
-        lastAnswers = data.answers.slice(0, 4);
-    }
+    updatePlayerAnswerButtons(data.answers || [], data.type);
+    lastAnswers = (data.answers || []).slice(0, 4);
     if(typeof data.time === 'number'){
         timerTotal = Math.max(5, Math.min(120, data.time));
     }else{
@@ -263,6 +342,8 @@ socket.on('GameOver', function(){
     document.getElementById('answer2').style.visibility = "hidden";
     document.getElementById('answer3').style.visibility = "hidden";
     document.getElementById('answer4').style.visibility = "hidden";
+    var multiRow = document.getElementById('multiSubmitRow');
+    if(multiRow) multiRow.style.display = 'none';
     document.getElementById('message').style.display = "block";
     document.getElementById('message').innerHTML = window.i18nPlayer ? window.i18nPlayer.t('game_over') : "GAME OVER";
 });

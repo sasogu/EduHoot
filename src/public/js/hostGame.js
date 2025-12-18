@@ -35,6 +35,8 @@ var hostRankingGongPlayed = false;
 var hostResumeMusicAfterRanking = false;
 var hostMusicActivationOverlayEl = null;
 var hostMusicActivationKeydownHandler = null;
+var currentQuestionType = 'quiz';
+var currentAnswerTexts = ['', '', '', ''];
 var gongAudio = null;
 var gongUrl = '/effects/gong.mp3';
 var GONG_VOLUME_BOOST = 1.25;
@@ -157,6 +159,86 @@ function initHostMusicPlayer(){
         volume: 0.7
     });
     updateHostMusicLabels();
+}
+
+function setCurrentAnswerTexts(answers){
+    currentAnswerTexts = [];
+    for(var i = 0; i < 4; i++){
+        currentAnswerTexts[i] = answers[i] || '';
+    }
+    for(var j = 1; j <= 4; j++){
+        var el = document.getElementById('answer' + j);
+        if(!el) continue;
+        var text = currentAnswerTexts[j - 1];
+        el.innerHTML = text;
+        if(currentQuestionType === 'true-false' && j > 2){
+            el.style.display = 'none';
+        }else{
+            el.style.display = text && text.trim().length ? 'block' : 'none';
+        }
+        el.style.filter = '';
+    }
+}
+
+function getVisibleAnswerFlags(){
+    var flags = [];
+    for(var i = 0; i < 4; i++){
+        var text = currentAnswerTexts[i];
+        var visible = !!text && text.trim().length;
+        if(currentQuestionType === 'true-false' && i >= 2){
+            visible = false;
+        }
+        flags.push(visible);
+    }
+    return flags;
+}
+
+function hideAnswerSquares(){
+    for(var k = 1; k <= 4; k++){
+        var square = document.getElementById('square' + k);
+        if(square){
+            square.style.display = 'none';
+            square.style.height = '0px';
+        }
+    }
+}
+
+function highlightCorrectAnswers(correctAnswers){
+    var valid = Array.isArray(correctAnswers) ? correctAnswers : [];
+    var correctSet = new Set(valid.map(Number));
+    var visibleFlags = getVisibleAnswerFlags();
+    for(var idx = 1; idx <= 4; idx++){
+        var el = document.getElementById('answer' + idx);
+        if(!el) continue;
+        var visible = visibleFlags[idx - 1];
+        if(!visible){
+            el.style.filter = '';
+            continue;
+        }
+        if(correctSet.has(idx)){
+            el.innerHTML = '&#10004; ' + (currentAnswerTexts[idx - 1] || '');
+            el.style.filter = '';
+        }else{
+            el.style.filter = "grayscale(50%)";
+        }
+    }
+}
+
+function updateSquareHeights(counts, total){
+    var visible = getVisibleAnswerFlags();
+    var denominator = total > 0 ? total : 1;
+    for(var i = 1; i <= 4; i++){
+        var square = document.getElementById('square' + i);
+        if(!square) continue;
+        if(!visible[i - 1]){
+            square.style.display = 'none';
+            square.style.height = '0px';
+            continue;
+        }
+        square.style.display = "inline-block";
+        var height = Math.round((counts[i - 1] || 0) / denominator * 100);
+        square.style.height = height + "px";
+    }
 }
 
 function initGong(){
@@ -418,15 +500,13 @@ socket.on('gameQuestions', function(data){
         });
     }
 
+    currentQuestionType = data.type || 'quiz';
     document.getElementById('question').innerHTML = data.q1;
-    document.getElementById('answer1').innerHTML = data.a1;
-    document.getElementById('answer2').innerHTML = data.a2;
-    document.getElementById('answer3').innerHTML = data.a3;
-    document.getElementById('answer4').innerHTML = data.a4;
+    setCurrentAnswerTexts([data.a1, data.a2, data.a3, data.a4]);
+    hideAnswerSquares();
     defaultTime = data.time || defaultTime || 20;
     window.hostShowScores = data.showScores !== false;
     setMedia(data.image, data.video);
-    var correctAnswer = data.correct;
     document.getElementById('playersAnswered').innerHTML = i18n[lang].playersAnswered(0, data.playersInGame);
     if (data.questionNumber && data.totalQuestions) {
         document.getElementById('questionNum').innerHTML = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
@@ -470,74 +550,30 @@ document.addEventListener('keydown', function(ev){
     }
 });
 
-socket.on('questionOver', function(playerData, correct){
+socket.on('questionOver', function(playerData, payload){
     hostQuestionEnded = true;
     clearInterval(timer);
-    var answer1 = 0;
-    var answer2 = 0;
-    var answer3 = 0;
-    var answer4 = 0;
-    var total = 0;
-    //Hide elements on page
     document.getElementById('playersAnswered').style.display = "none";
     document.getElementById('timerText').style.display = "none";
     setMedia(null, null);
-    
-    //Shows user correct answer with effects on elements
-    if(correct == 1){
-        document.getElementById('answer2').style.filter = "grayscale(50%)";
-        document.getElementById('answer3').style.filter = "grayscale(50%)";
-        document.getElementById('answer4').style.filter = "grayscale(50%)";
-        var current = document.getElementById('answer1').innerHTML;
-        document.getElementById('answer1').innerHTML = "&#10004" + " " + current;
-    }else if(correct == 2){
-        document.getElementById('answer1').style.filter = "grayscale(50%)";
-        document.getElementById('answer3').style.filter = "grayscale(50%)";
-        document.getElementById('answer4').style.filter = "grayscale(50%)";
-        var current = document.getElementById('answer2').innerHTML;
-        document.getElementById('answer2').innerHTML = "&#10004" + " " + current;
-    }else if(correct == 3){
-        document.getElementById('answer1').style.filter = "grayscale(50%)";
-        document.getElementById('answer2').style.filter = "grayscale(50%)";
-        document.getElementById('answer4').style.filter = "grayscale(50%)";
-        var current = document.getElementById('answer3').innerHTML;
-        document.getElementById('answer3').innerHTML = "&#10004" + " " + current;
-    }else if(correct == 4){
-        document.getElementById('answer1').style.filter = "grayscale(50%)";
-        document.getElementById('answer2').style.filter = "grayscale(50%)";
-        document.getElementById('answer3').style.filter = "grayscale(50%)";
-        var current = document.getElementById('answer4').innerHTML;
-        document.getElementById('answer4').innerHTML = "&#10004" + " " + current;
+    currentQuestionType = (payload && payload.type) || currentQuestionType;
+    highlightCorrectAnswers(payload && payload.correctAnswers);
+    var answerCounts = [0, 0, 0, 0];
+    var totalPlayers = Array.isArray(playerData) ? playerData.length : 0;
+    function incrementAnswer(value){
+        var num = Number(value);
+        if(Number.isNaN(num) || num < 1 || num > 4) return;
+        answerCounts[num - 1] += 1;
     }
-    
-    for(var i = 0; i < playerData.length; i++){
-        if(playerData[i].gameData.answer == 1){
-            answer1 += 1;
-        }else if(playerData[i].gameData.answer == 2){
-            answer2 += 1;
-        }else if(playerData[i].gameData.answer == 3){
-            answer3 += 1;
-        }else if(playerData[i].gameData.answer == 4){
-            answer4 += 1;
+    (playerData || []).forEach(function(player){
+        var answer = player.gameData.answer;
+        if(Array.isArray(answer)){
+            answer.forEach(incrementAnswer);
+        }else{
+            incrementAnswer(answer);
         }
-        total += 1;
-    }
-    
-    //Gets values for graph
-    answer1 = answer1 / total * 100;
-    answer2 = answer2 / total * 100;
-    answer3 = answer3 / total * 100;
-    answer4 = answer4 / total * 100;
-    
-    document.getElementById('square1').style.display = "inline-block";
-    document.getElementById('square2').style.display = "inline-block";
-    document.getElementById('square3').style.display = "inline-block";
-    document.getElementById('square4').style.display = "inline-block";
-    
-    document.getElementById('square1').style.height = answer1 + "px";
-    document.getElementById('square2').style.height = answer2 + "px";
-    document.getElementById('square3').style.height = answer3 + "px";
-    document.getElementById('square4').style.height = answer4 + "px";
+    });
+    updateSquareHeights(answerCounts, totalPlayers);
     
     document.getElementById('nextQButton').style.display = "block";
     document.getElementById('skipQButton').style.display = "none";

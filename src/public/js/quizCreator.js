@@ -44,6 +44,11 @@ var i18n = {
         questionLabel: 'Enunciado',
         answerLabel: 'Respuesta',
         correctLabel: 'Respuesta correcta (1-4)',
+        questionTypeLabel: 'Modo de pregunta',
+        questionTypeSingle: 'Quiz (1 correcta)',
+        questionTypeMultiple: 'Respuesta múltiple',
+        questionTypeTf: 'Verdadero / Falso',
+        questionTypeMultiHint: 'Marca todas las respuestas correctas.',
         imageLabel: 'Imagen (URL opcional)',
         videoLabel: 'Video (URL opcional)',
         namePlaceholder: 'Ej: Repaso de energía',
@@ -94,6 +99,11 @@ var i18n = {
         questionLabel: 'Question',
         answerLabel: 'Answer',
         correctLabel: 'Correct answer (1-4)',
+        questionTypeLabel: 'Question mode',
+        questionTypeSingle: 'Quiz (1 correct)',
+        questionTypeMultiple: 'Multiple answers',
+        questionTypeTf: 'True / False',
+        questionTypeMultiHint: 'Check every answer that counts.',
         imageLabel: 'Image (optional URL)',
         videoLabel: 'Video (optional URL)',
         namePlaceholder: 'e.g. Energy review',
@@ -144,6 +154,11 @@ var i18n = {
         questionLabel: 'Enunciat',
         answerLabel: 'Resposta',
         correctLabel: 'Resposta correcta (1-4)',
+        questionTypeLabel: 'Mode de pregunta',
+        questionTypeSingle: 'Quiz (1 correcta)',
+        questionTypeMultiple: 'Resposta múltiple',
+        questionTypeTf: 'Cert / Fals',
+        questionTypeMultiHint: 'Marca totes les respostes correctes.',
         imageLabel: 'Imatge (URL opcional)',
         videoLabel: 'Vídeo (URL opcional)',
         namePlaceholder: 'Ex: Repàs d\'energia',
@@ -265,8 +280,38 @@ function buildQuizPayload(){
         var correct = document.getElementById('correct' + i).value;
         var image = document.getElementById('img' + i) ? document.getElementById('img' + i).value : '';
         var video = document.getElementById('vid' + i) ? document.getElementById('vid' + i).value : '';
+        var card = document.querySelector('.question-card[data-question="' + i + '"]');
+        var typeEl = document.getElementById('type' + i);
+        var questionType = typeEl ? typeEl.value : 'quiz';
+        var correctValues = [];
+        if(questionType === 'multiple' && card){
+            var checkboxes = card.querySelectorAll('.multi-correct input[type="checkbox"]');
+            checkboxes.forEach(function(cb){
+                if(cb.checked){
+                    var val = parseInt(cb.value, 10);
+                    if(!Number.isNaN(val)){
+                        correctValues.push(val);
+                    }
+                }
+            });
+        }
+        if(!correctValues.length){
+            var single = parseInt(correct, 10);
+            if(Number.isNaN(single) || single < 1 || single > 4){
+                single = 1;
+            }
+            correctValues.push(single);
+        }
         var answers = [answer1, answer2, answer3, answer4];
-        questions.push({"question": question, "answers": answers, "correct": correct, "image": image, "video": video})
+        questions.push({
+            "question": question,
+            "answers": answers,
+            "correct": correctValues[0],
+            "correctAnswers": correctValues,
+            "type": questionType,
+            "image": image,
+            "video": video
+        });
     }
     return {
         name: name,
@@ -325,6 +370,10 @@ function quizToCsv(quiz){
     var header = ['tipo','pregunta','r1','r2','r3','r4','tiempo','correcta','imagen','video'].join(';');
     var lines = (quiz.questions || []).map(function(q){
         var answers = q.answers || [];
+        var type = q.type || 'quiz';
+        var correctVals = Array.isArray(q.correctAnswers) && q.correctAnswers.length
+            ? q.correctAnswers.join(',')
+            : (q.correct || 1);
         function esc(v){
             if(v === undefined || v === null) return '';
             var s = String(v);
@@ -333,7 +382,7 @@ function quizToCsv(quiz){
             }
             return s;
         }
-        return ['quiz', esc(q.question||''), esc(answers[0]||''), esc(answers[1]||''), esc(answers[2]||''), esc(answers[3]||''), esc(q.time||20), esc(q.correct||1), esc(q.image||''), esc(q.video||'')].join(';');
+        return [type, esc(q.question||''), esc(answers[0]||''), esc(answers[1]||''), esc(answers[2]||''), esc(answers[3]||''), esc(q.time||20), esc(correctVals), esc(q.image||''), esc(q.video||'')].join(';');
     });
     return [header].concat(lines).join('\n');
 }
@@ -510,8 +559,25 @@ function buildQuestionCard(num, data){
     questionField.placeholder = '?';
     questionField.value = (data && data.question) || '';
 
+    var typeRow = document.createElement('div');
+    typeRow.className = 'question-type-row';
+    var typeLabel = document.createElement('label');
+    typeLabel.textContent = t('questionTypeLabel');
+    var typeSelect = document.createElement('select');
+    typeSelect.className = 'question-type';
+    typeSelect.id = 'type' + String(num);
+    [['quiz', 'questionTypeSingle'], ['multiple', 'questionTypeMultiple'], ['true-false', 'questionTypeTf']].forEach(function(pair){
+        var option = document.createElement('option');
+        option.value = pair[0];
+        option.textContent = t(pair[1]);
+        typeSelect.appendChild(option);
+    });
+    typeRow.appendChild(typeLabel);
+    typeRow.appendChild(typeSelect);
+
     var answersWrap = document.createElement('div');
     answersWrap.className = 'answers';
+    var answerGroups = [];
     for(var n = 1; n <= 4; n++){
         var answerLabel = document.createElement('label');
         answerLabel.textContent = t('answerLabel') + ' ' + n;
@@ -523,6 +589,27 @@ function buildQuestionCard(num, data){
         answerField.value = ans || '';
         answerLabel.appendChild(answerField);
         answersWrap.appendChild(answerLabel);
+        answerGroups.push({ label: answerLabel, input: answerField });
+    }
+
+    var multiCorrect = document.createElement('div');
+    multiCorrect.className = 'multi-correct hidden';
+    var multiHint = document.createElement('p');
+    multiHint.className = 'multi-correct__hint';
+    multiHint.textContent = t('questionTypeMultiHint');
+    multiCorrect.appendChild(multiHint);
+    var multiCheckboxes = [];
+    for(var m = 1; m <= 4; m++){
+        var multiLabel = document.createElement('label');
+        multiLabel.className = 'multi-correct__label';
+        var multiInput = document.createElement('input');
+        multiInput.type = 'checkbox';
+        multiInput.value = String(m);
+        multiInput.dataset.answer = String(m);
+        multiLabel.appendChild(multiInput);
+        multiLabel.append(' ' + t('answerLabel') + ' ' + m);
+        multiCorrect.appendChild(multiLabel);
+        multiCheckboxes.push(multiInput);
     }
 
     var correctLabel = document.createElement('label');
@@ -533,7 +620,33 @@ function buildQuestionCard(num, data){
     correctField.type = 'number';
     correctField.min = '1';
     correctField.max = '4';
-    correctField.value = (data && data.correct) ? data.correct : '1';
+    var providedCorrect = (data && Array.isArray(data.correctAnswers) && data.correctAnswers.length)
+        ? data.correctAnswers[0]
+        : ((data && data.correct) ? data.correct : 1);
+    correctField.value = providedCorrect;
+    var initialType = (data && data.type) ? data.type : 'quiz';
+    typeSelect.value = initialType;
+    var initialCorrectAnswers = data && Array.isArray(data.correctAnswers) ? data.correctAnswers : [];
+    multiCheckboxes.forEach(function(cb){
+        cb.checked = initialCorrectAnswers.indexOf(parseInt(cb.value, 10)) !== -1;
+    });
+    function refreshTypeDependent(){
+        var currentType = typeSelect.value;
+        var showMultiple = currentType === 'multiple';
+        var showTf = currentType === 'true-false';
+        multiCorrect.classList.toggle('hidden', !showMultiple);
+        correctLabel.style.display = showMultiple ? 'none' : '';
+        answerGroups.forEach(function(group, idx){
+            if(showTf && idx >= 2){
+                group.label.style.display = 'none';
+                group.input.value = '';
+            }else{
+                group.label.style.display = '';
+            }
+        });
+    }
+    typeSelect.addEventListener('change', refreshTypeDependent);
+    refreshTypeDependent();
 
     var imageLabel = document.createElement('label');
     imageLabel.textContent = t('imageLabel');
@@ -582,7 +695,9 @@ function buildQuestionCard(num, data){
     card.appendChild(head);
     card.appendChild(questionLabel);
     card.appendChild(questionField);
+    card.appendChild(typeRow);
     card.appendChild(answersWrap);
+    card.appendChild(multiCorrect);
     card.appendChild(correctLabel);
     card.appendChild(correctField);
     card.appendChild(imageLabel);
@@ -683,6 +798,8 @@ function renumberQuestions(){
             var inp = card.querySelector('input[id$="'+suffix+'"]');
             if(inp) inp.id = num + suffix;
         });
+        var typeSelect = card.querySelector('.question-type');
+        if(typeSelect) typeSelect.id = 'type' + num;
         var correct = card.querySelector('.correct');
         if(correct) correct.id = 'correct' + num;
         var img = card.querySelector('input[id^="img"]');

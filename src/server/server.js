@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { parseCsv, toQuestion } = require('./importCsv');
 const { LiveGames } = require('./utils/liveGames');
 const { Players } = require('./utils/players');
+const { normalizeQuestionMeta, normalizeCorrectAnswers } = require('./questionUtils');
 
 const publicPath = path.join(__dirname, '../public');
 const BODY_LIMIT = '1mb';
@@ -476,12 +477,13 @@ function normalizeQuestions(list = []) {
     .map((item) => {
       const answers = Array.isArray(item.answers) ? item.answers : [];
       const safeAnswers = [answers[0] || '', answers[1] || '', answers[2] || '', answers[3] || ''];
-      const correctNum = parseInt(item.correct, 10);
-      const correct = Number.isNaN(correctNum) ? 1 : Math.min(Math.max(correctNum, 1), 4);
+      const meta = normalizeQuestionMeta(item);
       return {
         question: item.question || '',
         answers: safeAnswers,
-        correct,
+        correct: meta.correct,
+        correctAnswers: meta.correctAnswers,
+        type: meta.type,
         time: Number(item.time) || 20,
         image: item.image || '',
         video: item.video || ''
@@ -663,17 +665,73 @@ function buildQuestions(questions = [], opts = {}) {
   return base.map((q) => {
     const answerOrder = randomA ? shuffleArray(q.answers.map((_, idx) => idx)) : q.answers.map((_, idx) => idx);
     const answers = answerOrder.map((idx) => q.answers[idx]);
-    const correctZero = (q.correct || 1) - 1;
-    const newCorrect = answerOrder.indexOf(correctZero) + 1;
+    const originalCorrects = normalizeCorrectAnswers(q.correctAnswers || q.correct);
+    const shuffledCorrects = [];
+    originalCorrects.forEach((orig) => {
+      const zeroBased = orig - 1;
+      const newIndex = answerOrder.indexOf(zeroBased);
+      if (newIndex !== -1) {
+        const candidate = newIndex + 1;
+        if (!shuffledCorrects.includes(candidate)) {
+          shuffledCorrects.push(candidate);
+        }
+      }
+    });
+    if (!shuffledCorrects.length) {
+      shuffledCorrects.push(1);
+    }
     return {
       question: q.question,
       answers,
-      correct: newCorrect,
+      correct: shuffledCorrects[0],
+      correctAnswers: shuffledCorrects,
+      type: q.type || 'quiz',
       time: useOverrideTime ? overrideTime : (q.time || 0),
       image: q.image || '',
       video: q.video || ''
     };
   });
+}
+
+function getQuestionMeta(question) {
+  if (!question) {
+    return { correctAnswers: [1], type: 'quiz' };
+  }
+  const answers =
+    Array.isArray(question.correctAnswers) && question.correctAnswers.length
+      ? question.correctAnswers
+      : normalizeCorrectAnswers(question.correct || 1);
+  return {
+    correctAnswers: answers,
+    type: question.type || 'quiz'
+  };
+}
+
+function isSubmissionCorrect(meta, submission) {
+  if (!meta || !Array.isArray(meta.correctAnswers) || !meta.correctAnswers.length) {
+    return false;
+  }
+  if (meta.type === 'multiple') {
+    if (!Array.isArray(submission) || submission.length === 0) {
+      return false;
+    }
+    if (submission.length !== meta.correctAnswers.length) {
+      return false;
+    }
+    const submissionSet = new Set(submission);
+    return meta.correctAnswers.every((value) => submissionSet.has(value));
+  }
+  const normalized = Array.isArray(submission) ? submission[0] : submission;
+  return Number(normalized) === meta.correctAnswers[0];
+}
+
+function emitQuestionOverPayload(game) {
+  if (!game) return;
+  const playerData = players.getPlayers(game.hostId);
+  const questions = game.gameData.questions || [];
+  const current = questions[game.gameData.question - 1];
+  const meta = getQuestionMeta(current);
+  io.to(game.pin).emit('questionOver', playerData, meta);
 }
 
 async function incrementQuizStats(gameId, playersInGame) {
@@ -1265,6 +1323,8 @@ io.on('connection', (socket) => {
           a3: currentQuestion.answers[2],
           a4: currentQuestion.answers[3],
           correct: currentQuestion.correct,
+          correctAnswers: getQuestionMeta(currentQuestion).correctAnswers,
+          type: currentQuestion.type || 'quiz',
           image: currentQuestion.image || '',
           video: currentQuestion.video || '',
           playersInGame: playerData.length,
@@ -1280,6 +1340,7 @@ io.on('connection', (socket) => {
           io.to(game.pin).emit('playerQuestion', {
             question: currentQuestion.question,
             answers: currentQuestion.answers,
+            type: currentQuestion.type || 'quiz',
             image: currentQuestion.image || '',
             video: currentQuestion.video || ''
           });
@@ -1370,6 +1431,7 @@ io.on('connection', (socket) => {
         socket.emit('playerQuestion', {
           question: current.question,
           answers: current.answers,
+          type: current.type || 'quiz',
           image: current.image || '',
           video: current.video || ''
         });
@@ -1436,12 +1498,9 @@ io.on('connection', (socket) => {
     const game = games.getGame(hostId);
 
     if (game.gameData.questionLive === true) {
-      player.gameData.answer = num;
       game.gameData.playersAnswered += 1;
 
       const gameQuestion = game.gameData.question;
-      const gameid = game.gameData.gameid;
-
       try {
         const questions = game.gameData.questions || [];
         const current = questions[gameQuestion - 1];
@@ -1450,8 +1509,12 @@ io.on('connection', (socket) => {
           return;
         }
 
-        const correctAnswer = current.correct;
-        if (num === correctAnswer) {
+        const meta = getQuestionMeta(current);
+        const isMultiple = meta.type === 'multiple';
+        const normalizedSubmission = isMultiple ? normalizeCorrectAnswers(num, false) : Number(num);
+        player.gameData.answer = normalizedSubmission;
+
+        if (isSubmissionCorrect(meta, normalizedSubmission)) {
           player.gameData.score += 100;
           io.to(game.pin).emit('getTime', socket.id);
           socket.emit('answerResult', true);
@@ -1461,8 +1524,7 @@ io.on('connection', (socket) => {
           game.gameData.questionLive = false;
           // Agotar tiempo en clientes porque ya contestaron todos
           io.to(game.pin).emit('time', { player: player.hostId, time: 0 });
-          const playerData = players.getPlayers(game.hostId);
-          io.to(game.pin).emit('questionOver', playerData, correctAnswer);
+          emitQuestionOverPayload(game);
         } else {
           io.to(game.pin).emit('updatePlayersAnswered', {
             playersInGame: playerNum.length,
@@ -1506,8 +1568,6 @@ io.on('connection', (socket) => {
       return;
     }
     game.gameData.questionLive = false;
-    const playerData = players.getPlayers(game.hostId);
-
     const gameQuestion = game.gameData.question;
 
     try {
@@ -1517,8 +1577,7 @@ io.on('connection', (socket) => {
         socket.emit('noGameFound');
         return;
       }
-      const correctAnswer = current.correct;
-      io.to(game.pin).emit('questionOver', playerData, correctAnswer);
+      emitQuestionOverPayload(game);
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {
       console.error('timeUp error', err);
@@ -1533,7 +1592,6 @@ io.on('connection', (socket) => {
       return;
     }
     game.gameData.questionLive = false;
-    const playerData = players.getPlayers(game.hostId);
     const gameQuestion = game.gameData.question;
     try {
       const questions = game.gameData.questions || [];
@@ -1542,9 +1600,8 @@ io.on('connection', (socket) => {
         socket.emit('noGameFound');
         return;
       }
-      const correctAnswer = current.correct;
       io.to(game.pin).emit('hostSkipped');
-      io.to(game.pin).emit('questionOver', playerData, correctAnswer);
+      emitQuestionOverPayload(game);
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {
       console.error('skipQuestion error', err);
@@ -1579,6 +1636,7 @@ io.on('connection', (socket) => {
         const correctAnswer = current.correct;
         const image = current.image || '';
         const video = current.video || '';
+        const meta = getQuestionMeta(current);
 
         socket.emit('gameQuestions', {
           q1: question,
@@ -1587,6 +1645,8 @@ io.on('connection', (socket) => {
           a3: answer3,
           a4: answer4,
           correct: correctAnswer,
+          correctAnswers: meta.correctAnswers,
+          type: meta.type,
           image,
           video,
           playersInGame: playerData.length,
@@ -1600,6 +1660,7 @@ io.on('connection', (socket) => {
         io.to(game.pin).emit('playerQuestion', {
           question,
           answers: [answer1, answer2, answer3, answer4],
+          type: meta.type,
           image,
           video,
           time: (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20

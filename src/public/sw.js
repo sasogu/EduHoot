@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduh-pwa-v0.2.4';
+const CACHE_NAME = 'eduh-pwa-v0.2.6';
 
 // App shell: recursos críticos para que la app cargue incluso sin red.
 // El resto de recursos se cachean en runtime con stale-while-revalidate.
