@@ -26,6 +26,11 @@ var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 var hostMusicPlayerInstance = null;
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
+var hostQuestionEnded = false;
+var hostRankingGongPlayed = false;
+var hostResumeMusicAfterRanking = false;
+var gongAudio = null;
+var gongUrl = '/effects/gong.mp3';
 var i18n = {
     es: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -138,6 +143,27 @@ function initHostMusicPlayer(){
     updateHostMusicLabels();
 }
 
+function initGong(){
+    if(gongAudio) return;
+    try{
+        gongAudio = new Audio(gongUrl);
+        gongAudio.preload = 'auto';
+        gongAudio.volume = 1;
+    }catch(e){
+        gongAudio = null;
+    }
+}
+
+function playGong(){
+    initGong();
+    if(!gongAudio) return;
+    try{
+        gongAudio.pause();
+        gongAudio.currentTime = 0;
+    }catch(e){}
+    gongAudio.play().catch(function(){});
+}
+
 function ensureHostMusicPlaying(){
     if(!hostMusicPlayerInstance) return;
     if(typeof hostMusicPlayerInstance.play === 'function'){
@@ -148,6 +174,48 @@ function ensureHostMusicPlaying(){
     var audio = hostMusicPlayerInstance.audio;
     if(!audio.paused) return;
     audio.play().catch(function(){});
+}
+
+function isHostMusicPlaying(){
+    if(!hostMusicPlayerInstance) return false;
+    if(typeof hostMusicPlayerInstance.isPlaying === 'function'){
+        try{ return !!hostMusicPlayerInstance.isPlaying(); }catch(e){ return false; }
+    }
+    if(hostMusicPlayerInstance.audio){
+        return !hostMusicPlayerInstance.audio.paused;
+    }
+    return false;
+}
+
+function pauseHostMusicForRanking(){
+    if(!hostMusicPlayerInstance) return;
+    hostResumeMusicAfterRanking = isHostMusicPlaying();
+    if(typeof hostMusicPlayerInstance.pause === 'function'){
+        hostMusicPlayerInstance.pause();
+        return;
+    }
+    if(hostMusicPlayerInstance.audio){
+        try{ hostMusicPlayerInstance.audio.pause(); }catch(e){}
+    }
+}
+
+function openRankingModal(playGongOnce){
+    var modal = document.getElementById('rankingModal');
+    if(!modal) return;
+    modal.style.display = 'block';
+
+    // Solo actuamos (parar música + gong) cuando es fin de pregunta.
+    if(!hostQuestionEnded) return;
+    pauseHostMusicForRanking();
+    if(playGongOnce && !hostRankingGongPlayed){
+        hostRankingGongPlayed = true;
+        playGong();
+    }
+}
+
+function closeRankingModal(){
+    var modal = document.getElementById('rankingModal');
+    if(modal) modal.style.display = 'none';
 }
 
 function maybeAutoplayHostMusicFromLobby(){
@@ -178,6 +246,9 @@ socket.on('noGameFound', function(){
 });
 
 socket.on('gameQuestions', function(data){
+    hostQuestionEnded = false;
+    hostRankingGongPlayed = false;
+    closeRankingModal();
     document.getElementById('question').innerHTML = data.q1;
     document.getElementById('answer1').innerHTML = data.a1;
     document.getElementById('answer2').innerHTML = data.a2;
@@ -219,18 +290,19 @@ socket.on('hostSession', function(data){
 if(rankingNextBtn){
     rankingNextBtn.addEventListener('click', function(){
         nextQuestion();
-        toggleRanking();
+        closeRankingModal();
     });
 }
 document.addEventListener('keydown', function(ev){
     if(ev.key === 'Enter' && document.getElementById('rankingModal') && document.getElementById('rankingModal').style.display === 'block'){
         ev.preventDefault();
         nextQuestion();
-        toggleRanking();
+        closeRankingModal();
     }
 });
 
 socket.on('questionOver', function(playerData, correct){
+    hostQuestionEnded = true;
     clearInterval(timer);
     var answer1 = 0;
     var answer2 = 0;
@@ -316,21 +388,25 @@ socket.on('questionOver', function(playerData, correct){
             rankingList.appendChild(li);
         }
         // Open ranking modal automatically after each question
-        var modal = document.getElementById('rankingModal');
-        if (modal) {
-            modal.style.display = 'block';
-        }
+        openRankingModal(true);
     }
     
 });
 
 function toggleRanking(){
     var modal = document.getElementById('rankingModal');
-    modal.style.display = (modal.style.display === 'block') ? 'none' : 'block';
+    if(!modal) return;
+    if(modal.style.display === 'block'){
+        closeRankingModal();
+        return;
+    }
+    // Si el host abre el ranking manualmente en mitad de la pregunta, no paramos música ni gong.
+    // Si es fin de pregunta, solo paramos música (gong ya se habrá disparado en la auto-apertura).
+    openRankingModal(false);
 }
 
 document.getElementById('closeRanking').onclick = function() {
-    document.getElementById('rankingModal').style.display = 'none';
+    closeRankingModal();
 };
 
 socket.on('questionMedia', function(data){
@@ -391,6 +467,7 @@ function parseYouTubeId(url){
 }
 
 function nextQuestion(){
+    closeRankingModal();
     document.getElementById('nextQButton').style.display = "none";
     document.getElementById('skipQButton').style.display = "inline-block";
     document.getElementById('skipQButton').disabled = false;
@@ -408,6 +485,11 @@ function nextQuestion(){
     document.getElementById('timerText').style.display = "block";
     document.getElementById('num').innerHTML = " " + defaultTime;
     setMedia(null, null);
+
+    if(hostResumeMusicAfterRanking){
+        hostResumeMusicAfterRanking = false;
+        ensureHostMusicPlaying();
+    }
     socket.emit('nextQuestion'); //Tell server to start new question
 }
 
