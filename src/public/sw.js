@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduh-pwa-v0.1.9';
+const CACHE_NAME = 'eduh-pwa-v0.2.1';
 const ASSETS = [
   '/',
   '/join.html',

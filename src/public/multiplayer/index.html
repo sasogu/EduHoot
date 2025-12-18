@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Multiplayer | EduHoot</title>
+    <link rel="stylesheet" href="../css/multiplayer.css">
+    <link rel="stylesheet" href="../css/music-player.css">
+    <link href="https://fonts.googleapis.com/css?family=Raleway:400,600,700" rel="stylesheet">
+    <link rel="icon" href="/icons/logo.svg" type="image/svg+xml">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body>
+    <a class="back-link" href="/" data-i18n="back">← Volver</a>
+
+    <header class="hero">
+      <img class="hero__logo" src="/icons/logo.svg" alt="EduHoot logo">
+      <div class="hero__text">
+        <p class="eyebrow" data-i18n="eyebrow">Multiplayer</p>
+        <h1 data-i18n="title">Juega en la misma pantalla</h1>
+        <p class="subtext" data-i18n="subtitle">Elige un quiz público, selecciona 2–4 jugadores y responde en pantalla dividida.</p>
+      </div>
+      <div class="hero__lang">
+        <label class="lang-switch">
+          <span data-i18n="langLabel">Idioma</span>
+          <select id="lang-select">
+            <option value="es">ES</option>
+            <option value="en">EN</option>
+            <option value="ca">CA</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section id="catalog-panel" class="panel">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow" data-i18n="publicListEyebrow">Catálogo público</p>
+            <h2 data-i18n="publicListTitle">Quizzes públicos</h2>
+            <p class="subtext" data-i18n="publicListDesc">Elige un quiz para configurar la partida local.</p>
+          </div>
+          <div class="panel__actions">
+            <input id="search" type="search" placeholder="Buscar por nombre o etiqueta" data-i18n-placeholder="searchPlaceholder">
+          </div>
+        </div>
+        <div id="public-list" class="cards"></div>
+        <p id="public-empty" class="muted"></p>
+        <div id="public-pagination" class="pagination hidden"></div>
+      </section>
+
+      <section id="game-panel" class="panel play-panel hidden">
+        <div class="panel__header">
+          <div>
+            <p class="eyebrow" data-i18n="gameEyebrow">Partida local</p>
+            <h2 id="selected-title" data-i18n="gameTitle">Elige un quiz para empezar</h2>
+            <p id="selected-meta" class="muted" data-i18n="startSelect">Selecciona un quiz público.</p>
+          </div>
+        </div>
+
+        <div id="setup" class="setup hidden">
+          <div class="setup-row">
+            <label for="player-count" class="muted" data-i18n="playerCountLabel">Jugadores</label>
+            <select id="player-count">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+
+          <div class="setup-row">
+            <label for="question-mode" class="muted" data-i18n="questionModeLabel">Preguntas</label>
+            <select id="question-mode">
+              <option value="shared" data-i18n="questionModeShared">La misma para todos</option>
+              <option value="per-player" data-i18n="questionModePerPlayer">Una diferente por jugador</option>
+            </select>
+          </div>
+
+          <label for="question-count" class="muted" data-i18n="questionCountLabel">Preguntas a jugar</label>
+          <div class="question-count-controls">
+            <input id="question-count" type="number" min="1" step="1" inputmode="numeric" autocomplete="off">
+            <span id="question-count-total" class="muted"></span>
+          </div>
+
+          <p class="muted" data-i18n="playerNamesLabel">Nombres de jugadores</p>
+          <div id="player-names" class="player-names"></div>
+
+          <button id="start-btn" class="btn btn-primary" data-i18n="startButton">Empezar</button>
+        </div>
+
+        <div id="game" class="game hidden">
+          <div class="game-header">
+            <span id="question-progress" class="pill"></span>
+            <span id="timer-pill" class="pill pill-timer"></span>
+          </div>
+
+          <div class="question-card">
+            <p id="question-text" class="question-text"></p>
+            <div id="question-media" class="question-media hidden">
+              <img id="question-image" alt="">
+              <video id="question-video" controls playsinline></video>
+              <iframe id="question-iframe" title="video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div id="players" class="players"></div>
+        </div>
+
+        <div id="results" class="results hidden">
+          <h3 data-i18n="finishTitle">Partida terminada</h3>
+          <ol id="ranking-list" class="ranking-list"></ol>
+          <div class="result-actions">
+            <button id="play-again" class="btn btn-primary" data-i18n="playAgain">Repetir</button>
+            <button id="pick-another" class="btn btn-ghost" data-i18n="pickAnother">Elegir otro quiz</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="music-section bottom-music">
+      <div id="multiplayer-music-player" class="music-player-shell"></div>
+    </div>
+
+    <div id="round-ranking-modal" class="mp-modal" aria-hidden="true">
+      <div class="mp-modal__content" role="dialog" aria-modal="true">
+        <h3 class="mp-modal__title" data-i18n="roundRankingTitle">Ranking</h3>
+        <ol id="round-ranking-list" class="ranking-list"></ol>
+        <button id="round-ranking-continue" class="btn btn-primary" data-i18n="roundContinue">Continuar</button>
+      </div>
+    </div>
+
+    <script src="../js/music-player.js"></script>
+    <script src="../js/multiplayer.js"></script>
+  </body>
+</html>

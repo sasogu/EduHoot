@@ -1,0 +1,1401 @@
+// Multiplayer local (2-4 jugadores en la misma pantalla)
+(function(){
+  var state = {
+    quizzes: [],
+    page: 0,
+    pageSize: 12,
+    currentQuizId: null,
+    quizData: null,
+    desiredQuestionCount: null,
+    questionMode: 'shared',
+    questions: [],
+    rounds: [],
+    idx: 0,
+    timer: null,
+    timerTotal: 20,
+    timerLeft: 20,
+    playerCount: 2,
+    players: [],
+    playerNames: [],
+    phaseLocked: false
+  };
+
+  var NAMES_KEY = 'multiplayerPlayerNames';
+
+  var multiplayerMusicPlayerInstance = null;
+  var MULTI_MUSIC_STORAGE_KEY = 'eduhoot-multiplayer-music';
+  var gongAudio = null;
+  var gongUrl = '/effects/gong.mp3';
+  var GONG_VOLUME_BOOST = 1.25;
+
+  var roundRankingOpen = false;
+  var roundRankingDelayMs = 650;
+
+  var browserLang = (navigator.language || 'es').slice(0, 2);
+  var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
+
+  var i18n = {
+    es: {
+      back: 'Volver',
+      eyebrow: 'Multiplayer local',
+      title: 'Juega en la misma pantalla',
+      subtitle: 'Elige un quiz público, selecciona 2–4 jugadores y responde por turnos en pantalla dividida.',
+      langLabel: 'Idioma',
+      publicListEyebrow: 'Catálogo público',
+      publicListTitle: 'Quizzes públicos',
+      publicListDesc: 'Elige un quiz para configurar la partida local.',
+      searchPlaceholder: 'Buscar por nombre o etiqueta',
+      playsShort: 'partidas',
+      playersShort: 'jugadores',
+      gameEyebrow: 'Partida local',
+      gameTitle: 'Elige un quiz para empezar',
+      startSelect: 'Selecciona un quiz público.',
+      selectQuiz: 'Seleccionar',
+      playerCountLabel: 'Jugadores',
+      questionModeLabel: 'Preguntas',
+      questionModeShared: 'La misma para todos',
+      questionModePerPlayer: 'Una diferente por jugador',
+      questionCountLabel: 'Preguntas a jugar',
+      questionCountTotal: 'de {total}',
+      playerNamesLabel: 'Nombres de jugadores',
+      bgMusicTitle: 'Música de fondo',
+      bgMusicChoose: 'Elige un tema',
+      bgMusicPlay: 'Reproducir música',
+      bgMusicPause: 'Pausar música',
+      bgMusicPrev: 'Anterior',
+      bgMusicNext: 'Siguiente',
+      bgMusicVolume: 'Volumen',
+      roundRankingTitle: 'Ranking',
+      roundContinue: 'Continuar',
+      startButton: 'Empezar',
+      questionsLabel: 'Preguntas: {count}',
+      questionOf: 'Pregunta {current} de {total}',
+      timer: 'Tiempo',
+      player: 'Jugador {n}',
+      score: 'Puntos',
+      correctText: '¡Correcto!',
+      wrongText: 'Incorrecto',
+      timeup: 'Tiempo',
+      finishTitle: 'Partida terminada',
+      playAgain: 'Repetir',
+      pickAnother: 'Elegir otro quiz'
+    },
+    en: {
+      back: 'Back',
+      eyebrow: 'Local multiplayer',
+      title: 'Play on the same screen',
+      subtitle: 'Pick a public quiz, choose 2–4 players and answer on a split screen.',
+      langLabel: 'Language',
+      publicListEyebrow: 'Public catalog',
+      publicListTitle: 'Public quizzes',
+      publicListDesc: 'Pick a quiz to set up a local match.',
+      searchPlaceholder: 'Search by name or tag',
+      playsShort: 'plays',
+      playersShort: 'players',
+      gameEyebrow: 'Local match',
+      gameTitle: 'Pick a quiz to start',
+      startSelect: 'Select a public quiz.',
+      selectQuiz: 'Select',
+      playerCountLabel: 'Players',
+      questionModeLabel: 'Questions',
+      questionModeShared: 'Same for everyone',
+      questionModePerPlayer: 'Different per player',
+      questionCountLabel: 'Questions to play',
+      questionCountTotal: 'of {total}',
+      playerNamesLabel: 'Player names',
+      bgMusicTitle: 'Background music',
+      bgMusicChoose: 'Choose a track',
+      bgMusicPlay: 'Play music',
+      bgMusicPause: 'Pause music',
+      bgMusicPrev: 'Prev',
+      bgMusicNext: 'Next',
+      bgMusicVolume: 'Volume',
+      roundRankingTitle: 'Ranking',
+      roundContinue: 'Continue',
+      startButton: 'Start',
+      questionsLabel: 'Questions: {count}',
+      questionOf: 'Question {current} of {total}',
+      timer: 'Time',
+      player: 'Player {n}',
+      score: 'Score',
+      correctText: 'Correct!',
+      wrongText: 'Wrong',
+      timeup: 'Time',
+      finishTitle: 'Match finished',
+      playAgain: 'Play again',
+      pickAnother: 'Pick another quiz'
+    },
+    ca: {
+      back: 'Tornar',
+      eyebrow: 'Multiplayer local',
+      title: 'Juga a la mateixa pantalla',
+      subtitle: 'Tria un quiz públic, selecciona 2–4 jugadors i respon en una pantalla dividida.',
+      langLabel: 'Idioma',
+      publicListEyebrow: 'Catàleg públic',
+      publicListTitle: 'Quizzes públics',
+      publicListDesc: 'Tria un quiz per configurar la partida local.',
+      searchPlaceholder: 'Cerca per nom o etiqueta',
+      playsShort: 'partides',
+      playersShort: 'jugadors',
+      gameEyebrow: 'Partida local',
+      gameTitle: 'Tria un quiz per començar',
+      startSelect: 'Selecciona un quiz públic.',
+      selectQuiz: 'Seleccionar',
+      playerCountLabel: 'Jugadors',
+      questionModeLabel: 'Preguntes',
+      questionModeShared: 'La mateixa per a tots',
+      questionModePerPlayer: 'Una diferent per jugador',
+      questionCountLabel: 'Preguntes a jugar',
+      questionCountTotal: 'de {total}',
+      playerNamesLabel: 'Noms de jugadors',
+      bgMusicTitle: 'Música de fons',
+      bgMusicChoose: 'Tria un tema',
+      bgMusicPlay: 'Reprodueix música',
+      bgMusicPause: 'Atura la música',
+      bgMusicPrev: 'Anterior',
+      bgMusicNext: 'Següent',
+      bgMusicVolume: 'Volum',
+      roundRankingTitle: 'Rànquing',
+      roundContinue: 'Continuar',
+      startButton: 'Començar',
+      questionsLabel: 'Preguntes: {count}',
+      questionOf: 'Pregunta {current} de {total}',
+      timer: 'Temps',
+      player: 'Jugador {n}',
+      score: 'Punts',
+      correctText: 'Correcte!',
+      wrongText: 'Incorrecte',
+      timeup: 'Temps',
+      finishTitle: 'Partida acabada',
+      playAgain: 'Tornar a jugar',
+      pickAnother: 'Triar un altre quiz'
+    }
+  };
+
+  function t(key){
+    return (i18n[lang] && i18n[lang][key]) || (i18n.es && i18n.es[key]) || key;
+  }
+
+  function format(str, data){
+    if(!str) return '';
+    return str.replace(/{(\w+)}/g, function(_, k){ return data[k] !== undefined ? data[k] : ''; });
+  }
+
+  function shuffleArray(arr){
+    var copy = arr.slice();
+    for(var i = copy.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = copy[i];
+      copy[i] = copy[j];
+      copy[j] = tmp;
+    }
+    return copy;
+  }
+
+  function scrollToBottom(opts){
+    try{
+      var behavior = (opts && opts.behavior) || 'smooth';
+      // Dos frames para asegurar que el DOM ya ha pintado.
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          var container = document.getElementById('game-panel');
+          // Si estamos en modo playing, el scroll real puede vivir en #game-panel.
+          if(container && document.body.classList.contains('playing')){
+            var maxScroll = container.scrollHeight - container.clientHeight;
+            if(maxScroll > 0){
+              if(behavior === 'smooth' && typeof container.scrollTo === 'function'){
+                try{ container.scrollTo({ top: container.scrollHeight, left: 0, behavior: 'smooth' }); return; }catch(e){}
+              }
+              container.scrollTop = container.scrollHeight;
+              return;
+            }
+          }
+
+          var se = document.scrollingElement || document.documentElement || document.body;
+          if(!se) return;
+          var pageMax = se.scrollHeight - se.clientHeight;
+          if(pageMax <= 0) return;
+          if(behavior === 'smooth' && typeof window.scrollTo === 'function'){
+            try{ window.scrollTo({ top: se.scrollHeight, left: 0, behavior: 'smooth' }); return; }catch(e){}
+          }
+          se.scrollTop = se.scrollHeight;
+        });
+      });
+    }catch(e){
+      try{ window.scrollTo(0, document.body.scrollHeight || 0); }catch(_e){}
+    }
+  }
+
+  function requestFullscreen(){
+    try{
+      if(document.fullscreenElement) return;
+      var el = document.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if(!req) return;
+      var maybePromise = req.call(el);
+      if(maybePromise && typeof maybePromise.catch === 'function'){
+        maybePromise.catch(function(){});
+      }
+    }catch(e){}
+  }
+
+  function exitFullscreen(){
+    try{
+      if(!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) return;
+      var exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if(!exit) return;
+      var maybePromise = exit.call(document);
+      if(maybePromise && typeof maybePromise.catch === 'function'){
+        maybePromise.catch(function(){});
+      }
+    }catch(e){}
+  }
+
+  function randomizeQuestions(baseQuestions){
+    var source = Array.isArray(baseQuestions) ? baseQuestions : [];
+    var shuffledOrder = shuffleArray(source);
+    return shuffledOrder.map(function(q){
+      return randomizeOneQuestion(q);
+    });
+  }
+
+  function randomizeOneQuestion(q){
+    var answers = Array.isArray(q && q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
+    while(answers.length < 4) answers.push('');
+    var correctIdx = Math.max(0, Math.min(answers.length - 1, (parseInt(q && q.correct, 10) || 1) - 1));
+    var answerOrder = shuffleArray([0,1,2,3]);
+    var newAnswers = answerOrder.map(function(idx){ return answers[idx]; });
+    var newCorrect = answerOrder.indexOf(correctIdx) + 1;
+    return {
+      question: (q && q.question) || '',
+      answers: newAnswers,
+      correct: newCorrect,
+      image: (q && q.image) || '',
+      video: (q && q.video) || '',
+      time: q && q.time
+    };
+  }
+
+  function buildRounds(baseQuestions, playerCount, roundsCount){
+    var source = Array.isArray(baseQuestions) ? baseQuestions : [];
+    var total = source.length;
+    var rounds = [];
+    if(total === 0) return rounds;
+
+    var indices = [];
+    for(var i = 0; i < total; i++) indices.push(i);
+    indices = shuffleArray(indices);
+    var cursor = 0;
+
+    function nextIndex(usedSet){
+      // Intenta evitar repetir dentro de la misma ronda.
+      for(var tries = 0; tries < total + 2; tries++){
+        if(cursor >= indices.length){
+          indices = shuffleArray(indices);
+          cursor = 0;
+        }
+        var idx = indices[cursor++];
+        if(!usedSet[idx]){
+          usedSet[idx] = true;
+          return idx;
+        }
+      }
+      // Si no se puede (pocas preguntas), acepta repetición.
+      if(cursor >= indices.length){
+        indices = shuffleArray(indices);
+        cursor = 0;
+      }
+      return indices[cursor++ % indices.length];
+    }
+
+    for(var r = 0; r < roundsCount; r++){
+      var used = {};
+      var roundQs = [];
+      for(var p = 0; p < playerCount; p++){
+        var baseIdx = nextIndex(used);
+        roundQs.push(randomizeOneQuestion(source[baseIdx]));
+      }
+      rounds.push(roundQs);
+    }
+    return rounds;
+  }
+
+  function applyStaticText(){
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key = el.getAttribute('data-i18n');
+      if(i18n[lang] && i18n[lang][key]) el.textContent = t(key);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+      var key = el.getAttribute('data-i18n-placeholder');
+      if(i18n[lang] && i18n[lang][key]) el.placeholder = t(key);
+    });
+    var langSelect = document.getElementById('lang-select');
+    if(langSelect) langSelect.value = lang;
+  }
+
+  function renderRoundRanking(){
+    var list = document.getElementById('round-ranking-list');
+    if(!list) return;
+    list.innerHTML = '';
+    var sorted = state.players.slice().sort(function(a, b){
+      var sa = (a && a.score) || 0;
+      var sb = (b && b.score) || 0;
+      return sb - sa;
+    });
+    sorted.forEach(function(p, idx){
+      var li = document.createElement('li');
+      li.textContent = (idx + 1) + '. ' + p.name + ' — ' + ((p && p.score) || 0);
+      list.appendChild(li);
+    });
+  }
+
+  function showRoundRankingModal(){
+    var modal = document.getElementById('round-ranking-modal');
+    if(!modal) return;
+    renderRoundRanking();
+    roundRankingOpen = true;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideRoundRankingModalAndContinue(){
+    var modal = document.getElementById('round-ranking-modal');
+    if(modal){
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    if(!roundRankingOpen) return;
+    roundRankingOpen = false;
+    nextQuestion();
+  }
+
+  function setLang(newLang){
+    lang = newLang;
+    localStorage.setItem('lang', lang);
+    applyStaticText();
+    renderList();
+    renderSelected();
+    renderPlayerNameInputs();
+    renderPlayers();
+    renderQuestionHeader();
+    updateMultiplayerMusicLabels();
+  }
+
+  function updateMultiplayerMusicLabels(){
+    if(!multiplayerMusicPlayerInstance || typeof multiplayerMusicPlayerInstance.updateLabels !== 'function') return;
+    multiplayerMusicPlayerInstance.updateLabels({
+      title: t('bgMusicTitle'),
+      choose: t('bgMusicChoose'),
+      play: t('bgMusicPlay'),
+      pause: t('bgMusicPause'),
+      prev: t('bgMusicPrev'),
+      next: t('bgMusicNext'),
+      volume: t('bgMusicVolume')
+    });
+  }
+
+  function initMultiplayerMusicPlayer(){
+    if(typeof initBackgroundMusic !== 'function') return;
+    if(multiplayerMusicPlayerInstance && multiplayerMusicPlayerInstance.audio) return;
+    multiplayerMusicPlayerInstance = initBackgroundMusic('#multiplayer-music-player', {
+      storageKey: MULTI_MUSIC_STORAGE_KEY,
+      randomStart: true,
+      volume: 0.6
+    });
+    updateMultiplayerMusicLabels();
+  }
+
+  function ensureMultiplayerMusicPlaying(){
+    if(!multiplayerMusicPlayerInstance) return;
+    if(typeof multiplayerMusicPlayerInstance.play === 'function'){
+      multiplayerMusicPlayerInstance.play();
+      return;
+    }
+    if(!multiplayerMusicPlayerInstance.audio) return;
+    var audio = multiplayerMusicPlayerInstance.audio;
+    if(!audio.paused) return;
+    audio.play().catch(function(){});
+  }
+
+  function pauseMultiplayerMusic(){
+    if(!multiplayerMusicPlayerInstance) return;
+    if(typeof multiplayerMusicPlayerInstance.pause === 'function'){
+      multiplayerMusicPlayerInstance.pause();
+      return;
+    }
+    if(!multiplayerMusicPlayerInstance.audio) return;
+    try{ multiplayerMusicPlayerInstance.audio.pause(); }catch(e){}
+  }
+
+  function initGong(){
+    if(gongAudio) return;
+    try{
+      gongAudio = new Audio(gongUrl);
+      gongAudio.preload = 'auto';
+    }catch(e){
+      gongAudio = null;
+    }
+  }
+
+  function getMultiplayerMusicVolume(){
+    try{
+      if(multiplayerMusicPlayerInstance && multiplayerMusicPlayerInstance.audio && typeof multiplayerMusicPlayerInstance.audio.volume === 'number'){
+        return multiplayerMusicPlayerInstance.audio.volume;
+      }
+    }catch(e){}
+    try{
+      var v = localStorage.getItem(MULTI_MUSIC_STORAGE_KEY + ':volume');
+      if(v != null){
+        var parsed = parseFloat(v);
+        if(!isNaN(parsed)) return parsed;
+      }
+    }catch(e){}
+    return 0.6;
+  }
+
+  function getGongVolume(){
+    var base = getMultiplayerMusicVolume();
+    if(typeof base !== 'number' || isNaN(base)) base = 0.6;
+    if(base < 0) base = 0;
+    if(base > 1) base = 1;
+    var v = base * GONG_VOLUME_BOOST;
+    if(v > 1) v = 1;
+    if(v < 0) v = 0;
+    return v;
+  }
+
+  function playGong(){
+    initGong();
+    if(!gongAudio) return;
+    try{ gongAudio.pause(); gongAudio.currentTime = 0; }catch(e){}
+    try{ gongAudio.volume = getGongVolume(); }catch(e){}
+    gongAudio.play().catch(function(){});
+  }
+
+  function loadStoredNames(){
+    try{
+      var raw = localStorage.getItem(NAMES_KEY);
+      var data = raw ? JSON.parse(raw) : null;
+      if(Array.isArray(data)) return data.map(function(x){ return (x || '').toString().trim(); });
+    }catch(e){}
+    return [];
+  }
+
+  function saveStoredNames(names){
+    try{ localStorage.setItem(NAMES_KEY, JSON.stringify(names || [])); }catch(e){}
+  }
+
+  function defaultPlayerName(n){
+    return format(t('player'), { n: n });
+  }
+
+  function normalizePlayerName(name, idx){
+    var s = (name || '').toString().trim();
+    if(!s) return defaultPlayerName(idx + 1);
+    if(s.length > 16) s = s.slice(0, 16);
+    return s;
+  }
+
+  function ensurePlayerNames(){
+    if(!Array.isArray(state.playerNames)) state.playerNames = [];
+    var stored = loadStoredNames();
+    for(var i = 0; i < 4; i++){
+      var fromState = state.playerNames[i];
+      var fromStore = stored[i];
+      state.playerNames[i] = (fromState && fromState.trim()) ? fromState.trim() : (fromStore && fromStore.trim()) ? fromStore.trim() : '';
+    }
+  }
+
+  function renderPlayerNameInputs(){
+    ensurePlayerNames();
+    var wrap = document.getElementById('player-names');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    for(var i = 0; i < state.playerCount; i++){
+      var field = document.createElement('div');
+      field.className = 'player-name-field';
+
+      var label = document.createElement('label');
+      label.setAttribute('for', 'player-name-' + i);
+      label.textContent = defaultPlayerName(i + 1);
+
+      var input = document.createElement('input');
+      input.id = 'player-name-' + i;
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.maxLength = 16;
+      input.value = state.playerNames[i] || '';
+      input.placeholder = defaultPlayerName(i + 1);
+      input.addEventListener('input', (function(idx){
+        return function(){
+          ensurePlayerNames();
+          state.playerNames[idx] = this.value;
+          saveStoredNames(state.playerNames);
+        };
+      })(i));
+
+      field.appendChild(label);
+      field.appendChild(input);
+      wrap.appendChild(field);
+    }
+  }
+
+  function mediaThumb(data){
+    if(!data) return '';
+    var yt = parseYouTubeId(data);
+    if(yt) return 'https://img.youtube.com/vi/' + yt + '/hqdefault.jpg';
+    return data;
+  }
+
+  function parseYouTubeId(url){
+    if(!url) return null;
+    try{
+      var u = new URL(url);
+      if(u.hostname.includes('youtu.be')) return u.pathname.replace('/', '');
+      if(u.hostname.includes('youtube.com')){
+        if(u.searchParams.get('v')) return u.searchParams.get('v');
+        var parts = u.pathname.split('/');
+        var last = parts[parts.length - 1];
+        if(last) return last;
+      }
+    }catch(e){}
+    return null;
+  }
+
+  function setMedia(imageUrl, videoUrl){
+    var wrap = document.getElementById('question-media');
+    var img = document.getElementById('question-image');
+    var vid = document.getElementById('question-video');
+    var iframe = document.getElementById('question-iframe');
+    if(!wrap || !img || !vid || !iframe) return;
+
+    wrap.classList.add('hidden');
+    img.style.display = 'none';
+    vid.style.display = 'none';
+    iframe.style.display = 'none';
+    img.removeAttribute('src');
+    vid.removeAttribute('src');
+    iframe.removeAttribute('src');
+
+    var hasMedia = false;
+    if(imageUrl){
+      img.src = imageUrl;
+      img.style.display = 'block';
+      hasMedia = true;
+    }
+    var ytId = parseYouTubeId(videoUrl);
+    if(ytId){
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + ytId;
+      iframe.style.display = 'block';
+      hasMedia = true;
+    }else if(videoUrl){
+      vid.src = videoUrl;
+      vid.style.display = 'block';
+      hasMedia = true;
+    }
+
+    if(hasMedia) wrap.classList.remove('hidden');
+  }
+
+  function fetchPublicQuizzes(){
+    var empty = document.getElementById('public-empty');
+    if(empty) empty.textContent = '…';
+    fetch('/api/public-quizzes')
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        state.quizzes = shuffleArray(Array.isArray(data) ? data : []);
+        state.page = 0;
+        renderList();
+      })
+      .catch(function(){
+        var list = document.getElementById('public-list');
+        if(list) list.innerHTML = '';
+        if(empty) empty.textContent = '';
+      });
+  }
+
+  function sortPublicQuizzes(list){
+    if(!Array.isArray(list)) return list;
+    return list.slice().sort(function(a, b){
+      var pa = a && typeof a.playsCount === 'number' ? a.playsCount : 0;
+      var pb = b && typeof b.playsCount === 'number' ? b.playsCount : 0;
+      if(pa === pb) return Math.random() - 0.5;
+      return pb - pa;
+    });
+  }
+
+  function renderPagination(totalFiltered){
+    var controls = document.getElementById('public-pagination');
+    if(!controls) return;
+    controls.innerHTML = '';
+    var totalPages = Math.max(1, Math.ceil(totalFiltered / state.pageSize));
+    if(totalPages <= 1){
+      controls.classList.add('hidden');
+      return;
+    }
+    controls.classList.remove('hidden');
+
+    var prev = document.createElement('button');
+    prev.textContent = '<';
+    prev.disabled = state.page === 0;
+    prev.onclick = function(){
+      if(state.page > 0){
+        state.page -= 1;
+        renderList();
+      }
+    };
+
+    var info = document.createElement('span');
+    info.textContent = (state.page + 1) + ' / ' + totalPages;
+
+    var next = document.createElement('button');
+    next.textContent = '>';
+    next.disabled = state.page >= totalPages - 1;
+    next.onclick = function(){
+      if(state.page < totalPages - 1){
+        state.page += 1;
+        renderList();
+      }
+    };
+
+    controls.appendChild(prev);
+    controls.appendChild(info);
+    controls.appendChild(next);
+  }
+
+  function renderList(){
+    var list = document.getElementById('public-list');
+    var empty = document.getElementById('public-empty');
+    if(!list) return;
+
+    list.innerHTML = '';
+    var searchVal = ((document.getElementById('search') && document.getElementById('search').value) || '').toLowerCase();
+    var filtered = state.quizzes.filter(function(q){
+      if(!searchVal) return true;
+      var haystack = (q.name || '') + ' ' + (Array.isArray(q.tags) ? q.tags.join(' ') : '');
+      return haystack.toLowerCase().includes(searchVal);
+    });
+
+    if(filtered.length === 0){
+      if(empty) empty.textContent = '';
+      renderPagination(0);
+      return;
+    }
+    if(empty) empty.textContent = '';
+
+    filtered = sortPublicQuizzes(filtered);
+    var totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+    if(state.page >= totalPages) state.page = totalPages - 1;
+    var start = state.page * state.pageSize;
+    var pageItems = filtered.slice(start, start + state.pageSize);
+
+    pageItems.forEach(function(q){
+      var card = document.createElement('div');
+      card.className = 'card';
+
+      var title = document.createElement('h3');
+      title.textContent = q.name || 'Quiz';
+
+      var meta = document.createElement('p');
+      meta.className = 'muted';
+      meta.textContent = (q.questionsCount || 0) + ' · ' + (q.playsCount || 0) + ' ' + t('playsShort');
+
+      var thumb = document.createElement('div');
+      thumb.className = 'card-thumb placeholder';
+      var img = document.createElement('img');
+      img.alt = '';
+      var thumbUrl = mediaThumb(q.coverImage || q.coverVideo);
+      if(thumbUrl){
+        img.onload = function(){ thumb.classList.remove('placeholder'); };
+        img.onerror = function(){ img.removeAttribute('src'); };
+        img.src = thumbUrl;
+      }
+      thumb.appendChild(img);
+
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-primary';
+      btn.type = 'button';
+      btn.textContent = t('selectQuiz');
+      btn.onclick = function(){ selectQuiz(q.id); };
+
+      card.appendChild(thumb);
+      card.appendChild(title);
+      card.appendChild(meta);
+      card.appendChild(btn);
+      list.appendChild(card);
+    });
+
+    renderPagination(filtered.length);
+  }
+
+  function renderSelected(){
+    var title = document.getElementById('selected-title');
+    var meta = document.getElementById('selected-meta');
+    var setup = document.getElementById('setup');
+    var gamePanel = document.getElementById('game-panel');
+    var qCountInput = document.getElementById('question-count');
+    var qCountTotal = document.getElementById('question-count-total');
+    var qModeSelect = document.getElementById('question-mode');
+
+    if(!state.quizData){
+      if(gamePanel) gamePanel.classList.add('hidden');
+      if(title) title.textContent = t('gameTitle');
+      if(meta) meta.textContent = t('startSelect');
+      if(setup) setup.classList.add('hidden');
+      if(qCountInput){
+        qCountInput.value = '';
+        qCountInput.removeAttribute('max');
+      }
+      if(qCountTotal) qCountTotal.textContent = '';
+      if(qModeSelect) qModeSelect.value = state.questionMode || 'shared';
+      return;
+    }
+
+    if(gamePanel) gamePanel.classList.remove('hidden');
+
+    if(title) title.textContent = state.quizData.name || t('gameTitle');
+    if(meta) meta.textContent = format(t('questionsLabel'), { count: Array.isArray(state.quizData.questions) ? state.quizData.questions.length : 0 });
+    if(setup) setup.classList.remove('hidden');
+
+    // Sincroniza el selector de nº preguntas (por defecto: máximo).
+    var total = Array.isArray(state.quizData.questions) ? state.quizData.questions.length : 0;
+    if(qCountInput){
+      qCountInput.min = '1';
+      if(total > 0) qCountInput.max = String(total);
+      if(!state.desiredQuestionCount){
+        state.desiredQuestionCount = total;
+      }
+      var desired = clampQuestionCount(state.desiredQuestionCount, total);
+      state.desiredQuestionCount = desired;
+      qCountInput.value = desired ? String(desired) : '';
+    }
+    if(qCountTotal){
+      qCountTotal.textContent = total ? format(t('questionCountTotal'), { total: total }) : '';
+    }
+
+    if(qModeSelect){
+      qModeSelect.value = state.questionMode || 'shared';
+    }
+  }
+
+  function clampQuestionCount(n, total){
+    var v = parseInt(n, 10);
+    var tTotal = parseInt(total, 10);
+    if(isNaN(tTotal) || tTotal < 1) tTotal = 0;
+    if(isNaN(v) || v < 1) v = tTotal;
+    if(tTotal > 0 && v > tTotal) v = tTotal;
+    return v;
+  }
+
+  function getDesiredQuestionCount(){
+    var input = document.getElementById('question-count');
+    var total = Array.isArray(state.quizData && state.quizData.questions) ? state.quizData.questions.length : 0;
+    if(!input) return clampQuestionCount(state.desiredQuestionCount, total);
+    var v = parseInt(input.value, 10);
+    v = clampQuestionCount(v, total);
+    state.desiredQuestionCount = v;
+    input.value = v ? String(v) : '';
+    return v;
+  }
+
+  function selectQuiz(id){
+    state.currentQuizId = id;
+    state.quizData = null;
+    renderSelected();
+    fetch('/api/quizzes/' + encodeURIComponent(id))
+      .then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+      .then(function(payload){
+        if(!payload.ok){
+          state.quizData = null;
+          document.body.classList.remove('playing');
+          renderSelected();
+          return;
+        }
+        state.quizData = payload.body;
+        document.body.classList.add('playing');
+        renderSelected();
+      })
+      .catch(function(){
+        state.quizData = null;
+        document.body.classList.remove('playing');
+        renderSelected();
+      });
+  }
+
+  function setupPlayers(){
+    ensurePlayerNames();
+    state.players = [];
+    for(var i = 0; i < state.playerCount; i++){
+      state.players.push({
+        id: i,
+        name: normalizePlayerName(state.playerNames[i], i),
+        score: 0,
+        correct: 0,
+        answered: false,
+        choice: null,
+        outcome: null
+      });
+    }
+
+    // Persistimos los nombres normalizados para la próxima partida.
+    for(var k = 0; k < state.playerCount; k++){
+      state.playerNames[k] = state.players[k].name;
+    }
+    saveStoredNames(state.playerNames);
+  }
+
+  function setPlayerMedia(panel, imageUrl, videoUrl){
+    if(!panel) return;
+    var wrap = panel.querySelector('[data-player-media]');
+    var img = panel.querySelector('[data-player-image]');
+    var vid = panel.querySelector('[data-player-video]');
+    var iframe = panel.querySelector('[data-player-iframe]');
+    if(!wrap || !img || !vid || !iframe) return;
+
+    wrap.classList.add('hidden');
+    img.style.display = 'none';
+    vid.style.display = 'none';
+    iframe.style.display = 'none';
+    img.removeAttribute('src');
+    vid.removeAttribute('src');
+    iframe.removeAttribute('src');
+
+    var hasMedia = false;
+    if(imageUrl){
+      img.src = imageUrl;
+      img.style.display = 'block';
+      hasMedia = true;
+    }
+    var ytId = parseYouTubeId(videoUrl);
+    if(ytId){
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + ytId;
+      iframe.style.display = 'block';
+      hasMedia = true;
+    }else if(videoUrl){
+      vid.src = videoUrl;
+      vid.style.display = 'block';
+      hasMedia = true;
+    }
+    if(hasMedia) wrap.classList.remove('hidden');
+  }
+
+  function renderPlayers(){
+    var wrap = document.getElementById('players');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    wrap.className = 'players players-' + state.playerCount;
+
+    state.players.forEach(function(p){
+      var panel = document.createElement('section');
+      panel.className = 'player-panel';
+      panel.setAttribute('data-player', String(p.id));
+
+      var header = document.createElement('div');
+      header.className = 'player-header';
+
+      var name = document.createElement('div');
+      name.className = 'player-name';
+      name.textContent = p.name;
+
+      var score = document.createElement('div');
+      score.className = 'player-score';
+      score.textContent = t('score') + ': ' + p.score;
+      score.setAttribute('data-score', '1');
+
+      header.appendChild(name);
+      header.appendChild(score);
+
+      var feedback = document.createElement('div');
+      feedback.className = 'player-feedback';
+      feedback.setAttribute('data-feedback', '1');
+
+      // Siempre mostramos la pregunta dentro de cada panel para que sea visible sin depender del scroll.
+      var qCard = document.createElement('div');
+      qCard.className = 'player-question-card';
+
+      var qText = document.createElement('p');
+      qText.className = 'question-text';
+      qText.setAttribute('data-player-question', '1');
+
+      var media = document.createElement('div');
+      media.className = 'question-media hidden';
+      media.setAttribute('data-player-media', '1');
+
+      var img = document.createElement('img');
+      img.alt = '';
+      img.setAttribute('data-player-image', '1');
+
+      var vid = document.createElement('video');
+      vid.setAttribute('controls', '');
+      vid.setAttribute('playsinline', '');
+      vid.setAttribute('data-player-video', '1');
+
+      var iframe = document.createElement('iframe');
+      iframe.title = 'video';
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.setAttribute('data-player-iframe', '1');
+
+      media.appendChild(img);
+      media.appendChild(vid);
+      media.appendChild(iframe);
+
+      qCard.appendChild(qText);
+      qCard.appendChild(media);
+      panel.appendChild(qCard);
+
+      var answers = document.createElement('div');
+      answers.className = 'answers';
+      answers.setAttribute('data-answers', '1');
+
+      panel.appendChild(header);
+      panel.appendChild(feedback);
+      panel.appendChild(answers);
+      wrap.appendChild(panel);
+    });
+
+    scrollToBottom({ behavior: 'auto' });
+  }
+
+  function getRoundCount(){
+    if(state.questionMode === 'per-player') return Array.isArray(state.rounds) ? state.rounds.length : 0;
+    return Array.isArray(state.questions) ? state.questions.length : 0;
+  }
+
+  function getQuestionForPlayer(playerId){
+    if(state.questionMode === 'per-player'){
+      var round = state.rounds && state.rounds[state.idx];
+      return round && round[playerId];
+    }
+    return state.questions && state.questions[state.idx];
+  }
+
+  function updatePlayerPanelsForQuestion(q){
+    var wrap = document.getElementById('players');
+    if(!wrap) return;
+
+    state.players.forEach(function(p){
+      p.answered = false;
+      p.choice = null;
+      p.outcome = null;
+
+      var panel = wrap.querySelector('.player-panel[data-player="' + p.id + '"]');
+      if(!panel) return;
+
+      var scoreEl = panel.querySelector('[data-score]');
+      if(scoreEl) scoreEl.textContent = t('score') + ': ' + p.score;
+
+      var feedbackEl = panel.querySelector('[data-feedback]');
+      if(feedbackEl){
+        feedbackEl.textContent = '';
+        feedbackEl.classList.remove('ok', 'bad', 'muted');
+      }
+
+      var pq = getQuestionForPlayer(p.id);
+      var qTextEl = panel.querySelector('[data-player-question]');
+      if(qTextEl) qTextEl.textContent = (pq && pq.question) ? pq.question : '';
+      setPlayerMedia(panel, pq && pq.image, pq && pq.video);
+
+      var answersWrap = panel.querySelector('[data-answers]');
+      if(!answersWrap) return;
+      answersWrap.innerHTML = '';
+
+      var qForPanel = getQuestionForPlayer(p.id) || q;
+      (qForPanel.answers || []).slice(0, 4).forEach(function(ans, idx){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'answer';
+        btn.textContent = ans || ('A' + (idx + 1));
+        btn.addEventListener('pointerdown', function(ev){
+          ev.preventDefault();
+          answerForPlayer(p.id, idx + 1);
+        });
+        // fallback mouse
+        btn.addEventListener('click', function(){ answerForPlayer(p.id, idx + 1); });
+        answersWrap.appendChild(btn);
+      });
+    });
+  }
+
+  function renderQuestionHeader(){
+    var progress = document.getElementById('question-progress');
+    if(progress){
+      var current = state.idx + 1;
+      var total = getRoundCount();
+      progress.textContent = format(t('questionOf'), { current: current, total: total });
+    }
+    var timerEl = document.getElementById('timer-pill');
+    if(timerEl){
+      timerEl.textContent = t('timer') + ': ' + Math.ceil(state.timerLeft) + 's';
+    }
+  }
+
+  function startTimer(seconds){
+    state.timerTotal = Math.max(5, Math.min(120, seconds));
+    state.timerLeft = state.timerTotal;
+    renderQuestionHeader();
+    if(state.timer) clearInterval(state.timer);
+
+    state.timer = setInterval(function(){
+      state.timerLeft = Math.max(0, state.timerLeft - 0.1);
+      renderQuestionHeader();
+      if(state.timerLeft <= 0){
+        clearInterval(state.timer);
+        state.timer = null;
+        onTimeUp();
+      }
+    }, 100);
+  }
+
+  function stopTimer(){
+    if(state.timer){
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+  }
+
+  function allAnswered(){
+    return state.players.every(function(p){ return p.answered; });
+  }
+
+  function lockPlayerSelection(playerId){
+    var wrap = document.getElementById('players');
+    if(!wrap) return;
+    var panel = wrap.querySelector('.player-panel[data-player="' + playerId + '"]');
+    if(!panel) return;
+
+    var answersWrap = panel.querySelector('[data-answers]');
+    if(!answersWrap) return;
+    Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
+      btn.disabled = true;
+      var n = idx + 1;
+      if(state.players[playerId] && state.players[playerId].choice === n){
+        btn.classList.add('selected');
+      }
+    });
+  }
+
+  function revealRound(){
+    var wrap = document.getElementById('players');
+    if(!wrap) return;
+
+    state.players.forEach(function(p){
+      var q = getQuestionForPlayer(p.id);
+      if(!q) return;
+
+      var panel = wrap.querySelector('.player-panel[data-player="' + p.id + '"]');
+      if(!panel) return;
+
+      var scoreEl = panel.querySelector('[data-score]');
+      if(scoreEl) scoreEl.textContent = t('score') + ': ' + p.score;
+
+      var feedbackEl = panel.querySelector('[data-feedback]');
+      if(feedbackEl){
+        feedbackEl.classList.remove('ok', 'bad', 'muted');
+        if(p.outcome === 'ok'){
+          feedbackEl.textContent = t('correctText');
+          feedbackEl.classList.add('ok');
+        }else if(p.outcome === 'bad'){
+          feedbackEl.textContent = t('wrongText');
+          feedbackEl.classList.add('bad');
+        }else if(p.outcome === 'timeout'){
+          feedbackEl.textContent = t('timeup');
+          feedbackEl.classList.add('muted');
+        }else{
+          feedbackEl.textContent = '';
+          feedbackEl.classList.add('muted');
+        }
+      }
+
+      var answersWrap = panel.querySelector('[data-answers]');
+      if(!answersWrap) return;
+      Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
+        var n = idx + 1;
+        btn.disabled = true;
+        // Marca siempre la correcta.
+        if(n === parseInt(q.correct, 10)) btn.classList.add('correct');
+        // Marca la elegida si es fallo.
+        if(p.choice !== null && n === p.choice && p.outcome === 'bad') btn.classList.add('wrong');
+      });
+    });
+  }
+
+  function finishRoundAndContinue(){
+    state.phaseLocked = true;
+    stopTimer();
+    playGong();
+    revealRound();
+    // Pequeña pausa para ver ✓/✕ antes del modal.
+    setTimeout(function(){
+      showRoundRankingModal();
+    }, roundRankingDelayMs);
+  }
+
+  function answerForPlayer(playerId, choice){
+    if(state.phaseLocked) return;
+    var q = getQuestionForPlayer(playerId);
+    if(!q) return;
+
+    var p = state.players[playerId];
+    if(!p || p.answered) return;
+
+    p.answered = true;
+    p.choice = choice;
+
+    var isCorrect = choice === parseInt(q.correct, 10);
+    if(isCorrect){
+      p.correct += 1;
+      var bonus = Math.max(100, Math.round(1000 * (state.timerLeft / state.timerTotal)));
+      p.score += bonus;
+      p.outcome = 'ok';
+    }else{
+      p.outcome = 'bad';
+    }
+
+    // No revelamos correcto/incorrecto aquí. Solo bloqueamos la selección.
+    lockPlayerSelection(playerId);
+
+    if(allAnswered()){
+      finishRoundAndContinue();
+    }
+  }
+
+  function onTimeUp(){
+    if(state.phaseLocked) return;
+    // Marca a quien no respondió como timeout y revela todo al final.
+    state.players.forEach(function(p){
+      if(p.answered) return;
+      p.answered = true;
+      p.choice = null;
+      p.outcome = 'timeout';
+    });
+
+    finishRoundAndContinue();
+  }
+
+  function renderQuestion(){
+    if(state.idx >= getRoundCount()){
+      finishGame();
+      return;
+    }
+
+    state.phaseLocked = false;
+
+    if(state.questionMode === 'per-player'){
+      var questionEl = document.getElementById('question-text');
+      if(questionEl) questionEl.textContent = '';
+      setMedia(null, null);
+
+      // Para el timer compartido, usa el mayor tiempo de las preguntas de esta ronda.
+      var round = state.rounds[state.idx] || [];
+      var maxTime = 20;
+      round.forEach(function(qp){
+        var tVal = (typeof qp.time === 'number' && qp.time > 0) ? qp.time : 0;
+        if(tVal > maxTime) maxTime = tVal;
+      });
+      updatePlayerPanelsForQuestion({ answers: [] });
+      startTimer(maxTime);
+      scrollToBottom({ behavior: 'auto' });
+      return;
+    }
+
+    var q = state.questions[state.idx];
+    var questionElShared = document.getElementById('question-text');
+    if(questionElShared) questionElShared.textContent = q.question || '';
+    setMedia(q.image, q.video);
+
+    updatePlayerPanelsForQuestion(q);
+
+    var time = (typeof q.time === 'number' && q.time > 0) ? q.time : 20;
+    startTimer(time);
+
+    scrollToBottom({ behavior: 'auto' });
+  }
+
+  function nextQuestion(){
+    state.idx += 1;
+    renderQuestion();
+  }
+
+  function finishGame(){
+    stopTimer();
+    setMedia(null, null);
+
+    var game = document.getElementById('game');
+    var results = document.getElementById('results');
+    if(game) game.classList.add('hidden');
+    if(results) results.classList.remove('hidden');
+
+    var list = document.getElementById('ranking-list');
+    if(list){
+      list.innerHTML = '';
+      var sorted = state.players.slice().sort(function(a, b){ return (b.score || 0) - (a.score || 0); });
+      sorted.forEach(function(p, idx){
+        var li = document.createElement('li');
+        li.textContent = (idx + 1) + '. ' + p.name + ' — ' + (p.score || 0);
+        list.appendChild(li);
+      });
+    }
+  }
+
+  function startGame(){
+    if(!state.quizData || !Array.isArray(state.quizData.questions) || !state.quizData.questions.length) return;
+
+    // Audio: iniciar desde el gesto del usuario.
+    initMultiplayerMusicPlayer();
+    ensureMultiplayerMusicPlaying();
+
+    // Fullscreen solo puede activarse desde un gesto del usuario.
+    requestFullscreen();
+
+    state.playerCount = clampPlayerCount(state.playerCount);
+    setupPlayers();
+    var desiredCount = getDesiredQuestionCount();
+    state.questions = [];
+    state.rounds = [];
+    document.body.classList.remove('mode-per-player');
+    document.body.classList.remove('mode-shared');
+    if(state.questionMode === 'per-player'){
+      document.body.classList.add('mode-per-player');
+      state.rounds = buildRounds(state.quizData.questions, state.playerCount, desiredCount);
+    }else{
+      document.body.classList.add('mode-shared');
+      var randomized = randomizeQuestions(state.quizData.questions);
+      if(desiredCount > 0 && desiredCount < randomized.length){
+        state.questions = randomized.slice(0, desiredCount);
+      }else{
+        state.questions = randomized;
+      }
+    }
+    state.idx = 0;
+    state.phaseLocked = false;
+
+    renderPlayers();
+
+    var setup = document.getElementById('setup');
+    var game = document.getElementById('game');
+    var results = document.getElementById('results');
+    if(setup) setup.classList.add('hidden');
+    if(results) results.classList.add('hidden');
+    if(game) game.classList.remove('hidden');
+
+    renderQuestion();
+    scrollToBottom({ behavior: 'auto' });
+  }
+
+  function clampPlayerCount(n){
+    var v = parseInt(n, 10);
+    if(isNaN(v)) v = 2;
+    if(v < 2) v = 2;
+    if(v > 4) v = 4;
+    return v;
+  }
+
+  function resetToCatalog(){
+    stopTimer();
+    state.currentQuizId = null;
+    state.quizData = null;
+    state.desiredQuestionCount = null;
+    state.questionMode = 'shared';
+    state.questions = [];
+    state.rounds = [];
+    state.idx = 0;
+
+    document.body.classList.remove('playing');
+    exitFullscreen();
+    document.body.classList.remove('mode-per-player');
+    document.body.classList.remove('mode-shared');
+
+    pauseMultiplayerMusic();
+
+    var setup = document.getElementById('setup');
+    var game = document.getElementById('game');
+    var results = document.getElementById('results');
+    if(setup) setup.classList.add('hidden');
+    if(game) game.classList.add('hidden');
+    if(results) results.classList.add('hidden');
+
+    renderSelected();
+  }
+
+  function bindEvents(){
+    var backLink = document.querySelector('a.back-link');
+    if(backLink){
+      backLink.addEventListener('click', function(){
+        exitFullscreen();
+        pauseMultiplayerMusic();
+      });
+    }
+
+    var langSelect = document.getElementById('lang-select');
+    if(langSelect){
+      langSelect.addEventListener('change', function(){ setLang(langSelect.value); });
+    }
+
+    var search = document.getElementById('search');
+    if(search){
+      search.addEventListener('input', function(){ state.page = 0; renderList(); });
+    }
+
+    var playerCount = document.getElementById('player-count');
+    if(playerCount){
+      playerCount.value = String(state.playerCount);
+      playerCount.addEventListener('change', function(){
+        state.playerCount = clampPlayerCount(playerCount.value);
+        renderPlayerNameInputs();
+      });
+    }
+
+    var questionMode = document.getElementById('question-mode');
+    if(questionMode){
+      questionMode.value = state.questionMode || 'shared';
+      questionMode.addEventListener('change', function(){
+        state.questionMode = (questionMode.value === 'per-player') ? 'per-player' : 'shared';
+      });
+    }
+
+    var questionCount = document.getElementById('question-count');
+    if(questionCount){
+      questionCount.addEventListener('change', function(){
+        if(!state.quizData) return;
+        var total = Array.isArray(state.quizData.questions) ? state.quizData.questions.length : 0;
+        state.desiredQuestionCount = clampQuestionCount(questionCount.value, total);
+        questionCount.value = state.desiredQuestionCount ? String(state.desiredQuestionCount) : '';
+      });
+    }
+
+    var startBtn = document.getElementById('start-btn');
+    if(startBtn){
+      startBtn.addEventListener('click', startGame);
+    }
+
+    var playAgain = document.getElementById('play-again');
+    if(playAgain){
+      playAgain.addEventListener('click', function(){
+        var results = document.getElementById('results');
+        if(results) results.classList.add('hidden');
+        startGame();
+      });
+    }
+
+    var pickAnother = document.getElementById('pick-another');
+    if(pickAnother){
+      pickAnother.addEventListener('click', resetToCatalog);
+    }
+
+    var roundContinue = document.getElementById('round-ranking-continue');
+    if(roundContinue){
+      roundContinue.addEventListener('click', hideRoundRankingModalAndContinue);
+    }
+  }
+
+  applyStaticText();
+  bindEvents();
+  initMultiplayerMusicPlayer();
+  fetchPublicQuizzes();
+  renderSelected();
+  renderPlayerNameInputs();
+})();
