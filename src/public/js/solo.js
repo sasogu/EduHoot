@@ -1386,4 +1386,16 @@ function startQuiz(){
     // Asegura que el selector quede consistente al cargar.
     syncQuestionCountControls();
     fetchPublicQuizzes();
+
+    // Permite abrir directamente un quiz desde Create: /solo/?id=<quizId>
+    (function(){
+        var id = null;
+        try{
+            var params = new URLSearchParams(window.location.search || '');
+            id = params.get('id');
+        }catch(e){}
+        if(id){
+            selectQuiz(id);
+        }
+    })();
 })();

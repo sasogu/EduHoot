@@ -199,7 +199,9 @@ var i18n = {
         paginationPrev: 'Anterior',
         paginationNext: 'Siguiente',
         paginationPageInfo: 'Página {current} de {total}',
-        play: 'Iniciar cuestionario',
+        play: 'Jugar en el aula',
+        playSolo: 'Solo',
+        playMultiplayer: 'Multijugador',
         edit: 'Editar',
         download: 'Descargar CSV',
         editQuiz: 'Editar cuestionario',
@@ -226,7 +228,7 @@ var i18n = {
         importing: 'Importando...',
         uploadCsv: 'Subiendo...',
         uploadCsvError: 'No se pudo importar el CSV.',
-        startNow: 'Iniciar ahora',
+        startNow: 'Jugar en el aula',
         createUserMissing: 'Introduce email y contraseña.',
         createUserWorking: 'Creando usuario...',
         createUserOk: 'Usuario creado.',
@@ -363,7 +365,9 @@ var i18n = {
         paginationPrev: 'Previous',
         paginationNext: 'Next',
         paginationPageInfo: 'Page {current} of {total}',
-        play: 'Start quiz',
+        play: 'Play in the classroom',
+        playSolo: 'Solo',
+        playMultiplayer: 'Multiplayer',
         edit: 'Edit',
         download: 'Download CSV',
         editQuiz: 'Edit quiz',
@@ -390,7 +394,7 @@ var i18n = {
         importing: 'Importing...',
         uploadCsv: 'Uploading...',
         uploadCsvError: 'Could not import CSV.',
-        startNow: 'Start now',
+        startNow: 'Play in the classroom',
         createUserMissing: 'Enter email and password.',
         createUserWorking: 'Creating user...',
         createUserOk: 'User created.',
@@ -527,7 +531,9 @@ var i18n = {
         paginationPrev: 'Anterior',
         paginationNext: 'Següent',
         paginationPageInfo: 'Pàgina {current} de {total}',
-        play: 'Iniciar qüestionari',
+        play: 'Jugar a l\'aula',
+        playSolo: 'Solo',
+        playMultiplayer: 'Multijugador',
         edit: 'Editar',
         download: 'Descarregar CSV',
         editQuiz: 'Editar qüestionari',
@@ -554,7 +560,7 @@ var i18n = {
         importing: 'Important...',
         uploadCsv: 'Pujant...',
         uploadCsvError: 'No s\'ha pogut importar el CSV.',
-        startNow: 'Inicia ara',
+        startNow: 'Jugar a l\'aula',
         createUserMissing: 'Introdueix email i contrasenya.',
         createUserWorking: 'Creant usuari...',
         createUserOk: 'Usuari creat.',
@@ -1050,6 +1056,30 @@ function renderGames(data){
         };
         if(!canStart) playBtn.title = t('cannotStartPrivate');
 
+        var soloBtn = document.createElement('button');
+        soloBtn.className = 'btn btn-ghost';
+        soloBtn.textContent = t('playSolo');
+        soloBtn.onclick = function(){
+            if(!canStart){
+                warnNoPermission(t('cannotStartPrivate'));
+                return;
+            }
+            startSolo(quiz.id);
+        };
+        if(!canStart) soloBtn.title = t('cannotStartPrivate');
+
+        var mpBtn = document.createElement('button');
+        mpBtn.className = 'btn btn-ghost';
+        mpBtn.textContent = t('playMultiplayer');
+        mpBtn.onclick = function(){
+            if(!canStart){
+                warnNoPermission(t('cannotStartPrivate'));
+                return;
+            }
+            startMultiplayer(quiz.id);
+        };
+        if(!canStart) mpBtn.title = t('cannotStartPrivate');
+
         var editBtn = document.createElement('button');
         editBtn.className = 'btn btn-ghost icon-only';
         editBtn.innerHTML = '✏️';
@@ -1097,6 +1127,8 @@ function renderGames(data){
         };
 
         actions.appendChild(playBtn);
+        actions.appendChild(mpBtn);
+        actions.appendChild(soloBtn);
         actions.appendChild(editBtn);
         actions.appendChild(downloadBtn);
         actions.appendChild(moodleXmlBtn);
@@ -1197,6 +1229,14 @@ function updatePaginationControls(visible){
 
 function startGame(data){
     window.location.href="/host/" + "?id=" + data;
+}
+
+function startSolo(data){
+    window.location.href = "/solo/" + "?id=" + encodeURIComponent(data);
+}
+
+function startMultiplayer(data){
+    window.location.href = "/multiplayer/" + "?id=" + encodeURIComponent(data);
 }
 
 async function renameQuiz(id, name){

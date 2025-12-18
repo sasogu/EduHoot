@@ -17,10 +17,17 @@
     playerCount: 2,
     players: [],
     playerNames: [],
+    playerIcons: [],
     phaseLocked: false
   };
 
   var NAMES_KEY = 'multiplayerPlayerNames';
+  var ICONS_KEY = 'multiplayerPlayerIcons';
+
+  // Reutilizamos el set de iconos del selector de /join.
+  var ICONS = [
+    '🦊','🐱','🐶','🐼','🐧','🐸','🦉','🦄','🐰','🐢','🐙','🦁','🐨','🐝','🐯','🐻','🦕','🦖','🐉','🚀','🌈','⚽️','🏀','🏆','🎮','🎧','📚','🎨'
+  ];
 
   var multiplayerMusicPlayerInstance = null;
   var MULTI_MUSIC_STORAGE_KEY = 'eduhoot-multiplayer-music';
@@ -79,7 +86,8 @@
       finishTitle: 'Partida terminada',
       playAgain: 'Repetir',
       pickAnother: 'Elegir otro quiz',
-      submitAnswers: 'Enviar respuestas'
+      submitAnswers: 'Enviar respuestas',
+      iconLabel: 'Icono'
     },
     en: {
       back: 'Back',
@@ -125,7 +133,8 @@
       finishTitle: 'Match finished',
       playAgain: 'Play again',
       pickAnother: 'Pick another quiz',
-      submitAnswers: 'Submit answers'
+      submitAnswers: 'Submit answers',
+      iconLabel: 'Icon'
     },
     ca: {
       back: 'Tornar',
@@ -171,7 +180,8 @@
       finishTitle: 'Partida acabada',
       playAgain: 'Tornar a jugar',
       pickAnother: 'Triar un altre quiz',
-      submitAnswers: 'Enviar respostes'
+      submitAnswers: 'Enviar respostes',
+      iconLabel: 'Icona'
     }
   };
 
@@ -502,7 +512,8 @@
     });
     sorted.forEach(function(p, idx){
       var li = document.createElement('li');
-      li.textContent = p.name + ' — ' + ((p && p.score) || 0);
+      var icon = p && p.icon ? (p.icon + ' ') : '';
+      li.textContent = icon + p.name + ' — ' + ((p && p.score) || 0);
       list.appendChild(li);
     });
   }
@@ -639,19 +650,47 @@
     return [];
   }
 
+  function loadStoredIcons(){
+    try{
+      var raw = localStorage.getItem(ICONS_KEY);
+      var data = raw ? JSON.parse(raw) : null;
+      if(Array.isArray(data)) return data.map(function(x){ return (x || '').toString(); });
+    }catch(e){}
+    return [];
+  }
+
   function saveStoredNames(names){
     try{ localStorage.setItem(NAMES_KEY, JSON.stringify(names || [])); }catch(e){}
+  }
+
+  function saveStoredIcons(icons){
+    try{ localStorage.setItem(ICONS_KEY, JSON.stringify(icons || [])); }catch(e){}
   }
 
   function defaultPlayerName(n){
     return format(t('player'), { n: n });
   }
 
+  function defaultPlayerIcon(idx){
+    return ICONS[idx % ICONS.length] || '🙂';
+  }
+
+  function normalizePlayerTag(str){
+    var s = (str || '').toString();
+    try{
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }catch(e){}
+    return s
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 3);
+  }
+
   function normalizePlayerName(name, idx){
-    var s = (name || '').toString().trim();
-    if(!s) return defaultPlayerName(idx + 1);
-    if(s.length > 16) s = s.slice(0, 16);
-    return s;
+    var tag = normalizePlayerTag(name);
+    if(tag) return tag;
+    // Fallback corto y válido (1-4) si se deja vacío.
+    return String(idx + 1);
   }
 
   function ensurePlayerNames(){
@@ -664,8 +703,20 @@
     }
   }
 
+  function ensurePlayerIcons(){
+    if(!Array.isArray(state.playerIcons)) state.playerIcons = [];
+    var stored = loadStoredIcons();
+    for(var i = 0; i < 4; i++){
+      var fromState = state.playerIcons[i];
+      var fromStore = stored[i];
+      var value = (fromState && fromState.toString()) ? fromState.toString() : (fromStore && fromStore.toString()) ? fromStore.toString() : '';
+      state.playerIcons[i] = value || defaultPlayerIcon(i);
+    }
+  }
+
   function renderPlayerNameInputs(){
     ensurePlayerNames();
+    ensurePlayerIcons();
     var wrap = document.getElementById('player-names');
     if(!wrap) return;
     wrap.innerHTML = '';
@@ -682,19 +733,61 @@
       input.id = 'player-name-' + i;
       input.type = 'text';
       input.autocomplete = 'off';
-      input.maxLength = 16;
-      input.value = state.playerNames[i] || '';
-      input.placeholder = defaultPlayerName(i + 1);
+      input.maxLength = 3;
+      input.setAttribute('pattern', '[A-Za-z0-9]{1,3}');
+      input.value = normalizePlayerTag(state.playerNames[i] || '');
+      input.placeholder = 'AAA';
       input.addEventListener('input', (function(idx){
         return function(){
           ensurePlayerNames();
-          state.playerNames[idx] = this.value;
+          var filtered = normalizePlayerTag(this.value);
+          if(this.value !== filtered){
+            this.value = filtered;
+          }
+          state.playerNames[idx] = filtered;
           saveStoredNames(state.playerNames);
         };
       })(i));
 
+      var iconLabel = document.createElement('div');
+      iconLabel.className = 'player-icon-label';
+      iconLabel.textContent = t('iconLabel');
+
+      var picker = document.createElement('div');
+      picker.className = 'mp-icon-picker';
+      picker.setAttribute('role', 'group');
+      picker.setAttribute('aria-label', t('iconLabel'));
+
+      ICONS.forEach(function(icon){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mp-icon-btn';
+        btn.textContent = icon;
+        btn.setAttribute('data-icon', icon);
+        var isSelected = state.playerIcons[i] === icon;
+        btn.classList.toggle('selected', isSelected);
+        btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        btn.addEventListener('click', (function(playerIdx, iconValue, pickerEl){
+          return function(){
+            ensurePlayerIcons();
+            state.playerIcons[playerIdx] = iconValue;
+            saveStoredIcons(state.playerIcons);
+            try{
+              pickerEl.querySelectorAll('button[data-icon]').forEach(function(b){
+                var sel = b.getAttribute('data-icon') === iconValue;
+                b.classList.toggle('selected', sel);
+                b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+              });
+            }catch(e){}
+          };
+        })(i, icon, picker));
+        picker.appendChild(btn);
+      });
+
       field.appendChild(label);
       field.appendChild(input);
+      field.appendChild(iconLabel);
+      field.appendChild(picker);
       wrap.appendChild(field);
     }
   }
@@ -983,11 +1076,13 @@
 
   function setupPlayers(){
     ensurePlayerNames();
+    ensurePlayerIcons();
     state.players = [];
     for(var i = 0; i < state.playerCount; i++){
       state.players.push({
         id: i,
         name: normalizePlayerName(state.playerNames[i], i),
+        icon: state.playerIcons[i] || defaultPlayerIcon(i),
         score: 0,
         correct: 0,
         answered: false,
@@ -1001,8 +1096,10 @@
     // Persistimos los nombres normalizados para la próxima partida.
     for(var k = 0; k < state.playerCount; k++){
       state.playerNames[k] = state.players[k].name;
+      state.playerIcons[k] = state.players[k].icon;
     }
     saveStoredNames(state.playerNames);
+    saveStoredIcons(state.playerIcons);
   }
 
   function setPlayerMedia(panel, imageUrl, videoUrl){
@@ -1057,7 +1154,14 @@
 
       var name = document.createElement('div');
       name.className = 'player-name';
-      name.textContent = p.name;
+      var iconSpan = document.createElement('span');
+      iconSpan.className = 'player-icon';
+      iconSpan.textContent = p.icon || '';
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'player-name-text';
+      nameSpan.textContent = p.name;
+      name.appendChild(iconSpan);
+      name.appendChild(nameSpan);
 
       var score = document.createElement('div');
       score.className = 'player-score';
@@ -1435,7 +1539,8 @@
       var sorted = state.players.slice().sort(function(a, b){ return (b.score || 0) - (a.score || 0); });
       sorted.forEach(function(p, idx){
         var li = document.createElement('li');
-        li.textContent = p.name + ' — ' + (p.score || 0);
+        var icon = p && p.icon ? (p.icon + ' ') : '';
+        li.textContent = icon + p.name + ' — ' + (p.score || 0);
         list.appendChild(li);
       });
     }
@@ -1598,4 +1703,16 @@
   fetchPublicQuizzes();
   renderSelected();
   renderPlayerNameInputs();
+
+  // Permite abrir directamente un quiz desde Create: /multiplayer/?id=<quizId>
+  (function(){
+    var id = null;
+    try{
+      var params = new URLSearchParams(window.location.search || '');
+      id = params.get('id');
+    }catch(e){}
+    if(id){
+      selectQuiz(id);
+    }
+  })();
 })();
