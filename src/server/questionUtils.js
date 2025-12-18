@@ -53,7 +53,22 @@ function normalizeCorrectAnswers(rawCorrect, fallback = true) {
 function normalizeQuestionMeta(item = {}) {
   const type = normalizeQuestionType(item.type || item.tipo);
   const correctCandidates = item.correctAnswers || item.correcta || item.correct;
-  const correctAnswers = normalizeCorrectAnswers(correctCandidates);
+  let correctAnswers = normalizeCorrectAnswers(correctCandidates);
+  if (type === 'true-false') {
+    // En verdadero/falso solo hay 2 opciones visibles.
+    const seen = new Set();
+    const clamped = [];
+    correctAnswers.forEach((value) => {
+      let v = parseInt(value, 10);
+      if (Number.isNaN(v)) return;
+      if (v < 1) v = 1;
+      if (v > 2) v = 2;
+      if (seen.has(v)) return;
+      seen.add(v);
+      clamped.push(v);
+    });
+    correctAnswers = clamped.length ? clamped : [1];
+  }
   return {
     type,
     correctAnswers,

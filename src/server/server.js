@@ -663,9 +663,19 @@ function buildQuestions(questions = [], opts = {}) {
   const base = randomQ ? shuffleQuestions(questions) : [...questions];
 
   return base.map((q) => {
-    const answerOrder = randomA ? shuffleArray(q.answers.map((_, idx) => idx)) : q.answers.map((_, idx) => idx);
-    const answers = answerOrder.map((idx) => q.answers[idx]);
-    const originalCorrects = normalizeCorrectAnswers(q.correctAnswers || q.correct);
+    const meta = normalizeQuestionMeta(q);
+    const type = meta.type || (q.type || 'quiz');
+
+    // Para verdadero/falso: trabajamos solo con 2 opciones y evitamos que el shuffle
+    // meta strings vacíos en A/B o que el correcto acabe en 3/4.
+    const rawAnswers = Array.isArray(q.answers) ? q.answers : [];
+    const domainAnswers = type === 'true-false' ? rawAnswers.slice(0, 2) : rawAnswers;
+    const indexDomain = domainAnswers.map((_, idx) => idx);
+
+    const answerOrder = randomA ? shuffleArray(indexDomain) : indexDomain;
+    const answers = answerOrder.map((idx) => domainAnswers[idx]);
+
+    const originalCorrects = type === 'true-false' ? meta.correctAnswers : normalizeCorrectAnswers(q.correctAnswers || q.correct);
     const shuffledCorrects = [];
     originalCorrects.forEach((orig) => {
       const zeroBased = orig - 1;
@@ -685,7 +695,7 @@ function buildQuestions(questions = [], opts = {}) {
       answers,
       correct: shuffledCorrects[0],
       correctAnswers: shuffledCorrects,
-      type: q.type || 'quiz',
+      type,
       time: useOverrideTime ? overrideTime : (q.time || 0),
       image: q.image || '',
       video: q.video || ''
@@ -697,14 +707,8 @@ function getQuestionMeta(question) {
   if (!question) {
     return { correctAnswers: [1], type: 'quiz' };
   }
-  const answers =
-    Array.isArray(question.correctAnswers) && question.correctAnswers.length
-      ? question.correctAnswers
-      : normalizeCorrectAnswers(question.correct || 1);
-  return {
-    correctAnswers: answers,
-    type: question.type || 'quiz'
-  };
+  const meta = normalizeQuestionMeta(question);
+  return { correctAnswers: meta.correctAnswers, type: meta.type };
 }
 
 function isSubmissionCorrect(meta, submission) {
