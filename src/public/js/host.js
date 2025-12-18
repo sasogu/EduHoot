@@ -11,6 +11,7 @@ var hostError = document.getElementById('host-error');
 var pinLoaded = false;
 var hostErrorTimeout = null;
 var hostStartClicked = false;
+var hostStartGameEmitted = false;
 
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
 var HOST_MUSIC_SHOULD_PLAY_KEY = 'eduhoot_host_music_should_play';
@@ -20,6 +21,9 @@ var hostLobbyMusicPlayerInstance = null;
 var hostLobbyGongAudio = null;
 var hostLobbyGongUrl = '/effects/gong.mp3';
 var HOST_GONG_VOLUME_BOOST = 1.25;
+// Máximo tiempo que esperamos al gong antes de iniciar la partida.
+// (Así suena el “golpe” del gong pero no se siente lento.)
+var HOST_START_GONG_MAX_WAIT_MS = 2900;
 
 function getHostLobbyMusicVolume(){
     try{
@@ -69,6 +73,47 @@ function playHostLobbyGong(){
     }catch(e){}
     try{ hostLobbyGongAudio.volume = getHostLobbyGongVolume(); }catch(e){}
     hostLobbyGongAudio.play().catch(function(){});
+}
+
+function emitStartGameWhenGongEnds(opts){
+    if(hostStartGameEmitted) return;
+    function emitNow(){
+        if(hostStartGameEmitted) return;
+        hostStartGameEmitted = true;
+        socket.emit('startGame', opts);
+    }
+    if(!hostLobbyGongAudio){
+        emitNow();
+        return;
+    }
+    var remainingMs = null;
+    try{
+        var d = hostLobbyGongAudio.duration;
+        var t = hostLobbyGongAudio.currentTime;
+        if(typeof d === 'number' && isFinite(d) && d > 0 && typeof t === 'number' && isFinite(t) && t >= 0){
+            remainingMs = Math.ceil(Math.max(0, d - t) * 1000);
+        }
+    }catch(e){}
+    var maxWaitMs = HOST_START_GONG_MAX_WAIT_MS;
+    if(typeof maxWaitMs !== 'number' || !isFinite(maxWaitMs) || maxWaitMs < 0) maxWaitMs = 0;
+    // Si conocemos lo que queda, esperamos como mucho hasta ese final (con un pequeño margen), pero capado.
+    // Si no lo conocemos, esperamos el máximo establecido.
+    var waitMs = (typeof remainingMs === 'number') ? Math.min(maxWaitMs, remainingMs + 80) : maxWaitMs;
+    var fired = false;
+    function done(){
+        if(fired) return;
+        fired = true;
+        try{ hostLobbyGongAudio.removeEventListener('ended', done); }catch(e){}
+        emitNow();
+    }
+    try{
+        if(hostLobbyGongAudio.ended){
+            emitNow();
+            return;
+        }
+    }catch(e){}
+    try{ hostLobbyGongAudio.addEventListener('ended', done, { once: true }); }catch(e){}
+    setTimeout(done, waitMs);
 }
 
 var hostLobbyMusicI18n = {
@@ -297,7 +342,7 @@ function startGame(){
             return val;
         })()
     };
-    socket.emit('startGame', opts);
+    emitStartGameWhenGongEnds(opts);
 }
 function endGame(){
     window.location.href = "/";
@@ -311,13 +356,6 @@ socket.on('gameStarted', function(id){
     try{ pin = localStorage.getItem(lastPinKey); }catch(e){}
     var qs = '?id=' + encodeURIComponent(id);
     if(pin) qs += '&pin=' + encodeURIComponent(pin);
-    // Deja un pequeño margen para que el gong del click se oiga antes de navegar.
-    if(hostStartClicked){
-        setTimeout(function(){
-            window.location.href="/host/game/" + qs;
-        }, 320);
-        return;
-    }
     window.location.href="/host/game/" + qs;
 });
 

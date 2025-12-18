@@ -27,11 +27,14 @@ var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLan
 var hostMusicPlayerInstance = null;
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
 var HOST_MUSIC_SHOULD_PLAY_KEY = 'eduhoot_host_music_should_play';
+var HOST_MUSIC_ACTIVATION_DONE_KEY = 'eduhoot_host_music_activation_done';
 var hostAutoMusicEnabled = false;
 var hostAutoMusicShouldPlay = false;
 var hostQuestionEnded = false;
 var hostRankingGongPlayed = false;
 var hostResumeMusicAfterRanking = false;
+var hostMusicActivationOverlayEl = null;
+var hostMusicActivationKeydownHandler = null;
 var gongAudio = null;
 var gongUrl = '/effects/gong.mp3';
 var GONG_VOLUME_BOOST = 1.25;
@@ -52,7 +55,10 @@ var i18n = {
         bgMusicPause: 'Pausar música',
         bgMusicPrev: 'Anterior',
         bgMusicNext: 'Siguiente',
-        bgMusicVolume: 'Volumen'
+        bgMusicVolume: 'Volumen',
+        musicActivationTitle: 'Activar audio',
+        musicActivationBody: '',
+        musicActivationEnable: '¡Empezamos!'
     },
     en: {
         questionXofY: function(n, t){ return 'Question ' + n + ' / ' + t; },
@@ -70,7 +76,10 @@ var i18n = {
         bgMusicPause: 'Pause music',
         bgMusicPrev: 'Prev',
         bgMusicNext: 'Next',
-        bgMusicVolume: 'Volume'
+        bgMusicVolume: 'Volume',
+        musicActivationTitle: 'Enable audio',
+        musicActivationBody: '',
+        musicActivationEnable: "Let's go!"
     },
     ca: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -88,7 +97,10 @@ var i18n = {
         bgMusicPause: 'Atura la música',
         bgMusicPrev: 'Anterior',
         bgMusicNext: 'Següent',
-        bgMusicVolume: 'Volum'
+        bgMusicVolume: 'Volum',
+        musicActivationTitle: 'Activar àudio',
+        musicActivationBody: '',
+        musicActivationEnable: 'Comencem!'
     }
 };
 
@@ -208,6 +220,110 @@ function ensureHostMusicPlaying(){
     audio.play().catch(function(){});
 }
 
+function attemptHostMusicPlay(){
+    if(!hostMusicPlayerInstance) return Promise.resolve(false);
+    // Preferimos ir al <audio> real para poder detectar rechazo de autoplay.
+    var audio = hostMusicPlayerInstance.audio;
+    if(!audio){
+        try{ ensureHostMusicPlaying(); }catch(e){}
+        return Promise.resolve(isHostMusicPlaying());
+    }
+    if(!audio.paused) return Promise.resolve(true);
+    try{
+        var p = audio.play();
+        if(p && typeof p.then === 'function'){
+            return p.then(function(){ return true; }).catch(function(){ return false; });
+        }
+    }catch(e){
+        return Promise.resolve(false);
+    }
+    return Promise.resolve(!audio.paused);
+}
+
+function hasCompletedMusicActivation(){
+    try{ return sessionStorage.getItem(HOST_MUSIC_ACTIVATION_DONE_KEY) === '1'; }catch(e){ return false; }
+}
+
+function markMusicActivationCompleted(){
+    try{ sessionStorage.setItem(HOST_MUSIC_ACTIVATION_DONE_KEY, '1'); }catch(e){}
+}
+
+function hideMusicActivationOverlay(){
+    if(!hostMusicActivationOverlayEl) return;
+    if(hostMusicActivationKeydownHandler){
+        try{ document.removeEventListener('keydown', hostMusicActivationKeydownHandler, true); }catch(e){}
+        hostMusicActivationKeydownHandler = null;
+    }
+    try{ hostMusicActivationOverlayEl.remove(); }catch(e){
+        try{ hostMusicActivationOverlayEl.style.display = 'none'; }catch(e2){}
+    }
+    hostMusicActivationOverlayEl = null;
+}
+
+function showMusicActivationOverlay(opts){
+    opts = opts || {};
+    if(hostMusicActivationOverlayEl) return;
+    if(hasCompletedMusicActivation()) return;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'music-activation-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', t('musicActivationTitle'));
+
+    var card = document.createElement('div');
+    card.className = 'music-activation-card';
+
+    var p = document.createElement('p');
+    p.className = 'music-activation-body';
+    p.textContent = t('musicActivationBody');
+
+    var actions = document.createElement('div');
+    actions.className = 'music-activation-actions';
+
+    var btnEnable = document.createElement('button');
+    btnEnable.type = 'button';
+    btnEnable.className = 'music-activation-btn music-activation-btn-primary';
+    btnEnable.textContent = t('musicActivationEnable');
+
+    function activateAudio(){
+        // Este click/tap es el gesto que desbloquea autoplay.
+        attemptHostMusicPlay().finally(function(){
+            markMusicActivationCompleted();
+            hideMusicActivationOverlay();
+        });
+    }
+
+    btnEnable.addEventListener('click', function(){ activateAudio(); });
+
+    actions.appendChild(btnEnable);
+
+    if(p.textContent){
+        card.appendChild(p);
+    }
+    card.appendChild(actions);
+    overlay.appendChild(card);
+
+    document.body.appendChild(overlay);
+    hostMusicActivationOverlayEl = overlay;
+
+    hostMusicActivationKeydownHandler = function(ev){
+        if(!hostMusicActivationOverlayEl) return;
+        if(ev.key === 'Enter'){
+            ev.preventDefault();
+            activateAudio();
+            return;
+        }
+        if(ev.key === 'Escape'){
+            ev.preventDefault();
+            hideMusicActivationOverlay();
+        }
+    };
+    document.addEventListener('keydown', hostMusicActivationKeydownHandler, true);
+
+    try{ btnEnable.focus(); }catch(e){}
+}
+
 function isHostMusicPlaying(){
     if(!hostMusicPlayerInstance) return false;
     if(typeof hostMusicPlayerInstance.isPlaying === 'function'){
@@ -293,7 +409,13 @@ socket.on('gameQuestions', function(data){
     // También reanudamos si la pausamos automáticamente al mostrar el ranking.
     if(hostAutoMusicEnabled && hostAutoMusicShouldPlay && (hostResumeMusicAfterRanking || !isHostMusicPlaying())){
         hostResumeMusicAfterRanking = false;
-        ensureHostMusicPlaying();
+        // En la primera pregunta de la vista, algunos navegadores bloquean autoplay.
+        // Si falla, mostramos un popup para forzar un gesto y desbloquear audio.
+        attemptHostMusicPlay().then(function(ok){
+            if(!ok){
+                showMusicActivationOverlay();
+            }
+        });
     }
 
     document.getElementById('question').innerHTML = data.q1;
