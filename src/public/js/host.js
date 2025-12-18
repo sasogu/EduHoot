@@ -10,10 +10,66 @@ var gamePinText = document.getElementById('gamePinText');
 var hostError = document.getElementById('host-error');
 var pinLoaded = false;
 var hostErrorTimeout = null;
+var hostStartClicked = false;
 
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
+var HOST_MUSIC_SHOULD_PLAY_KEY = 'eduhoot_host_music_should_play';
 
 var hostLobbyMusicPlayerInstance = null;
+
+var hostLobbyGongAudio = null;
+var hostLobbyGongUrl = '/effects/gong.mp3';
+var HOST_GONG_VOLUME_BOOST = 1.25;
+
+function getHostLobbyMusicVolume(){
+    try{
+        if(hostLobbyMusicPlayerInstance && hostLobbyMusicPlayerInstance.audio && typeof hostLobbyMusicPlayerInstance.audio.volume === 'number'){
+            return hostLobbyMusicPlayerInstance.audio.volume;
+        }
+    }catch(e){}
+    try{
+        var v = localStorage.getItem('eduhoot-host-music:volume');
+        if(v != null){
+            var parsed = parseFloat(v);
+            if(!isNaN(parsed)) return parsed;
+        }
+    }catch(e){}
+    return 0.7;
+}
+
+function getHostLobbyGongVolume(){
+    var base = getHostLobbyMusicVolume();
+    if(typeof base !== 'number' || isNaN(base)) base = 0.7;
+    if(base < 0) base = 0;
+    if(base > 1) base = 1;
+    var v = base * HOST_GONG_VOLUME_BOOST;
+    if(v > 1) v = 1;
+    if(v < 0) v = 0;
+    return v;
+}
+
+function initHostLobbyGong(){
+    if(hostLobbyGongAudio) return;
+    try{
+        hostLobbyGongAudio = new Audio(hostLobbyGongUrl);
+        hostLobbyGongAudio.preload = 'auto';
+        // Intentar adelantar carga/decodificación
+        try{ hostLobbyGongAudio.load(); }catch(e){}
+    }catch(e){
+        hostLobbyGongAudio = null;
+    }
+}
+
+function playHostLobbyGong(){
+    initHostLobbyGong();
+    if(!hostLobbyGongAudio) return;
+    try{
+        hostLobbyGongAudio.pause();
+        hostLobbyGongAudio.currentTime = 0;
+    }catch(e){}
+    try{ hostLobbyGongAudio.volume = getHostLobbyGongVolume(); }catch(e){}
+    hostLobbyGongAudio.play().catch(function(){});
+}
 
 var hostLobbyMusicI18n = {
     es: {
@@ -213,7 +269,21 @@ socket.on('updatePlayerLobby', function(data){
 
 //Tell server to start game if button is clicked
 function startGame(){
-    try{ sessionStorage.setItem(HOST_AUTOPLAY_MUSIC_KEY, '1'); }catch(e){}
+    hostStartClicked = true;
+    try{
+        sessionStorage.setItem(HOST_AUTOPLAY_MUSIC_KEY, '1');
+        // Requisitos:
+        // - al iniciar partida: sonar gong
+        // - la música debe continuar / arrancar automáticamente aunque no se hubiese dado a "Reproducir"
+        sessionStorage.setItem(HOST_MUSIC_SHOULD_PLAY_KEY, '1');
+    }catch(e){}
+
+    // Gesto del usuario: podemos disparar audio aquí sin bloqueo de autoplay.
+    playHostLobbyGong();
+    if(hostLobbyMusicPlayerInstance && typeof hostLobbyMusicPlayerInstance.play === 'function'){
+        hostLobbyMusicPlayerInstance.play();
+    }
+
     var opts = {
         randomQuestions: document.getElementById('opt-rand-q') ? document.getElementById('opt-rand-q').checked : true,
         randomAnswers: document.getElementById('opt-rand-a') ? document.getElementById('opt-rand-a').checked : true,
@@ -241,8 +311,18 @@ socket.on('gameStarted', function(id){
     try{ pin = localStorage.getItem(lastPinKey); }catch(e){}
     var qs = '?id=' + encodeURIComponent(id);
     if(pin) qs += '&pin=' + encodeURIComponent(pin);
+    // Deja un pequeño margen para que el gong del click se oiga antes de navegar.
+    if(hostStartClicked){
+        setTimeout(function(){
+            window.location.href="/host/game/" + qs;
+        }, 320);
+        return;
+    }
     window.location.href="/host/game/" + qs;
 });
+
+// Precarga del gong al cargar la portada
+initHostLobbyGong();
 
 socket.on('noGameFound', function(){
    var msg = (window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.';

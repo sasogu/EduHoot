@@ -26,12 +26,15 @@ var browserLang = (navigator.language || 'es').slice(0,2);
 var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLang) ? browserLang : 'es');
 var hostMusicPlayerInstance = null;
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
+var HOST_MUSIC_SHOULD_PLAY_KEY = 'eduhoot_host_music_should_play';
 var hostAutoMusicEnabled = false;
+var hostAutoMusicShouldPlay = false;
 var hostQuestionEnded = false;
 var hostRankingGongPlayed = false;
 var hostResumeMusicAfterRanking = false;
 var gongAudio = null;
 var gongUrl = '/effects/gong.mp3';
+var GONG_VOLUME_BOOST = 1.25;
 var i18n = {
     es: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -149,10 +152,37 @@ function initGong(){
     try{
         gongAudio = new Audio(gongUrl);
         gongAudio.preload = 'auto';
-        gongAudio.volume = 1;
     }catch(e){
         gongAudio = null;
     }
+}
+
+function getHostMusicVolume(){
+    try{
+        if(hostMusicPlayerInstance && hostMusicPlayerInstance.audio && typeof hostMusicPlayerInstance.audio.volume === 'number'){
+            return hostMusicPlayerInstance.audio.volume;
+        }
+    }catch(e){}
+    // Fallback al volumen persistido por el widget
+    try{
+        var v = localStorage.getItem('eduhoot-host-music:volume');
+        if(v != null){
+            var parsed = parseFloat(v);
+            if(!isNaN(parsed)) return parsed;
+        }
+    }catch(e){}
+    return 0.7;
+}
+
+function getGongVolume(){
+    var base = getHostMusicVolume();
+    if(typeof base !== 'number' || isNaN(base)) base = 0.7;
+    if(base < 0) base = 0;
+    if(base > 1) base = 1;
+    var v = base * GONG_VOLUME_BOOST;
+    if(v > 1) v = 1;
+    if(v < 0) v = 0;
+    return v;
 }
 
 function playGong(){
@@ -162,6 +192,7 @@ function playGong(){
         gongAudio.pause();
         gongAudio.currentTime = 0;
     }catch(e){}
+    try{ gongAudio.volume = getGongVolume(); }catch(e){}
     gongAudio.play().catch(function(){});
 }
 
@@ -224,6 +255,12 @@ function maybeAutoplayHostMusicFromLobby(){
         if(sessionStorage.getItem(HOST_AUTOPLAY_MUSIC_KEY) === '1'){
             sessionStorage.removeItem(HOST_AUTOPLAY_MUSIC_KEY);
             hostAutoMusicEnabled = true;
+        }
+        if(sessionStorage.getItem(HOST_MUSIC_SHOULD_PLAY_KEY) === '1'){
+            // Lo dejamos en sessionStorage para que sobreviva recargas durante la partida.
+            hostAutoMusicShouldPlay = true;
+        }
+        if(hostAutoMusicEnabled && hostAutoMusicShouldPlay){
             ensureHostMusicPlaying();
         }
     }catch(e){}
@@ -254,7 +291,7 @@ socket.on('gameQuestions', function(data){
 
     // Si venimos de "Iniciar partida" intentamos que suene música en cada pregunta.
     // También reanudamos si la pausamos automáticamente al mostrar el ranking.
-    if(hostAutoMusicEnabled && (hostResumeMusicAfterRanking || !isHostMusicPlaying())){
+    if(hostAutoMusicEnabled && hostAutoMusicShouldPlay && (hostResumeMusicAfterRanking || !isHostMusicPlaying())){
         hostResumeMusicAfterRanking = false;
         ensureHostMusicPlaying();
     }
@@ -496,7 +533,8 @@ function nextQuestion(){
     document.getElementById('num').innerHTML = " " + defaultTime;
     setMedia(null, null);
 
-    if(hostResumeMusicAfterRanking){
+    // Gesto del usuario: si la música debe sonar, este es el momento más fiable para (re)arrancarla.
+    if(hostAutoMusicEnabled && hostAutoMusicShouldPlay){
         hostResumeMusicAfterRanking = false;
         ensureHostMusicPlaying();
     }
@@ -506,6 +544,9 @@ function nextQuestion(){
 function skipQuestion(){
     document.getElementById('skipQButton').disabled = true;
     clearInterval(timer);
+    if(hostAutoMusicEnabled && hostAutoMusicShouldPlay){
+        ensureHostMusicPlaying();
+    }
     socket.emit('skipQuestion');
 }
 
