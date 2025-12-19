@@ -1207,16 +1207,21 @@
         if(!payload.ok){
           state.quizData = null;
           document.body.classList.remove('playing');
+          document.body.classList.remove('preparing');
           renderSelected();
           return;
         }
         state.quizData = payload.body;
-        document.body.classList.add('playing');
+        // En setup queremos scroll normal (especialmente en móvil).
+        // Reservamos `playing` para la partida en sí.
+        document.body.classList.remove('playing');
+        document.body.classList.add('preparing');
         renderSelected();
       })
       .catch(function(){
         state.quizData = null;
         document.body.classList.remove('playing');
+        document.body.classList.remove('preparing');
         renderSelected();
       });
   }
@@ -1696,6 +1701,9 @@
   function startGame(){
     if(!state.quizData || !Array.isArray(state.quizData.questions) || !state.quizData.questions.length) return;
 
+    document.body.classList.remove('preparing');
+    document.body.classList.add('playing');
+
     // Audio: iniciar desde el gesto del usuario.
     initMultiplayerMusicPlayer();
     ensureMultiplayerMusicPlaying();
@@ -1804,6 +1812,7 @@
     state.idx = 0;
 
     document.body.classList.remove('playing');
+    document.body.classList.remove('preparing');
     exitFullscreen();
     document.body.classList.remove('mode-per-player');
     document.body.classList.remove('mode-shared');

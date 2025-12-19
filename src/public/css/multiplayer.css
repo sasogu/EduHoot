@@ -41,6 +41,33 @@ body.playing .music-section{
   display: none;
 }
 
+/* Setup (quiz seleccionado): layout enfocado con scroll normal */
+body.preparing{
+  padding: 0;
+}
+
+body.preparing .grid{
+  grid-template-columns: 1fr;
+  max-width: none;
+  margin: 0;
+  gap: 0;
+}
+
+body.preparing #catalog-panel{
+  display: none;
+}
+
+body.preparing .hero{
+  display: none;
+}
+
+body.preparing #game-panel{
+  border-radius: 0;
+  min-height: 100vh;
+  box-shadow: none;
+  padding: 10px;
+}
+
 body.playing .grid{
   grid-template-columns: 1fr;
   max-width: none;
