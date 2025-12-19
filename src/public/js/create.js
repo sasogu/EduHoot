@@ -1420,6 +1420,7 @@ if (csvForm) {
         if (nameInput.value && nameInput.value.trim()) {
             formData.append('name', nameInput.value.trim());
         }
+        formData.append('ownerToken', getAnonOwnerToken());
 
         status.textContent = t('uploadCsv');
         try {
@@ -1438,6 +1439,17 @@ if (csvForm) {
             startBtn.onclick = function() { startGame(result.id); };
             status.appendChild(startBtn);
             csvForm.reset();
+            try{
+                var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+                if(result.local){
+                    if(stored.indexOf(result.id) === -1){
+                        stored.push(result.id);
+                        localStorage.setItem('localQuizzes', JSON.stringify(stored));
+                    }
+                }
+            }catch(e){}
+            socket.emit('requestDbNames');
+            fetchWithFilters();
         } catch (err) {
             status.textContent = t('uploadCsvError');
         }
