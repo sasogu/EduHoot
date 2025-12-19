@@ -546,6 +546,11 @@ function renderList(){
                 };
                 img.src = thumbUrl;
             } else {
+                img.onload = function(){
+                    thumb.classList.add('has-media');
+                    thumb.classList.remove('placeholder');
+                };
+                img.src = '/icons/logo.svg';
                 // keep placeholder background without text
                 // Fallback: intenta obtener media del quiz completo
                 fetch('/api/quizzes/' + encodeURIComponent(q.id))

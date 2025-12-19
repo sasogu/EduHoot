@@ -961,6 +961,9 @@
         img.onload = function(){ thumb.classList.remove('placeholder'); };
         img.onerror = function(){ img.removeAttribute('src'); };
         img.src = thumbUrl;
+      } else {
+        img.onload = function(){ thumb.classList.remove('placeholder'); };
+        img.src = '/icons/logo.svg';
       }
       thumb.appendChild(img);
 
