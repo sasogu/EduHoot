@@ -4,6 +4,7 @@
     quizzes: [],
     page: 0,
     pageSize: 12,
+    sortOrder: 'plays',
     currentQuizId: null,
     quizData: null,
     desiredQuestionCount: null,
@@ -52,6 +53,12 @@
       publicListTitle: 'Quizzes públicos',
       publicListDesc: 'Elige un quiz para configurar la partida local.',
       searchPlaceholder: 'Buscar por nombre o etiqueta',
+      sortLabel: 'Ordenar por',
+      sortPlays: 'Más jugados',
+      sortLeastPlays: 'Menos jugados',
+      sortNewest: 'Más recientes',
+      sortAlphaAsc: 'A-Z',
+      sortAlphaDesc: 'Z-A',
       playsShort: 'partidas',
       playersShort: 'jugadores',
       gameEyebrow: 'Partida local',
@@ -99,6 +106,12 @@
       publicListTitle: 'Public quizzes',
       publicListDesc: 'Pick a quiz to set up a local match.',
       searchPlaceholder: 'Search by name or tag',
+      sortLabel: 'Sort by',
+      sortPlays: 'Most played',
+      sortLeastPlays: 'Least played',
+      sortNewest: 'Newest',
+      sortAlphaAsc: 'A-Z',
+      sortAlphaDesc: 'Z-A',
       playsShort: 'plays',
       playersShort: 'players',
       gameEyebrow: 'Local match',
@@ -146,6 +159,12 @@
       publicListTitle: 'Quizzes públics',
       publicListDesc: 'Tria un quiz per configurar la partida local.',
       searchPlaceholder: 'Cerca per nom o etiqueta',
+      sortLabel: 'Ordenar per',
+      sortPlays: 'Més jugats',
+      sortLeastPlays: 'Menys jugats',
+      sortNewest: 'Més recents',
+      sortAlphaAsc: 'A-Z',
+      sortAlphaDesc: 'Z-A',
       playsShort: 'partides',
       playersShort: 'jugadors',
       gameEyebrow: 'Partida local',
@@ -869,8 +888,28 @@
   function sortPublicQuizzes(list){
     if(!Array.isArray(list)) return list;
     return list.slice().sort(function(a, b){
+      if(state.sortOrder === 'recent'){
+        var ta = Date.parse(a && (a.createdAt || a.updatedAt)) || 0;
+        var tb = Date.parse(b && (b.createdAt || b.updatedAt)) || 0;
+        if(ta === tb) return Math.random() - 0.5;
+        return tb - ta;
+      }
+      if(state.sortOrder === 'alpha'){
+        var na = (a && a.name ? a.name : '').toLowerCase();
+        var nb = (b && b.name ? b.name : '').toLowerCase();
+        return na.localeCompare(nb);
+      }
+      if(state.sortOrder === 'alpha-desc'){
+        var nda = (a && a.name ? a.name : '').toLowerCase();
+        var ndb = (b && b.name ? b.name : '').toLowerCase();
+        return ndb.localeCompare(nda);
+      }
       var pa = a && typeof a.playsCount === 'number' ? a.playsCount : 0;
       var pb = b && typeof b.playsCount === 'number' ? b.playsCount : 0;
+      if(state.sortOrder === 'least'){
+        if(pa === pb) return Math.random() - 0.5;
+        return pa - pb;
+      }
       if(pa === pb) return Math.random() - 0.5;
       return pb - pa;
     });
@@ -1646,6 +1685,15 @@
     var search = document.getElementById('search');
     if(search){
       search.addEventListener('input', function(){ state.page = 0; renderList(); });
+    }
+    var sortSelect = document.getElementById('sort');
+    if(sortSelect){
+      sortSelect.value = state.sortOrder;
+      sortSelect.addEventListener('change', function(){
+        state.sortOrder = sortSelect.value;
+        state.page = 0;
+        renderList();
+      });
     }
 
     var playerCount = document.getElementById('player-count');

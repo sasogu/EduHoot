@@ -40,6 +40,14 @@
           </div>
           <div class="panel__actions">
             <input id="search" type="search" placeholder="Buscar por nombre o etiqueta" data-i18n-placeholder="searchPlaceholder">
+            <label for="sort" class="muted" data-i18n="sortLabel">Ordenar por</label>
+            <select id="sort">
+              <option value="plays" data-i18n="sortPlays">Más jugados</option>
+              <option value="least" data-i18n="sortLeastPlays">Menos jugados</option>
+              <option value="recent" data-i18n="sortNewest">Más recientes</option>
+              <option value="alpha" data-i18n="sortAlphaAsc">A-Z</option>
+              <option value="alpha-desc" data-i18n="sortAlphaDesc">Z-A</option>
+            </select>
           </div>
         </div>
         <div id="public-list" class="cards"></div>

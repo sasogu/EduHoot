@@ -8,6 +8,7 @@ var state = {
     desiredQuestionCount: null,
         page: 0,
         pageSize: 12,
+        sortOrder: 'plays',
         idx: 0,
         score: 0,
         correct: 0,
@@ -27,8 +28,28 @@ var SOLO_MUSIC_STORAGE_KEY_LEGACY = 'eduhook-solo-music';
 function sortPublicQuizzes(list){
     if(!Array.isArray(list)) return list;
     return list.slice().sort(function(a, b){
+        if(state.sortOrder === 'recent'){
+            var ta = Date.parse(a && (a.createdAt || a.updatedAt)) || 0;
+            var tb = Date.parse(b && (b.createdAt || b.updatedAt)) || 0;
+            if(ta === tb) return Math.random() - 0.5;
+            return tb - ta;
+        }
+        if(state.sortOrder === 'alpha'){
+            var na = (a && a.name ? a.name : '').toLowerCase();
+            var nb = (b && b.name ? b.name : '').toLowerCase();
+            return na.localeCompare(nb);
+        }
+        if(state.sortOrder === 'alpha-desc'){
+            var nda = (a && a.name ? a.name : '').toLowerCase();
+            var ndb = (b && b.name ? b.name : '').toLowerCase();
+            return ndb.localeCompare(nda);
+        }
         var pa = a && typeof a.playsCount === 'number' ? a.playsCount : 0;
         var pb = b && typeof b.playsCount === 'number' ? b.playsCount : 0;
+        if(state.sortOrder === 'least'){
+            if(pa === pb) return Math.random() - 0.5;
+            return pa - pb;
+        }
         if(pa === pb){
             return Math.random() - 0.5;
         }
@@ -50,6 +71,12 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             publicListTitle: 'Juegos públicos',
             publicListDesc: 'Solo se muestran quizzes públicos. Pulsa “Jugar en solitario” para arrancar.',
             searchPlaceholder: 'Buscar por nombre o etiqueta',
+            sortLabel: 'Ordenar por',
+            sortPlays: 'Más jugados',
+            sortLeastPlays: 'Menos jugados',
+            sortNewest: 'Más recientes',
+            sortAlphaAsc: 'A-Z',
+            sortAlphaDesc: 'Z-A',
             playsShort: 'partidas',
             playersShort: 'jugadores',
             soloEyebrow: 'Modo individual',
@@ -113,6 +140,12 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             publicListTitle: 'Public games',
             publicListDesc: 'Only public quizzes are listed. Hit “Play solo” to start.',
             searchPlaceholder: 'Search by name or tag',
+            sortLabel: 'Sort by',
+            sortPlays: 'Most played',
+            sortLeastPlays: 'Least played',
+            sortNewest: 'Newest',
+            sortAlphaAsc: 'A-Z',
+            sortAlphaDesc: 'Z-A',
             playsShort: 'plays',
             playersShort: 'players',
             soloEyebrow: 'Solo mode',
@@ -176,6 +209,12 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             publicListTitle: 'Jocs públics',
             publicListDesc: 'Només es mostren quizzes públics. Prem “Jugar en solitari” per començar.',
             searchPlaceholder: 'Cerca per nom o etiqueta',
+            sortLabel: 'Ordenar per',
+            sortPlays: 'Més jugats',
+            sortLeastPlays: 'Menys jugats',
+            sortNewest: 'Més recents',
+            sortAlphaAsc: 'A-Z',
+            sortAlphaDesc: 'Z-A',
             playsShort: 'partides',
             playersShort: 'jugadors',
             soloEyebrow: 'Mode individual',
@@ -1292,6 +1331,15 @@ function startQuiz(){
         var search = document.getElementById('search');
         if(search){
             search.addEventListener('input', function(){
+                state.page = 0;
+                renderList();
+            });
+        }
+        var sortSelect = document.getElementById('sort');
+        if(sortSelect){
+            sortSelect.value = state.sortOrder;
+            sortSelect.addEventListener('change', function(){
+                state.sortOrder = sortSelect.value;
                 state.page = 0;
                 renderList();
             });

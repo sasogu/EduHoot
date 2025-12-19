@@ -1916,6 +1916,8 @@ app.get('/api/public-quizzes', async (req, res) => {
         playsCount: 1,
         playersCount: 1,
         ownerNickname: 1,
+        createdAt: 1,
+        updatedAt: 1,
         questions: 1
       })
       .toArray();
@@ -1933,6 +1935,7 @@ app.get('/api/public-quizzes', async (req, res) => {
         playsCount: quiz.playsCount || 0,
         playersCount: quiz.playersCount || 0,
         ownerNickname: quiz.ownerNickname || '',
+        createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
         questionsCount: questions.length,
         coverImage: mediaQuestion ? mediaQuestion.image : '',
         coverVideo: mediaQuestion ? mediaQuestion.video : ''
