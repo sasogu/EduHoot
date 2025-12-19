@@ -62,6 +62,8 @@
       filterTagLabel: 'Etiquetas',
       filterTagSelectAll: 'Seleccionar todas',
       filterTagClear: 'Limpiar',
+      filterTagShowMore: 'Mostrar etiquetas',
+      filterTagShowLess: 'Ocultar etiquetas',
       filterQuestionsLabel: 'Preguntas',
       filterMinPlaceholder: 'mín',
       filterMaxPlaceholder: 'máx',
@@ -123,6 +125,8 @@
       filterTagLabel: 'Tags',
       filterTagSelectAll: 'Select all',
       filterTagClear: 'Clear',
+      filterTagShowMore: 'Show tags',
+      filterTagShowLess: 'Hide tags',
       filterQuestionsLabel: 'Questions',
       filterMinPlaceholder: 'min',
       filterMaxPlaceholder: 'max',
@@ -184,6 +188,8 @@
       filterTagLabel: 'Etiquetes',
       filterTagSelectAll: 'Seleccionar totes',
       filterTagClear: 'Netejar',
+      filterTagShowMore: 'Mostrar etiquetes',
+      filterTagShowLess: 'Ocultar etiquetes',
       filterQuestionsLabel: 'Preguntes',
       filterMinPlaceholder: 'mín',
       filterMaxPlaceholder: 'màx',
@@ -551,27 +557,69 @@
   }
 
   function getAllTagsFromQuizzes(){
-    var tags = [];
+    var map = {};
     state.quizzes.forEach(function(q){
       var list = Array.isArray(q.tags) ? q.tags : [];
       list.forEach(function(tag){
         var clean = (tag || '').toString().trim();
-        if(clean && tags.indexOf(clean) === -1){
-          tags.push(clean);
-        }
+        if(!clean) return;
+        var key = clean.toLowerCase();
+        if(!map[key]) map[key] = { tag: clean, count: 0 };
+        map[key].count++;
       });
     });
-    tags.sort(function(a, b){ return a.localeCompare(b); });
-    return tags;
+    var items = Object.keys(map).map(function(k){ return map[k]; });
+    items.sort(function(a, b){
+      if(b.count !== a.count) return b.count - a.count;
+      return a.tag.localeCompare(b.tag);
+    });
+    return items;
+  }
+
+  var tagFilterExpanded = false;
+
+  function ensureTagToggleButton(total){
+    var clearBtn = document.getElementById('tags-clear');
+    if(!clearBtn || !clearBtn.parentElement) return;
+    var actions = clearBtn.parentElement;
+    var btn = document.getElementById('tags-toggle');
+    if(!btn){
+      btn = document.createElement('button');
+      btn.id = 'tags-toggle';
+      btn.type = 'button';
+      btn.className = 'tag-filter__btn';
+      btn.addEventListener('click', function(){
+        tagFilterExpanded = !tagFilterExpanded;
+        updateTagFilterOptions();
+      });
+      actions.insertBefore(btn, clearBtn);
+    }
+    btn.textContent = tagFilterExpanded ? t('filterTagShowLess') : t('filterTagShowMore');
+    btn.style.display = total > 0 ? '' : 'none';
+  }
+
+  function getVisibleTagItems(allItems){
+    return tagFilterExpanded ? allItems : [];
   }
 
   function updateTagFilterOptions(){
     var wrap = document.getElementById('tag-filter');
     if(!wrap) return;
-    var tags = getAllTagsFromQuizzes();
+    var allItems = getAllTagsFromQuizzes();
+    var allKeys = {};
+    allItems.forEach(function(it){ allKeys[it.tag.toLowerCase()] = true; });
     wrap.innerHTML = '';
-    state.filters.tags = state.filters.tags.filter(function(tag){ return tags.indexOf(tag) !== -1; });
-    tags.forEach(function(tag){
+    state.filters.tags = state.filters.tags.filter(function(tag){
+      var key = (tag || '').toString().trim().toLowerCase();
+      return !!allKeys[key];
+    });
+
+    ensureTagToggleButton(allItems.length);
+    if(!tagFilterExpanded) return;
+    var items = getVisibleTagItems(allItems);
+
+    items.forEach(function(item){
+      var tag = item.tag;
       var label = document.createElement('label');
       label.className = 'tag-filter__item';
       var input = document.createElement('input');
@@ -1094,7 +1142,25 @@
 
       var meta = document.createElement('p');
       meta.className = 'muted';
-      meta.textContent = (q.questionsCount || 0) + ' · ' + (q.playsCount || 0) + ' ' + t('playsShort');
+      meta.textContent = format(t('questionsLabel'), { count: q.questionsCount || 0 });
+
+      var tagsWrap = document.createElement('div');
+      if(Array.isArray(q.tags)){
+        q.tags.forEach(function(tag){
+          var clean = (tag || '').toString().trim();
+          if(!clean) return;
+          var el = document.createElement('span');
+          el.className = 'tag';
+          el.textContent = clean;
+          tagsWrap.appendChild(el);
+        });
+      }
+
+      var stats = document.createElement('p');
+      stats.className = 'muted';
+      var plays = q.playsCount || 0;
+      var players = q.playersCount || 0;
+      stats.textContent = plays + ' ' + t('playsShort') + ' · ' + players + ' ' + t('playersShort');
 
       var thumb = document.createElement('div');
       thumb.className = 'card-thumb placeholder';
@@ -1102,11 +1168,11 @@
       img.alt = '';
       var thumbUrl = mediaThumb(q.coverImage || q.coverVideo);
       if(thumbUrl){
-        img.onload = function(){ thumb.classList.remove('placeholder'); };
+        img.onload = function(){ thumb.classList.add('has-media'); thumb.classList.remove('placeholder'); };
         img.onerror = function(){ img.removeAttribute('src'); };
         img.src = thumbUrl;
       } else {
-        img.onload = function(){ thumb.classList.remove('placeholder'); };
+        img.onload = function(){ thumb.classList.add('has-media'); thumb.classList.remove('placeholder'); };
         img.src = '/icons/logo.svg';
       }
       thumb.appendChild(img);
@@ -1120,6 +1186,8 @@
       card.appendChild(thumb);
       card.appendChild(title);
       card.appendChild(meta);
+      card.appendChild(tagsWrap);
+      card.appendChild(stats);
       card.appendChild(btn);
       list.appendChild(card);
     });
@@ -1859,7 +1927,10 @@
     var tagsSelectAll = document.getElementById('tags-select-all');
     if(tagsSelectAll){
       tagsSelectAll.addEventListener('click', function(){
-        state.filters.tags = getAllTagsFromQuizzes();
+        // Selecciona todas las etiquetas (y las muestra)
+        var all = getAllTagsFromQuizzes().map(function(it){ return it.tag; });
+        state.filters.tags = all;
+        tagFilterExpanded = true;
         updateTagFilterOptions();
         state.page = 0;
         renderList();

@@ -379,21 +379,48 @@ input[type="search"]::placeholder{ color: #9fb1d9; }
 }
 
 .card-thumb{
-  height: 120px;
+  width: 100%;
+  aspect-ratio: 16/9;
+  min-height: 140px;
   border-radius: 12px;
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+  border: 1px solid var(--card-stroke);
+  box-shadow: var(--shadow);
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.7);
+  font-weight: 700;
+}
+
+.card-thumb.placeholder{
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
 }
 
 .card-thumb img{
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: none;
+}
+
+.card-thumb.has-media img{
   display: block;
 }
 
 .muted{ color: var(--muted); }
+
+.tag{
+  display: inline-block;
+  margin-right: 6px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  color: var(--text);
+  font-size: 12px;
+}
 
 .btn{
   border: none;

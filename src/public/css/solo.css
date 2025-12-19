@@ -516,7 +516,7 @@ body.playing #game-panel{
 
 .answers{
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 .answer{
@@ -707,4 +707,8 @@ body.playing #game-panel{
         gap: 8px;
     }
     .hero__lang{ text-align: left; }
+}
+
+@media (max-width: 600px){
+    .answers{ grid-template-columns: 1fr; }
 }
