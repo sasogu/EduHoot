@@ -92,6 +92,7 @@
       timeup: 'Tiempo',
       finishTitle: 'Partida terminada',
       playAgain: 'Repetir',
+      playSame: 'Repetir mismas preguntas',
       pickAnother: 'Elegir otro quiz',
       submitAnswers: 'Enviar respuestas',
       iconLabel: 'Icono'
@@ -145,6 +146,7 @@
       timeup: 'Time',
       finishTitle: 'Match finished',
       playAgain: 'Play again',
+      playSame: 'Play same questions',
       pickAnother: 'Pick another quiz',
       submitAnswers: 'Submit answers',
       iconLabel: 'Icon'
@@ -198,6 +200,7 @@
       timeup: 'Temps',
       finishTitle: 'Partida acabada',
       playAgain: 'Tornar a jugar',
+      playSame: 'Repetir mateixes preguntes',
       pickAnother: 'Triar un altre quiz',
       submitAnswers: 'Enviar respostes',
       iconLabel: 'Icona'
@@ -1633,6 +1636,53 @@
     scrollToBottom({ behavior: 'auto' });
   }
 
+  function playSameQuestions(){
+    if(!state.quizData) return;
+    var hasShared = state.questionMode !== 'per-player' && Array.isArray(state.questions) && state.questions.length;
+    var hasPerPlayer = state.questionMode === 'per-player' && Array.isArray(state.rounds) && state.rounds.length;
+    if(!hasShared && !hasPerPlayer){
+      startGame();
+      return;
+    }
+
+    // Audio: iniciar desde el gesto del usuario.
+    initMultiplayerMusicPlayer();
+    ensureMultiplayerMusicPlaying();
+
+    // Fullscreen solo puede activarse desde un gesto del usuario.
+    requestFullscreen();
+
+    state.playerCount = clampPlayerCount(state.playerCount);
+    setupPlayers();
+    state.phaseLocked = false;
+    state.idx = 0;
+
+    document.body.classList.remove('mode-per-player');
+    document.body.classList.remove('mode-shared');
+    if(state.questionMode === 'per-player'){
+      document.body.classList.add('mode-per-player');
+      state.rounds = state.rounds.map(function(round){
+        var items = Array.isArray(round) ? round : [];
+        return items.map(function(q){ return randomizeOneQuestion(q); });
+      });
+    }else{
+      document.body.classList.add('mode-shared');
+      state.questions = state.questions.map(function(q){ return randomizeOneQuestion(q); });
+    }
+
+    renderPlayers();
+
+    var setup = document.getElementById('setup');
+    var game = document.getElementById('game');
+    var results = document.getElementById('results');
+    if(setup) setup.classList.add('hidden');
+    if(results) results.classList.add('hidden');
+    if(game) game.classList.remove('hidden');
+
+    renderQuestion();
+    scrollToBottom({ behavior: 'auto' });
+  }
+
   function clampPlayerCount(n){
     var v = parseInt(n, 10);
     if(isNaN(v)) v = 2;
@@ -1734,6 +1784,14 @@
         var results = document.getElementById('results');
         if(results) results.classList.add('hidden');
         startGame();
+      });
+    }
+    var playSame = document.getElementById('play-same');
+    if(playSame){
+      playSame.addEventListener('click', function(){
+        var results = document.getElementById('results');
+        if(results) results.classList.add('hidden');
+        playSameQuestions();
       });
     }
 
