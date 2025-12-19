@@ -423,30 +423,129 @@ function buildQuestionHtml(question){
     return parts.join('');
 }
 
+function normalizeCorrectAnswersForExport(question, maxAnswerIndex){
+    var limit = Math.max(1, parseInt(maxAnswerIndex, 10) || 4);
+    var list = [];
+    if(question && Array.isArray(question.correctAnswers) && question.correctAnswers.length){
+        list = question.correctAnswers.slice();
+    }else if(question && typeof question.correct !== 'undefined'){
+        list = [question.correct];
+    }
+    var map = {};
+    var out = [];
+    list.forEach(function(v){
+        var num = parseInt(v, 10);
+        if(!isFinite(num)) return;
+        num = Math.max(1, Math.min(limit, num));
+        if(map[num]) return;
+        map[num] = true;
+        out.push(num);
+    });
+    if(!out.length) out = [1];
+    out.sort(function(a, b){ return a - b; });
+    return out;
+}
+
+function getNonEmptyAnswersForExport(question, maxCount){
+    var raw = Array.isArray(question && question.answers) ? question.answers.slice(0, maxCount) : [];
+    while(raw.length < maxCount) raw.push('');
+    var out = [];
+    raw.forEach(function(text, idx){
+        var clean = (text || '').toString().trim();
+        if(!clean) return;
+        out.push({ index: idx + 1, text: clean });
+    });
+    return out;
+}
+
+function getTfFallbackAnswers(){
+    if(lang === 'ca') return ['Cert', 'Fals'];
+    if(lang === 'en') return ['True', 'False'];
+    return ['Verdadero', 'Falso'];
+}
+
 function buildMoodleXml(quiz){
     var title = (quiz.name || 'EduHoot quiz').trim() || 'EduHoot quiz';
     var lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<quiz>'];
     var questions = Array.isArray(quiz.questions) ? quiz.questions : [];
     questions.forEach(function(question, index){
+        var qType = (question && question.type) ? String(question.type) : 'quiz';
+        var nameText = title + ' pregunta ' + (index + 1);
+        var html = buildQuestionHtml(question) || '<p>' + escapeHtmlText((question && question.question) || '') + '</p>';
+
+        if(qType === 'true-false'){
+            lines.push('  <question type="truefalse">');
+            lines.push('    <name><text>' + wrapCdata(nameText) + '</text></name>');
+            lines.push('    <questiontext format="html">');
+            lines.push('      <text>' + wrapCdata(html) + '</text>');
+            lines.push('    </questiontext>');
+            lines.push('    <defaultgrade>1</defaultgrade>');
+            lines.push('    <penalty>0.0</penalty>');
+            lines.push('    <hidden>0</hidden>');
+
+            var tfAnswers = getNonEmptyAnswersForExport(question, 2);
+            var tfFallback = getTfFallbackAnswers();
+            var trueLabel = (tfAnswers[0] && tfAnswers[0].text) ? tfAnswers[0].text : tfFallback[0];
+            var falseLabel = (tfAnswers[1] && tfAnswers[1].text) ? tfAnswers[1].text : tfFallback[1];
+            var tfCorrect = normalizeCorrectAnswersForExport(question, 2);
+            var correctIsTrue = tfCorrect[0] === 1;
+
+            lines.push('    <answer fraction="' + (correctIsTrue ? '100' : '0') + '" format="html">');
+            lines.push('      <text>' + wrapCdata(escapeHtmlText(trueLabel)) + '</text>');
+            lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+            lines.push('    </answer>');
+            lines.push('    <answer fraction="' + (correctIsTrue ? '0' : '100') + '" format="html">');
+            lines.push('      <text>' + wrapCdata(escapeHtmlText(falseLabel)) + '</text>');
+            lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+            lines.push('    </answer>');
+            lines.push('  </question>');
+            return;
+        }
+
+        // Por defecto: multichoice (single o multiple)
+        var isMultiple = qType === 'multiple';
         lines.push('  <question type="multichoice">');
-        lines.push('    <name><text>' + wrapCdata(title + ' pregunta ' + (index + 1)) + '</text></name>');
-        var html = buildQuestionHtml(question) || '<p>' + escapeHtmlText(question.question || '') + '</p>';
+        lines.push('    <name><text>' + wrapCdata(nameText) + '</text></name>');
         lines.push('    <questiontext format="html">');
         lines.push('      <text>' + wrapCdata(html) + '</text>');
         lines.push('    </questiontext>');
         lines.push('    <defaultgrade>1</defaultgrade>');
         lines.push('    <penalty>0.0</penalty>');
         lines.push('    <hidden>0</hidden>');
-        lines.push('    <single>true</single>');
+        lines.push('    <single>' + (isMultiple ? 'false' : 'true') + '</single>');
         lines.push('    <shuffleanswers>true</shuffleanswers>');
         lines.push('    <answernumbering>abc</answernumbering>');
-        var answers = Array.isArray(question.answers) ? question.answers.slice(0,4) : [];
-        while(answers.length < 4) answers.push('');
-        var correctIndex = Math.max(0, Math.min(answers.length - 1, (parseInt(question.correct, 10) || 1) - 1));
-        answers.forEach(function(answer, answerIndex){
-            var fraction = answerIndex === correctIndex ? '100' : '0';
-            lines.push('    <answer fraction="' + fraction + '" format="html">');
-            lines.push('      <text>' + wrapCdata(escapeHtmlText(answer || '')) + '</text>');
+
+        var answerItems = getNonEmptyAnswersForExport(question, 4);
+        if(answerItems.length < 2){
+            // Moodle requiere al menos 2 respuestas en multichoice
+            var fallback = getTfFallbackAnswers();
+            answerItems = [
+                { index: 1, text: fallback[0] },
+                { index: 2, text: fallback[1] }
+            ];
+        }
+
+        var correctAnswers = normalizeCorrectAnswersForExport(question, 4);
+        var correctMap = {};
+        correctAnswers.forEach(function(n){ correctMap[n] = true; });
+        // Si la correcta apunta a una respuesta vacía, cae a la primera no-vacía
+        var anyCorrectVisible = answerItems.some(function(it){ return !!correctMap[it.index]; });
+        if(!anyCorrectVisible){
+            correctMap = {};
+            correctMap[answerItems[0].index] = true;
+        }
+
+        var correctCount = answerItems.reduce(function(acc, it){ return acc + (correctMap[it.index] ? 1 : 0); }, 0);
+        if(correctCount <= 0) correctCount = 1;
+        var perCorrect = isMultiple ? (100 / correctCount) : 100;
+
+        answerItems.forEach(function(item){
+            var fraction = correctMap[item.index] ? perCorrect : 0;
+            // Moodle acepta float en fraction
+            var fractionStr = (Math.round(fraction * 100000) / 100000).toString();
+            lines.push('    <answer fraction="' + fractionStr + '" format="html">');
+            lines.push('      <text>' + wrapCdata(escapeHtmlText(item.text || '')) + '</text>');
             lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
             lines.push('    </answer>');
         });
