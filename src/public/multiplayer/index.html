@@ -50,6 +50,22 @@
             </select>
           </div>
         </div>
+        <div class="panel__filters">
+          <label for="tag-filter" class="muted" data-i18n="filterTagLabel">Etiqueta</label>
+          <div id="tag-filter" class="tag-filter" role="group" aria-label="Etiquetas"></div>
+          <div class="tag-filter__actions">
+            <button id="tags-select-all" class="tag-filter__btn" type="button" data-i18n="filterTagSelectAll">Seleccionar todas</button>
+            <button id="tags-clear" class="tag-filter__btn" type="button" data-i18n="filterTagClear">Limpiar</button>
+          </div>
+          <label for="min-questions" class="muted" data-i18n="filterQuestionsLabel">Preguntas</label>
+          <input id="min-questions" type="number" min="1" inputmode="numeric" data-i18n-placeholder="filterMinPlaceholder" placeholder="mín">
+          <span class="muted">-</span>
+          <input id="max-questions" type="number" min="1" inputmode="numeric" data-i18n-placeholder="filterMaxPlaceholder" placeholder="máx">
+          <label class="checkbox-inline">
+            <input id="only-image" type="checkbox">
+            <span data-i18n="filterOnlyImage">Solo con imagen</span>
+          </label>
+        </div>
         <div id="public-list" class="cards"></div>
         <p id="public-empty" class="muted"></p>
         <div id="public-pagination" class="pagination hidden"></div>

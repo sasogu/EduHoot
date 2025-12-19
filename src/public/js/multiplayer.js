@@ -5,6 +5,12 @@
     page: 0,
     pageSize: 12,
     sortOrder: 'plays',
+    filters: {
+      tags: [],
+      minQuestions: '',
+      maxQuestions: '',
+      onlyImage: false
+    },
     currentQuizId: null,
     quizData: null,
     desiredQuestionCount: null,
@@ -53,6 +59,13 @@
       publicListTitle: 'Quizzes públicos',
       publicListDesc: 'Elige un quiz para configurar la partida local.',
       searchPlaceholder: 'Buscar por nombre o etiqueta',
+      filterTagLabel: 'Etiquetas',
+      filterTagSelectAll: 'Seleccionar todas',
+      filterTagClear: 'Limpiar',
+      filterQuestionsLabel: 'Preguntas',
+      filterMinPlaceholder: 'mín',
+      filterMaxPlaceholder: 'máx',
+      filterOnlyImage: 'Solo con imagen',
       sortLabel: 'Ordenar por',
       sortPlays: 'Más jugados',
       sortLeastPlays: 'Menos jugados',
@@ -107,6 +120,13 @@
       publicListTitle: 'Public quizzes',
       publicListDesc: 'Pick a quiz to set up a local match.',
       searchPlaceholder: 'Search by name or tag',
+      filterTagLabel: 'Tags',
+      filterTagSelectAll: 'Select all',
+      filterTagClear: 'Clear',
+      filterQuestionsLabel: 'Questions',
+      filterMinPlaceholder: 'min',
+      filterMaxPlaceholder: 'max',
+      filterOnlyImage: 'Only with image',
       sortLabel: 'Sort by',
       sortPlays: 'Most played',
       sortLeastPlays: 'Least played',
@@ -161,6 +181,13 @@
       publicListTitle: 'Quizzes públics',
       publicListDesc: 'Tria un quiz per configurar la partida local.',
       searchPlaceholder: 'Cerca per nom o etiqueta',
+      filterTagLabel: 'Etiquetes',
+      filterTagSelectAll: 'Seleccionar totes',
+      filterTagClear: 'Netejar',
+      filterQuestionsLabel: 'Preguntes',
+      filterMinPlaceholder: 'mín',
+      filterMaxPlaceholder: 'màx',
+      filterOnlyImage: 'Només amb imatge',
       sortLabel: 'Ordenar per',
       sortPlays: 'Més jugats',
       sortLeastPlays: 'Menys jugats',
@@ -523,6 +550,52 @@
     if(langSelect) langSelect.value = lang;
   }
 
+  function getAllTagsFromQuizzes(){
+    var tags = [];
+    state.quizzes.forEach(function(q){
+      var list = Array.isArray(q.tags) ? q.tags : [];
+      list.forEach(function(tag){
+        var clean = (tag || '').toString().trim();
+        if(clean && tags.indexOf(clean) === -1){
+          tags.push(clean);
+        }
+      });
+    });
+    tags.sort(function(a, b){ return a.localeCompare(b); });
+    return tags;
+  }
+
+  function updateTagFilterOptions(){
+    var wrap = document.getElementById('tag-filter');
+    if(!wrap) return;
+    var tags = getAllTagsFromQuizzes();
+    wrap.innerHTML = '';
+    state.filters.tags = state.filters.tags.filter(function(tag){ return tags.indexOf(tag) !== -1; });
+    tags.forEach(function(tag){
+      var label = document.createElement('label');
+      label.className = 'tag-filter__item';
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = tag;
+      input.checked = state.filters.tags.indexOf(tag) !== -1;
+      input.addEventListener('change', function(){
+        var selected = [];
+        var inputs = wrap.querySelectorAll('input[type="checkbox"]');
+        Array.prototype.forEach.call(inputs, function(el){
+          if(el.checked) selected.push(el.value);
+        });
+        state.filters.tags = selected;
+        state.page = 0;
+        renderList();
+      });
+      var span = document.createElement('span');
+      span.textContent = tag;
+      label.appendChild(input);
+      label.appendChild(span);
+      wrap.appendChild(label);
+    });
+  }
+
   function renderRoundRanking(){
     var list = document.getElementById('round-ranking-list');
     if(!list) return;
@@ -564,6 +637,7 @@
     lang = newLang;
     localStorage.setItem('lang', lang);
     applyStaticText();
+    updateTagFilterOptions();
     renderList();
     renderSelected();
     renderPlayerNameInputs();
@@ -879,6 +953,7 @@
       .then(function(data){
         state.quizzes = shuffleArray(Array.isArray(data) ? data : []);
         state.page = 0;
+        updateTagFilterOptions();
         renderList();
       })
       .catch(function(){
@@ -964,11 +1039,38 @@
 
     list.innerHTML = '';
     var searchVal = ((document.getElementById('search') && document.getElementById('search').value) || '').toLowerCase();
+    var minQ = parseInt(state.filters.minQuestions, 10);
+    var maxQ = parseInt(state.filters.maxQuestions, 10);
+    if(Number.isNaN(minQ)) minQ = null;
+    if(Number.isNaN(maxQ)) maxQ = null;
     var filtered = state.quizzes.filter(function(q){
       if(!searchVal) return true;
       var haystack = (q.name || '') + ' ' + (Array.isArray(q.tags) ? q.tags.join(' ') : '');
       return haystack.toLowerCase().includes(searchVal);
     });
+    if(state.filters.tags.length){
+      filtered = filtered.filter(function(q){
+        var tags = Array.isArray(q.tags) ? q.tags : [];
+        return state.filters.tags.some(function(tag){ return tags.indexOf(tag) !== -1; });
+      });
+    }
+    if(minQ !== null){
+      filtered = filtered.filter(function(q){
+        var count = typeof q.questionsCount === 'number' ? q.questionsCount : 0;
+        return count >= minQ;
+      });
+    }
+    if(maxQ !== null){
+      filtered = filtered.filter(function(q){
+        var count = typeof q.questionsCount === 'number' ? q.questionsCount : 0;
+        return count <= maxQ;
+      });
+    }
+    if(state.filters.onlyImage){
+      filtered = filtered.filter(function(q){
+        return !!(q.coverImage);
+      });
+    }
 
     if(filtered.length === 0){
       if(empty) empty.textContent = '';
@@ -1741,6 +1843,51 @@
       sortSelect.value = state.sortOrder;
       sortSelect.addEventListener('change', function(){
         state.sortOrder = sortSelect.value;
+        state.page = 0;
+        renderList();
+      });
+    }
+    var tagsSelectAll = document.getElementById('tags-select-all');
+    if(tagsSelectAll){
+      tagsSelectAll.addEventListener('click', function(){
+        state.filters.tags = getAllTagsFromQuizzes();
+        updateTagFilterOptions();
+        state.page = 0;
+        renderList();
+      });
+    }
+    var tagsClear = document.getElementById('tags-clear');
+    if(tagsClear){
+      tagsClear.addEventListener('click', function(){
+        state.filters.tags = [];
+        updateTagFilterOptions();
+        state.page = 0;
+        renderList();
+      });
+    }
+    var minQuestions = document.getElementById('min-questions');
+    if(minQuestions){
+      minQuestions.value = state.filters.minQuestions;
+      minQuestions.addEventListener('input', function(){
+        state.filters.minQuestions = minQuestions.value;
+        state.page = 0;
+        renderList();
+      });
+    }
+    var maxQuestions = document.getElementById('max-questions');
+    if(maxQuestions){
+      maxQuestions.value = state.filters.maxQuestions;
+      maxQuestions.addEventListener('input', function(){
+        state.filters.maxQuestions = maxQuestions.value;
+        state.page = 0;
+        renderList();
+      });
+    }
+    var onlyImage = document.getElementById('only-image');
+    if(onlyImage){
+      onlyImage.checked = !!state.filters.onlyImage;
+      onlyImage.addEventListener('change', function(){
+        state.filters.onlyImage = !!onlyImage.checked;
         state.page = 0;
         renderList();
       });

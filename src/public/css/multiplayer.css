@@ -276,6 +276,62 @@ input[type="search"]::placeholder{ color: #9fb1d9; }
 }
 
 .panel__actions{ display: flex; align-items: center; gap: 8px; }
+.panel__filters{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tag-filter{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 420px;
+}
+.tag-filter__actions{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tag-filter__btn{
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--card-stroke);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tag-filter__btn:hover{ filter: brightness(1.05); }
+.tag-filter__item{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid var(--card-stroke);
+  font-size: 12px;
+}
+.tag-filter__item input{
+  margin: 0;
+}
+.panel__filters input[type="number"]{
+  max-width: 90px;
+}
+.checkbox-inline{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.checkbox-inline input{
+  width: auto;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--card-stroke);
+}
 
 .cards{
   display: grid;
