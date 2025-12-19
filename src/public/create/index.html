@@ -38,21 +38,24 @@
                         <p class="subtext" data-i18n="accessDesc">Inicia sesión para crear, editar o borrar quizzes.</p>
                     </div>
                 </div>
-                <div class="auth-grid">
-                    <label data-i18n="labelEmail">Email
-                        <input id="auth-email" type="email" placeholder="tupro@centro.es">
-                    </label>
-                    <label data-i18n="labelPass">Contraseña
-                        <input id="auth-pass" type="password" placeholder="••••••••">
-                    </label>
-                    <label data-i18n="labelNick">Nombre visible (opcional)
-                        <input id="auth-nick" type="text" placeholder="Tu nick público">
-                    </label>
-                </div>
-                <div class="actions-row">
-                    <button id="auth-login" class="btn btn-primary" data-i18n="btnLogin">Entrar</button>
-                    <button id="auth-save-nick" class="btn btn-ghost" data-i18n="btnSaveNick">Guardar nombre visible</button>
-                </div>
+                <form id="auth-login-form" autocomplete="on">
+                    <div class="auth-grid">
+                        <label data-i18n="labelEmail">Email
+                            <input id="auth-email" name="email" type="email" autocomplete="username" placeholder="tupro@centro.es">
+                        </label>
+                        <label data-i18n="labelPass">Contraseña
+                            <input id="auth-pass" name="password" type="password" autocomplete="current-password" placeholder="••••••••">
+                        </label>
+                        <label data-i18n="labelNick">Nombre visible (opcional)
+                            <input id="auth-nick" name="nickname" type="text" autocomplete="nickname" placeholder="Tu nick público">
+                        </label>
+                    </div>
+                    <div class="actions-row">
+                        <button id="auth-login" type="submit" class="btn btn-primary" data-i18n="btnLogin">Entrar</button>
+                        <button id="auth-save-nick" type="button" class="btn btn-ghost" data-i18n="btnSaveNick">Guardar nombre visible</button>
+                        <button id="auth-logout" type="button" class="btn btn-ghost hidden" data-i18n="btnLogout">Cerrar sesión</button>
+                    </div>
+                </form>
                 <p class="subtext" id="auth-message"></p>
                 <div class="actions-row">
                     <button id="toggle-reset" class="btn btn-ghost" data-i18n="forgotPass">¿Olvidaste la contraseña?</button>
@@ -62,7 +65,7 @@
                     <p class="subtext" data-i18n="resetDesc">Te enviaremos un token (se registra en el log del servidor si no hay correo configurado). Luego úsalo para poner una nueva contraseña.</p>
                     <div class="auth-grid">
                         <label data-i18n="labelEmail">
-                            <input id="reset-email" type="email" placeholder="tu correo">
+                            <input id="reset-email" name="email" type="email" autocomplete="username" placeholder="tu correo">
                         </label>
                     </div>
                     <div class="actions-row">
@@ -71,10 +74,10 @@
                     </div>
                     <div class="auth-grid">
                         <label data-i18n="labelToken">Token recibido
-                            <input id="reset-token" type="text" placeholder="copia el token del email/log">
+                            <input id="reset-token" name="token" type="text" autocomplete="one-time-code" placeholder="copia el token del email/log">
                         </label>
                         <label data-i18n="labelNewPass">Nueva contraseña
-                            <input id="reset-pass" type="password" placeholder="••••••••">
+                            <input id="reset-pass" name="new-password" type="password" autocomplete="new-password" placeholder="••••••••">
                         </label>
                     </div>
                     <div class="actions-row">
@@ -116,6 +119,25 @@
                     <div class="actions-row">
                         <button id="reset-admin-btn" class="btn btn-ghost" data-i18n="btnResetPass">Resetear contraseña</button>
                         <span id="reset-admin-status" class="subtext"></span>
+                    </div>
+
+                    <h4 data-i18n="adminBackupTitle">Importar / Exportar todos los quizzes</h4>
+                    <p class="subtext" data-i18n="adminBackupDesc">Crea un backup completo (JSON) o restaura todos los quizzes desde un archivo.</p>
+                    <div class="actions-row">
+                        <button id="admin-export-quizzes" class="btn btn-ghost" data-i18n="btnExportAllQuizzes">Exportar todos</button>
+                    </div>
+                    <div class="auth-grid">
+                        <label data-i18n="labelImportAllQuizzes">Archivo JSON
+                            <input id="admin-import-quizzes-file" type="file" accept="application/json">
+                        </label>
+                        <label class="checkbox-inline">
+                            <input id="admin-import-quizzes-replace" type="checkbox">
+                            <span data-i18n="adminReplaceAll">Reemplazar todo</span>
+                        </label>
+                    </div>
+                    <div class="actions-row">
+                        <button id="admin-import-quizzes" class="btn btn-ghost" data-i18n="btnImportAllQuizzes">Importar</button>
+                        <span id="admin-import-quizzes-status" class="subtext"></span>
                     </div>
                 </div>
             </div>

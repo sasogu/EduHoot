@@ -18,6 +18,8 @@ var currentFilters = {
 var currentSort = 'newest';
 var knownTags = [];
 var currentDisplayedQuizzes = [];
+var TAG_SUGGESTIONS_LIMIT = 12;
+var tagSuggestionsExpanded = false;
 
 function getTagsFromLibraryData(data){
     var tags = new Set();
@@ -127,6 +129,7 @@ var i18n = {
         labelRole: 'Rol',
         btnSaveNick: 'Guardar nombre visible',
         btnLogin: 'Entrar',
+        btnAccount: 'Cuenta',
         btnLogout: 'Cerrar sesión',
         forgotPass: '¿Olvidaste la contraseña?',
         resetEyebrow: 'Recuperar acceso',
@@ -136,6 +139,17 @@ var i18n = {
         labelNewPass: 'Nueva contraseña',
         btnChangePass: 'Cambiar contraseña',
         adminOnly: 'Solo admins',
+        adminBackupTitle: 'Importar / Exportar todos los quizzes',
+        adminBackupDesc: 'Crea un backup completo (JSON) o restaura todos los quizzes desde un archivo.',
+        btnExportAllQuizzes: 'Exportar todos',
+        labelImportAllQuizzes: 'Archivo JSON',
+        adminReplaceAll: 'Reemplazar todo',
+        btnImportAllQuizzes: 'Importar',
+        adminImportPickFile: 'Selecciona un archivo JSON.',
+        adminImportWorking: 'Importando...',
+        adminImportOk: 'Importación completada.',
+        adminImportError: 'No se pudo importar.',
+        adminReplaceConfirm: 'Esto eliminará TODOS los quizzes existentes antes de importar. ¿Continuar?',
         createUser: 'Crea un usuario nuevo',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -181,12 +195,18 @@ var i18n = {
         libraryDesc: 'Selecciona un cuestionario para hostearlo o gestiona su nombre y estado.',
         searchPlaceholder: 'Buscar por nombre o etiqueta',
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
+        editTagsPlaceholder: 'Añadir etiqueta (coma o enter)',
+        editTagsAdd: 'Añadir',
+        editTagsNeedOne: 'Debe quedar al menos una etiqueta.',
+        editTagsSaveError: 'No se pudieron guardar las etiquetas.',
         noFilters: 'Sin filtros',
         filterBy: 'Filtrando por: ',
         filterMine: 'Sólo mis cuestionarios',
         clearFilters: 'Limpiar filtros',
         filterModeAny: 'Coincide con cualquiera',
         filterModeAll: 'Coincide con todas',
+        tagsShowMore: 'Ver más',
+        tagsShowLess: 'Ver menos',
         matchAnyTags: 'Cualquiera de las etiquetas',
         matchAllTags: 'Todas las etiquetas',
         sortLabel: 'Ordenar por',
@@ -293,6 +313,7 @@ var i18n = {
         labelRole: 'Role',
         btnSaveNick: 'Save display name',
         btnLogin: 'Log in',
+        btnAccount: 'Account',
         btnLogout: 'Log out',
         forgotPass: 'Forgot your password?',
         resetEyebrow: 'Recover access',
@@ -302,6 +323,17 @@ var i18n = {
         labelNewPass: 'New password',
         btnChangePass: 'Change password',
         adminOnly: 'Admins only',
+        adminBackupTitle: 'Import / Export all quizzes',
+        adminBackupDesc: 'Create a full JSON backup or restore all quizzes from a file.',
+        btnExportAllQuizzes: 'Export all',
+        labelImportAllQuizzes: 'JSON file',
+        adminReplaceAll: 'Replace all',
+        btnImportAllQuizzes: 'Import',
+        adminImportPickFile: 'Pick a JSON file.',
+        adminImportWorking: 'Importing...',
+        adminImportOk: 'Import completed.',
+        adminImportError: 'Could not import.',
+        adminReplaceConfirm: 'This will DELETE ALL existing quizzes before importing. Continue?',
         createUser: 'Create a new user',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -347,11 +379,17 @@ var i18n = {
         libraryDesc: 'Pick a quiz to host or manage its name and status.',
         searchPlaceholder: 'Search by name or tag',
         suggestedTags: 'Suggested tags (tap to filter)',
+        editTagsPlaceholder: 'Add tag (comma or enter)',
+        editTagsAdd: 'Add',
+        editTagsNeedOne: 'At least one tag is required.',
+        editTagsSaveError: 'Could not save tags.',
         noFilters: 'No filters',
         filterBy: 'Filtering by: ',
         filterMine: 'Only my quizzes',
         clearFilters: 'Clear filters',
         filterModeAny: 'Matches any tag',
+        tagsShowMore: 'Show more',
+        tagsShowLess: 'Show less',
         filterModeAll: 'Matches all tags',
         matchAnyTags: 'Match any tag',
         matchAllTags: 'Match all tags',
@@ -459,6 +497,7 @@ var i18n = {
         labelRole: 'Rol',
         btnSaveNick: 'Desar nom visible',
         btnLogin: 'Entrar',
+        btnAccount: 'Compte',
         btnLogout: 'Tancar sessió',
         forgotPass: 'Has oblidat la contrasenya?',
         resetEyebrow: 'Recuperar accés',
@@ -468,6 +507,17 @@ var i18n = {
         labelNewPass: 'Nova contrasenya',
         btnChangePass: 'Canviar contrasenya',
         adminOnly: 'Només admins',
+        adminBackupTitle: 'Importar / Exportar tots els qüestionaris',
+        adminBackupDesc: 'Crea un backup complet (JSON) o restaura tots els qüestionaris des d\'un fitxer.',
+        btnExportAllQuizzes: 'Exportar-ho tot',
+        labelImportAllQuizzes: 'Fitxer JSON',
+        adminReplaceAll: 'Reemplaçar-ho tot',
+        btnImportAllQuizzes: 'Importar',
+        adminImportPickFile: 'Selecciona un fitxer JSON.',
+        adminImportWorking: 'Important...',
+        adminImportOk: 'Importació completada.',
+        adminImportError: 'No s\'ha pogut importar.',
+        adminReplaceConfirm: 'Això eliminarà TOTS els qüestionaris existents abans d\'importar. Continuar?',
         createUser: 'Crea un usuari nou',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -513,12 +563,18 @@ var i18n = {
         libraryDesc: 'Selecciona un qüestionari per hostatjar-lo o gestiona el seu nom i estat.',
         searchPlaceholder: 'Cerca per nom o etiqueta',
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
+        editTagsPlaceholder: 'Afegeix etiqueta (coma o enter)',
+        editTagsAdd: 'Afegir',
+        editTagsNeedOne: 'Ha de quedar com a mínim una etiqueta.',
+        editTagsSaveError: 'No s\'han pogut desar les etiquetes.',
         noFilters: 'Sense filtres',
         filterBy: 'Filtrant per: ',
         filterMine: 'Només els meus qüestionaris',
         clearFilters: 'Eliminar filtres',
         filterModeAny: 'Coincideix amb qualsevol etiqueta',
         filterModeAll: 'Coincideix amb totes les etiquetes',
+        tagsShowMore: 'Veure més',
+        tagsShowLess: 'Veure menys',
         matchAnyTags: 'Qualsevol etiqueta',
         matchAllTags: 'Totes les etiquetes',
         sortLabel: 'Ordenar per',
@@ -813,11 +869,45 @@ function renderTagSuggestions(){
     var freqValues = Object.keys(freqMap).map(function(k){ return freqMap[k]; });
     var maxFreq = freqValues.length ? Math.max.apply(null, freqValues) : 1;
     var normalizedMax = Math.max(1, maxFreq);
+
+    function tagSort(a, b){
+        var ca = freqMap[a] || 0;
+        var cb = freqMap[b] || 0;
+        if(cb !== ca) return cb - ca;
+        return String(a).toLowerCase().localeCompare(String(b).toLowerCase());
+    }
+
+    var allTags = tagsToShow.slice();
+    // Asegurar que las etiquetas seleccionadas siempre aparecen.
+    currentFilters.tags.forEach(function(sel){
+        if(allTags.indexOf(sel) === -1) allTags.unshift(sel);
+        if(freqMap[sel] === undefined) freqMap[sel] = 0;
+    });
+    allTags.sort(tagSort);
+
+    var selected = currentFilters.tags.slice();
+    var maxVisible = Math.max(TAG_SUGGESTIONS_LIMIT, selected.length);
+    var visibleTags = [];
+    selected.forEach(function(t){
+        if(visibleTags.indexOf(t) === -1) visibleTags.push(t);
+    });
+    if(!tagSuggestionsExpanded){
+        for(var i = 0; i < allTags.length && visibleTags.length < maxVisible; i++){
+            var tName = allTags[i];
+            if(visibleTags.indexOf(tName) !== -1) continue;
+            visibleTags.push(tName);
+        }
+    }else{
+        visibleTags = allTags.slice();
+    }
+
+    var remaining = Math.max(0, allTags.length - visibleTags.length);
     var label = document.createElement('span');
     label.className = 'label';
     label.textContent = t('suggestedTags');
     wrap.appendChild(label);
-    tagsToShow.forEach(function(tag){
+
+    visibleTags.forEach(function(tag){
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'tag' + (currentFilters.tags.indexOf(tag) !== -1 ? ' active' : '');
@@ -829,6 +919,23 @@ function renderTagSuggestions(){
         btn.onclick = function(){ toggleTagFilter(tag); };
         wrap.appendChild(btn);
     });
+
+    if(allTags.length > maxVisible){
+        var toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'tag tag-more';
+        toggleBtn.style.setProperty('--tag-weight', 0);
+        if(tagSuggestionsExpanded){
+            toggleBtn.textContent = t('tagsShowLess');
+        }else{
+            toggleBtn.textContent = t('tagsShowMore') + (remaining ? ' (' + remaining + ')' : '');
+        }
+        toggleBtn.onclick = function(){
+            tagSuggestionsExpanded = !tagSuggestionsExpanded;
+            renderTagSuggestions();
+        };
+        wrap.appendChild(toggleBtn);
+    }
     renderTagModeToggle();
 }
 
@@ -1028,17 +1135,136 @@ function renderGames(data){
         var canStart = quiz.visibility !== 'private' || canEdit;
         var canClone = authState.user && (quiz.allowClone || canEdit);
 
+        function normalizeInlineTags(list){
+            var out = [];
+            (Array.isArray(list) ? list : []).forEach(function(raw){
+                var clean = (raw || '').toString().trim().toLowerCase();
+                if(!clean) return;
+                clean = clean.slice(0, 40);
+                if(out.indexOf(clean) === -1) out.push(clean);
+            });
+            return out;
+        }
+
+        function parseTagInput(raw){
+            if(!raw) return [];
+            return raw
+                .split(/[,;]+/)
+                .map(function(t){ return (t || '').toString().trim().toLowerCase().slice(0, 40); })
+                .filter(function(t){ return t.length; });
+        }
+
+        async function updateQuizTags(id, nextTags){
+            try{
+                var headers = { 'Content-Type': 'application/json' };
+                if(getAnonOwnerToken()){
+                    headers['X-Owner-Token'] = getAnonOwnerToken();
+                }
+                var res = await fetch('/api/quizzes/' + id + '/tags', {
+                    method: 'PATCH',
+                    headers: headers,
+                    credentials: 'include',
+                    body: JSON.stringify({ tags: nextTags })
+                });
+                var body = {};
+                try{ body = await res.json(); }catch(e){}
+                if(!res.ok){
+                    alert((body && body.error) || t('editTagsSaveError'));
+                    return false;
+                }
+                socket.emit('requestDbNames');
+                fetchTags();
+                return true;
+            }catch(err){
+                alert(t('editTagsSaveError'));
+                return false;
+            }
+        }
+
         var tagWrap = document.createElement('div');
         tagWrap.className = 'tag-wrap';
-        var tags = Array.isArray(quiz.tags) ? quiz.tags : [];
+        var tags = normalizeInlineTags(Array.isArray(quiz.tags) ? quiz.tags : []);
         if(tags.length){
-            tags.forEach(function(t){
-                var tag = document.createElement('span');
-                tag.className = 'tag';
-                tag.textContent = t;
-                tag.onclick = function(){ toggleTagFilter(t); };
-                tagWrap.appendChild(tag);
+            tags.forEach(function(tagValue){
+                if(!canEdit){
+                    var tag = document.createElement('span');
+                    tag.className = 'tag';
+                    tag.textContent = tagValue;
+                    tag.onclick = function(){ toggleTagFilter(tagValue); };
+                    tagWrap.appendChild(tag);
+                    return;
+                }
+
+                var tagEl = document.createElement('span');
+                tagEl.className = 'tag tag-editable';
+
+                var tagText = document.createElement('span');
+                tagText.className = 'tag-text';
+                tagText.textContent = tagValue;
+                tagText.onclick = function(){ toggleTagFilter(tagValue); };
+
+                var removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'tag-remove';
+                removeBtn.setAttribute('aria-label', 'Remove');
+                removeBtn.textContent = '×';
+                removeBtn.onclick = async function(ev){
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    if(tags.length <= 1){
+                        alert(t('editTagsNeedOne'));
+                        return;
+                    }
+                    var next = tags.filter(function(x){ return x !== tagValue; });
+                    await updateQuizTags(quiz.id, next);
+                };
+
+                tagEl.appendChild(tagText);
+                tagEl.appendChild(removeBtn);
+                tagWrap.appendChild(tagEl);
             });
+        }
+
+        var tagEditor = null;
+        if(canEdit){
+            tagEditor = document.createElement('div');
+            tagEditor.className = 'tag-editor';
+            var tagInput = document.createElement('input');
+            tagInput.type = 'text';
+            tagInput.placeholder = t('editTagsPlaceholder');
+
+            var addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'btn btn-ghost btn-small';
+            addBtn.textContent = t('editTagsAdd');
+
+            async function submitTags(){
+                var raw = (tagInput.value || '').trim();
+                if(!raw) return;
+                var parsed = parseTagInput(raw);
+                if(!parsed.length){
+                    tagInput.value = '';
+                    return;
+                }
+                var next = normalizeInlineTags(tags.concat(parsed));
+                tagInput.value = '';
+                await updateQuizTags(quiz.id, next);
+            }
+
+            addBtn.onclick = function(){ submitTags(); };
+            tagInput.addEventListener('keydown', function(e){
+                if(e.key === 'Enter'){
+                    e.preventDefault();
+                    submitTags();
+                }
+                if(e.key === ','){
+                    // permite pegar/teclear y añadir rápido
+                    setTimeout(function(){ submitTags(); }, 0);
+                }
+            });
+
+            tagEditor.appendChild(tagInput);
+            tagEditor.appendChild(addBtn);
         }
 
         var actions = document.createElement('div');
@@ -1202,6 +1428,7 @@ function renderGames(data){
         card.appendChild(meta);
         card.appendChild(stats);
         card.appendChild(tagWrap);
+        if(tagEditor) card.appendChild(tagEditor);
         card.appendChild(share);
         card.appendChild(actions);
         div.appendChild(card);
@@ -1497,35 +1724,56 @@ function getSelectedIaTypes(){
 }
 
 function buildIaTags(){
-    var tags = new Set();
-    function addTag(text){
+    // Objetivo: pocas tags útiles (sin ruido tipo "generado-ia" o prefijos "ia-").
+    // Priorizamos: tema(s), nivel(es), idioma, y si usa documentos.
+    var tags = [];
+    var seen = new Set();
+
+    function normalizeTag(text){
         var clean = (text || '').toString().trim().toLowerCase();
-        if(clean) tags.add(clean);
+        if(!clean) return '';
+        // quitar acentos
+        try{ clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }catch(e){}
+        clean = clean.replace(/\s+/g, ' ').trim();
+        clean = clean.slice(0, 40);
+        // filtros anti-ruido
+        if(clean === 'generado-ia') return '';
+        if(clean.indexOf('ia-') === 0) return '';
+        if(clean.indexOf('ai-') === 0) return '';
+        return clean;
     }
+
+    function addTag(text){
+        var clean = normalizeTag(text);
+        if(!clean) return;
+        if(seen.has(clean)) return;
+        seen.add(clean);
+        tags.push(clean);
+    }
+
     function addFromList(text){
         (text || '').split(/[,;]+/).forEach(function(part){
             addTag(part);
         });
     }
+
     var temaVal = document.getElementById('ia-tema') ? document.getElementById('ia-tema').value : '';
     var nivelVal = document.getElementById('ia-nivel') ? document.getElementById('ia-nivel').value : '';
-    var nameVal = document.getElementById('ia-name') ? document.getElementById('ia-name').value : '';
     addFromList(temaVal);
     addFromList(nivelVal);
-    addFromList(nameVal);
-    // combos derivats
-    var composed = [];
-    if(temaVal && nivelVal) composed.push(nivelVal + ' ' + temaVal);
-    composed.push('ia-' + (temaVal || '').replace(/\s+/g, '-'));
-    composed.push('nivel-' + (nivelVal || '').replace(/\s+/g, '-'));
-    composed.forEach(addTag);
+
     var idiomaVal = '';
     if(iaIdioma){
         idiomaVal = iaIdioma.value === 'otro' && iaIdiomaCustom ? iaIdiomaCustom.value : iaIdioma.value;
     }
     addTag(idiomaVal);
-    addTag('generado-ia');
-    return Array.from(tags).filter(Boolean).slice(0, 8);
+
+    if(iaUseDocs && iaUseDocs.checked){
+        addTag('con-documentos');
+    }
+
+    // límite: suficientemente informativas sin volverse repetitivas
+    return tags.slice(0, 4);
 }
 
 var iaGenerate = document.getElementById('ia-generate');
@@ -1567,8 +1815,8 @@ function warnNoPermission(message){
 function updateTopAuthButton(){
     if(!openAuthBtn) return;
     if(authState && authState.user){
-        openAuthBtn.setAttribute('data-i18n', 'btnLogout');
-        openAuthBtn.textContent = t('btnLogout');
+        openAuthBtn.setAttribute('data-i18n', 'btnAccount');
+        openAuthBtn.textContent = t('btnAccount');
     }else{
         openAuthBtn.setAttribute('data-i18n', 'btnLogin');
         openAuthBtn.textContent = t('btnLogin');
@@ -1577,10 +1825,6 @@ function updateTopAuthButton(){
 
 if(openAuthBtn){
     openAuthBtn.addEventListener('click', function(){
-        if(authState && authState.user){
-            logout();
-            return;
-        }
         openAuthModal();
     });
 }
@@ -1603,6 +1847,7 @@ document.addEventListener('keydown', function(e){
 var authEmail = document.getElementById('auth-email');
 var authPass = document.getElementById('auth-pass');
 var authNick = document.getElementById('auth-nick');
+var authLoginForm = document.getElementById('auth-login-form');
 var authStatus = document.getElementById('auth-status');
 var authMsg = document.getElementById('auth-message');
 var authLoginBtn = document.getElementById('auth-login');
@@ -1619,6 +1864,11 @@ var resetAdminEmail = document.getElementById('reset-admin-email');
 var resetAdminPass = document.getElementById('reset-admin-pass');
 var resetAdminBtn = document.getElementById('reset-admin-btn');
 var resetAdminStatus = document.getElementById('reset-admin-status');
+var adminExportAllBtn = document.getElementById('admin-export-quizzes');
+var adminImportFile = document.getElementById('admin-import-quizzes-file');
+var adminImportReplace = document.getElementById('admin-import-quizzes-replace');
+var adminImportBtn = document.getElementById('admin-import-quizzes');
+var adminImportStatus = document.getElementById('admin-import-quizzes-status');
 var toggleResetBtn = document.getElementById('toggle-reset');
 var resetPanel = document.getElementById('reset-panel');
 var resetEmail = document.getElementById('reset-email');
@@ -1646,6 +1896,16 @@ function updateAuthUI(){
         }else{
             adminPanel.classList.add('hidden');
         }
+    }
+
+    if(authLoginBtn){
+        authLoginBtn.classList.toggle('hidden', !!(authState && authState.user));
+    }
+    if(authSaveNickBtn){
+        authSaveNickBtn.classList.toggle('hidden', !(authState && authState.user));
+    }
+    if(authLogoutBtn){
+        authLogoutBtn.classList.toggle('hidden', !(authState && authState.user));
     }
 
     updateTopAuthButton();
@@ -1797,31 +2057,75 @@ async function resetPasswordAsAdmin(){
     }
 }
 
-if(authLoginBtn){
-    authLoginBtn.addEventListener('click', login);
+function exportAllQuizzesAsAdmin(){
+    if(!authState.user || authState.user.role !== 'admin'){
+        warnNoPermission();
+        return;
+    }
+    // Descargar como archivo (cookies incluidas al navegar)
+    window.location.href = '/api/admin/quizzes/export';
 }
-if(authEmail){
-    authEmail.addEventListener('keydown', function(e){
-        if(e.key === 'Enter'){
-            e.preventDefault();
-            login();
+
+async function importAllQuizzesAsAdmin(){
+    if(!authState.user || authState.user.role !== 'admin'){
+        warnNoPermission();
+        return;
+    }
+    if(!adminImportFile || !adminImportFile.files || !adminImportFile.files[0]){
+        if(adminImportStatus) adminImportStatus.textContent = t('adminImportPickFile');
+        return;
+    }
+    var replaceAll = !!(adminImportReplace && adminImportReplace.checked);
+    if(replaceAll){
+        var ok = false;
+        try{ ok = window.confirm(t('adminReplaceConfirm')); }catch(e){ ok = false; }
+        if(!ok) return;
+    }
+    if(adminImportStatus) adminImportStatus.textContent = t('adminImportWorking');
+    try{
+        var fd = new FormData();
+        fd.append('file', adminImportFile.files[0]);
+        if(replaceAll) fd.append('confirm', 'REPLACE_ALL');
+        var url = '/api/admin/quizzes/import' + (replaceAll ? '?mode=replace' : '?mode=upsert');
+        var res = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            body: fd
+        });
+        var body = {};
+        try{ body = await res.json(); }catch(e){}
+        if(!res.ok){
+            if(adminImportStatus) adminImportStatus.textContent = (body && body.error) ? body.error : t('adminImportError');
+            return;
         }
+        if(adminImportStatus){
+            var detail = '';
+            if(body && body.mode === 'replace'){
+                detail = ' (' + (body.imported || 0) + ')';
+            }else{
+                detail = ' (' + (body.processed || 0) + ')';
+            }
+            adminImportStatus.textContent = t('adminImportOk') + detail;
+        }
+        adminImportFile.value = '';
+        if(adminImportReplace) adminImportReplace.checked = false;
+        fetchWithFilters();
+        fetchTags();
+    }catch(err){
+        if(adminImportStatus) adminImportStatus.textContent = t('adminImportError');
+    }
+}
+
+if(authLoginForm){
+    authLoginForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        login();
     });
-}
-if(authPass){
-    authPass.addEventListener('keydown', function(e){
-        if(e.key === 'Enter'){
-            e.preventDefault();
-            login();
-        }
-    });
-}
-if(authNick){
-    authNick.addEventListener('keydown', function(e){
-        if(e.key === 'Enter'){
-            e.preventDefault();
-            login();
-        }
+}else if(authLoginBtn){
+    // Fallback por si el HTML no tiene el form (compatibilidad)
+    authLoginBtn.addEventListener('click', function(e){
+        if(e && e.preventDefault) e.preventDefault();
+        login();
     });
 }
 if(authLogoutBtn){
@@ -1835,6 +2139,12 @@ if(authSaveNickBtn){
 }
 if(resetAdminBtn){
     resetAdminBtn.addEventListener('click', resetPasswordAsAdmin);
+}
+if(adminExportAllBtn){
+    adminExportAllBtn.addEventListener('click', exportAllQuizzesAsAdmin);
+}
+if(adminImportBtn){
+    adminImportBtn.addEventListener('click', importAllQuizzesAsAdmin);
 }
 if(toggleResetBtn && resetPanel){
     toggleResetBtn.addEventListener('click', function(){

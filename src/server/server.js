@@ -118,6 +118,7 @@ let db;
 let mongoReadyPromise = null;
 let indexesReadyPromise = null;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+const bulkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const uploadRate = new Map(); // clave: ip -> { count, windowStart }
 
 function uploadRateLimiter(req, res, next) {
@@ -378,16 +379,20 @@ function escapeCsvField(value) {
 function quizToCsv(quiz) {
   const header = 'tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video';
   const lines = (quiz.questions || []).map((q) => {
-    const answers = q.answers || ['', '', '', ''];
+    const answers = Array.isArray(q.answers) ? q.answers : ['', '', '', ''];
+    const type = (q && q.type) ? String(q.type) : 'quiz';
+    const correctVals = Array.isArray(q && q.correctAnswers) && q.correctAnswers.length
+      ? q.correctAnswers.join(',')
+      : (q && q.correct ? q.correct : 1);
     const row = [
-      'quiz',
+      escapeCsvField(type),
       escapeCsvField(q.question || ''),
       escapeCsvField(answers[0] || ''),
       escapeCsvField(answers[1] || ''),
       escapeCsvField(answers[2] || ''),
       escapeCsvField(answers[3] || ''),
       escapeCsvField(q.time || 20),
-      escapeCsvField(q.correct || 1),
+      escapeCsvField(correctVals),
       escapeCsvField(q.image || ''),
       escapeCsvField(q.video || '')
     ];
@@ -786,8 +791,9 @@ app.use(express.static(publicPath, {
 }));
 app.use(sessionMiddleware);
 
-server.listen(3000, () => {
-  console.log('Server started on port 3000');
+const PORT = Number.parseInt(process.env.PORT || '3000', 10);
+server.listen(PORT, () => {
+  console.log('Server started on port ' + PORT);
 });
 
 app.get('/api/validate-pin/:pin', (req, res) => {
@@ -882,6 +888,178 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
   } catch (err) {
     console.error('upload-csv error', err);
     return res.status(500).json({ error: 'No se pudo importar el CSV.' });
+  }
+});
+
+function coerceDate(value, fallback = null) {
+  if (!value) return fallback;
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return parsed;
+}
+
+function normalizeQuizId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const num = parseInt(raw, 10);
+  if (!Number.isNaN(num) && String(num) === raw) return num;
+  return raw;
+}
+
+function sanitizeImportedQuiz(raw = {}) {
+  const id = normalizeQuizId(raw.id || raw._id);
+  if (id === null) return { ok: false, error: 'Falta id' };
+  const name = (raw.name || raw.title || '').toString().trim() || 'Quiz importado';
+  const tags = normalizeTags(Array.isArray(raw.tags) ? raw.tags : []);
+  const questions = normalizeQuestions(Array.isArray(raw.questions) ? raw.questions : []);
+  if (!questions.length) return { ok: false, error: 'Sin preguntas' };
+
+  const visibility = normalizeVisibility(raw.visibility, 'private');
+  const allowClone = normalizeAllowClone(raw.allowClone, false);
+  const createdAt = coerceDate(raw.createdAt, new Date());
+  const updatedAt = coerceDate(raw.updatedAt, createdAt);
+
+  const playsCount = Math.max(0, parseInt(raw.playsCount, 10) || 0);
+  const playersCount = Math.max(0, parseInt(raw.playersCount, 10) || 0);
+
+  const ownerToken = (raw.ownerToken || '').toString().trim();
+  const ownerId = (raw.ownerId || raw.owner_id || raw.owner || GLOBAL_OWNER_ID).toString();
+  const ownerEmail = (raw.ownerEmail || GLOBAL_OWNER_EMAIL).toString();
+  const ownerNickname = (raw.ownerNickname || '').toString();
+
+  const quiz = {
+    id,
+    name,
+    tags,
+    questions,
+    playsCount,
+    playersCount,
+    visibility,
+    allowClone,
+    ownerId,
+    ownerEmail,
+    createdAt,
+    updatedAt
+  };
+
+  if (ownerNickname) quiz.ownerNickname = ownerNickname;
+  if (ownerToken) quiz.ownerToken = ownerToken;
+  if (raw.sourceQuizId) quiz.sourceQuizId = String(raw.sourceQuizId);
+  return { ok: true, quiz };
+}
+
+// Admin: export/import masivo de quizzes
+app.get('/api/admin/quizzes/export', requireRole('admin'), async (req, res) => {
+  try {
+    const collection = await getGamesCollection();
+    const docs = await collection.find({}).toArray();
+    const quizzes = docs.map((doc) => {
+      const { _id, ...rest } = doc;
+      return rest;
+    });
+
+    const payload = {
+      format: 'eduhoot-quizzes',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      count: quizzes.length,
+      quizzes
+    };
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `eduhoot-quizzes-${stamp}.json`;
+    res.type('application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(JSON.stringify(payload, null, 2));
+  } catch (err) {
+    console.error('admin-export-quizzes error', err);
+    return res.status(500).json({ error: 'No se pudo exportar.' });
+  }
+});
+
+app.post('/api/admin/quizzes/import', requireRole('admin'), bulkUpload.single('file'), async (req, res) => {
+  const mode = (req.query.mode || 'upsert').toString();
+  const replaceAll = mode === 'replace';
+  if (replaceAll) {
+    const confirm = (req.body && req.body.confirm ? String(req.body.confirm) : '').trim();
+    if (confirm !== 'REPLACE_ALL') {
+      return res.status(400).json({ error: 'Confirma con confirm=REPLACE_ALL para reemplazar todo.' });
+    }
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'Selecciona un archivo JSON.' });
+  }
+  try {
+    const content = req.file.buffer.toString('utf8').trim();
+    let data;
+    try {
+      data = JSON.parse(content);
+    } catch (e) {
+      return res.status(400).json({ error: 'JSON inválido.' });
+    }
+
+    const quizzesRaw = Array.isArray(data) ? data : (data && Array.isArray(data.quizzes) ? data.quizzes : null);
+    if (!quizzesRaw) {
+      return res.status(400).json({ error: 'Formato no reconocido. Se esperaba { quizzes: [...] }.' });
+    }
+
+    const sanitized = [];
+    const errors = [];
+    const seen = new Set();
+    quizzesRaw.forEach((q, idx) => {
+      const result = sanitizeImportedQuiz(q);
+      if (!result.ok) {
+        errors.push({ index: idx, error: result.error });
+        return;
+      }
+      const key = String(result.quiz.id);
+      if (seen.has(key)) {
+        // última gana
+        const existingIndex = sanitized.findIndex((x) => String(x.id) === key);
+        if (existingIndex !== -1) sanitized[existingIndex] = result.quiz;
+        return;
+      }
+      seen.add(key);
+      sanitized.push(result.quiz);
+    });
+
+    if (!sanitized.length) {
+      return res.status(400).json({ error: 'No hay quizzes válidos para importar.', details: errors.slice(0, 20) });
+    }
+
+    const collection = await getGamesCollection();
+    let deleted = 0;
+    if (replaceAll) {
+      const delRes = await collection.deleteMany({});
+      deleted = delRes.deletedCount || 0;
+      await collection.insertMany(sanitized, { ordered: false });
+      return res.json({ ok: true, mode: 'replace', deleted, imported: sanitized.length, invalid: errors.length, errors: errors.slice(0, 20) });
+    }
+
+    const ops = sanitized.map((quiz) => ({
+      replaceOne: {
+        filter: { id: quiz.id },
+        replacement: quiz,
+        upsert: true
+      }
+    }));
+    const result = await collection.bulkWrite(ops, { ordered: false });
+    return res.json({
+      ok: true,
+      mode: 'upsert',
+      processed: sanitized.length,
+      upserted: result.upsertedCount || 0,
+      modified: result.modifiedCount || 0,
+      matched: result.matchedCount || 0,
+      invalid: errors.length,
+      errors: errors.slice(0, 20)
+    });
+  } catch (err) {
+    console.error('admin-import-quizzes error', err);
+    return res.status(500).json({ error: 'No se pudo importar.' });
   }
 });
 
@@ -1079,6 +1257,48 @@ app.patch('/api/quizzes/:id', async (req, res) => {
   } catch (err) {
     console.error('rename-quiz error', err);
     return res.status(500).json({ error: 'No se pudo renombrar.' });
+  }
+});
+
+// Update quiz tags (without replacing full quiz)
+app.patch('/api/quizzes/:id/tags', async (req, res) => {
+  const quizIdParam = req.params.id;
+  const rawTags = req.body && req.body.tags !== undefined ? req.body.tags : [];
+  const tags = normalizeTags(Array.isArray(rawTags) ? rawTags : String(rawTags || '').split(/[,;]+/));
+  if (!quizIdParam) {
+    return res.status(400).json({ error: 'Falta id.' });
+  }
+  if (!tags.length) {
+    return res.status(400).json({ error: 'Añade al menos una etiqueta.' });
+  }
+
+  const ownerToken = ownerTokenFromReq(req);
+  if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
+  try {
+    // Permitir editar tags de quizzes locales sin sesión
+    if (isLocalQuizId(quizIdParam)) {
+      const q = getEphemeralQuiz(quizIdParam);
+      if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
+      ephemeralQuizzes.set(quizIdParam, { ...q, tags, updatedAt: new Date() });
+      return res.json({ ok: true, id: quizIdParam, tags, local: true });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+    const collection = await getGamesCollection();
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz || typeof quiz.id === 'string') {
+      return res.status(404).json({ error: 'Quiz no encontrado.' });
+    }
+    if (!canManageQuiz(quiz, req.user)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    await collection.updateOne({ id: quiz.id }, { $set: { tags, updatedAt: new Date() } });
+    return res.json({ ok: true, id: quiz.id, tags });
+  } catch (err) {
+    console.error('update-quiz-tags error', err);
+    return res.status(500).json({ error: 'No se pudieron actualizar las etiquetas.' });
   }
 });
 

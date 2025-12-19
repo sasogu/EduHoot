@@ -473,6 +473,11 @@ details.panel[open] > summary{
     transform: translateY(-1px);
 }
 
+.tag-suggestions .tag.tag-more{
+    font-weight: 800;
+    opacity: 0.9;
+}
+
 .game-grid{
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -512,6 +517,35 @@ details.panel[open] > summary{
     gap: 6px;
     flex-wrap: wrap;
     margin-top: -4px;
+}
+
+.tag-editor{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-top:6px;
+}
+
+.tag-editor input{
+    flex:1;
+    min-width: 180px;
+    max-width: 100%;
+}
+
+.tag.tag-editable{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+
+.tag .tag-remove{
+    border:0;
+    background:transparent;
+    cursor:pointer;
+    line-height:1;
+    padding:0 2px;
+    font-size: 16px;
 }
 .tag{
     font-size: calc(12px + 6px * var(--tag-weight, 0.2));

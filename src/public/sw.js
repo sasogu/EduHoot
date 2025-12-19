@@ -1,4 +1,6 @@
-const CACHE_NAME = 'eduh-pwa-v0.3.3';
+// IMPORTANTE: cuando cambiemos JS/CSS y queramos evitar servir una versión antigua,
+// incrementa esta versión para invalidar el precache.
+const CACHE_NAME = 'eduh-pwa-v0.3.6';
 
 // App shell: recursos críticos para que la app cargue incluso sin red.
 // El resto de recursos se cachean en runtime con stale-while-revalidate.
@@ -98,6 +100,27 @@ self.addEventListener('fetch', (event) => {
 
   const accept = request.headers.get('accept') || '';
   const isHtml = request.mode === 'navigate' || accept.includes('text/html');
+
+  // JS/CSS: network-first para que los cambios se vean al recargar (sin tener que
+  // esperar a la revalidación en segundo plano).
+  if (url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/')) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const response = await fetch(request, { cache: 'no-store' });
+          if (response && response.ok) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        } catch (err) {
+          const cached = await caches.match(request);
+          return cached;
+        }
+      })()
+    );
+    return;
+  }
 
   // HTML: network-first para que los cambios se vean al recargar.
   if (isHtml) {
