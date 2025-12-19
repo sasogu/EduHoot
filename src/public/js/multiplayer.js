@@ -996,7 +996,7 @@
   function fetchPublicQuizzes(){
     var empty = document.getElementById('public-empty');
     if(empty) empty.textContent = '…';
-    fetch('/api/public-quizzes')
+    fetch('/api/public-quizzes?mode=multiplayer')
       .then(function(res){ return res.json(); })
       .then(function(data){
         state.quizzes = shuffleArray(Array.isArray(data) ? data : []);
@@ -1269,7 +1269,26 @@
     state.currentQuizId = id;
     state.quizData = null;
     renderSelected();
-    fetch('/api/quizzes/' + encodeURIComponent(id))
+
+    function isFreeTypeQuestion(q){
+      if(!q) return false;
+      var rawType = (q.type || '').toString().toLowerCase().trim();
+      if(rawType === 'short-answer' || rawType === 'shortanswer') return true;
+      if(rawType === 'numeric' || rawType === 'numerical') return true;
+
+      // Señales defensivas si el tipo está mal pero vienen campos libres.
+      var acc = q.acceptedAnswers;
+      var hasAccepted = Array.isArray(acc) ? acc.length > 0 : (typeof acc === 'string' && acc.trim().length > 0);
+      var hasNumeric =
+        (typeof q.numericAnswer === 'number') ||
+        (q.numericAnswer !== null && q.numericAnswer !== undefined && typeof q.numericAnswer === 'string' && q.numericAnswer.trim().length > 0) ||
+        (q.numero !== null && q.numero !== undefined && String(q.numero).trim().length > 0) ||
+        (q.tolerancia !== null && q.tolerancia !== undefined && String(q.tolerancia).trim().length > 0) ||
+        (q.tolerance !== null && q.tolerance !== undefined && String(q.tolerance).trim().length > 0);
+      return hasAccepted || hasNumeric;
+    }
+
+    fetch('/api/quizzes/' + encodeURIComponent(id) + '?mode=multiplayer')
       .then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
       .then(function(payload){
         if(!payload.ok){
@@ -1280,6 +1299,10 @@
           return;
         }
         state.quizData = payload.body;
+        // Defensa extra: aunque el backend no esté actualizado/reiniciado, filtramos aquí.
+        if(state.quizData && Array.isArray(state.quizData.questions)){
+          state.quizData.questions = state.quizData.questions.filter(function(q){ return !isFreeTypeQuestion(q); });
+        }
         // En setup queremos scroll normal (especialmente en móvil).
         // Reservamos `playing` para la partida en sí.
         document.body.classList.remove('playing');

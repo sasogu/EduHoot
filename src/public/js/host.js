@@ -379,3 +379,8 @@ socket.on('noGameFound', function(){
    var msg = (window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.';
    showHostError(msg);
 });
+
+socket.on('hostError', function(payload){
+    var msg = payload && payload.error ? payload.error : ((window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.');
+    showHostError(msg);
+});

@@ -68,7 +68,9 @@ var i18n = {
         musicActivationEnable: '¡Empezamos!',
         resultsTitle: 'Resultados',
         resultsNextToRanking: 'Ver clasificación',
-        resultsNextQuestion: 'Siguiente pregunta (Enter)'
+        resultsNextQuestion: 'Siguiente pregunta (Enter)',
+        freeAnswersReceived: function(ans, total){ return 'Respuestas recibidas ' + ans + ' / ' + total; },
+        correctAnswerLabel: 'Respuesta correcta:'
     },
     en: {
         questionXofY: function(n, t){ return 'Question ' + n + ' / ' + t; },
@@ -92,7 +94,9 @@ var i18n = {
         musicActivationEnable: "Let's go!",
         resultsTitle: 'Results',
         resultsNextToRanking: 'Show leaderboard',
-        resultsNextQuestion: 'Next question (Enter)'
+        resultsNextQuestion: 'Next question (Enter)',
+        freeAnswersReceived: function(ans, total){ return 'Answers received ' + ans + ' / ' + total; },
+        correctAnswerLabel: 'Correct answer:'
     },
     ca: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -116,7 +120,9 @@ var i18n = {
         musicActivationEnable: 'Comencem!',
         resultsTitle: 'Resultats',
         resultsNextToRanking: 'Veure classificació',
-        resultsNextQuestion: 'Següent pregunta (Enter)'
+        resultsNextQuestion: 'Següent pregunta (Enter)',
+        freeAnswersReceived: function(ans, total){ return 'Respostes rebudes ' + ans + ' / ' + total; },
+        correctAnswerLabel: 'Resposta correcta:'
     }
 };
 
@@ -259,7 +265,9 @@ function setCurrentAnswerTexts(answers){
         if(!el) continue;
         var text = currentAnswerTexts[j - 1];
         el.innerHTML = text;
-        if(currentQuestionType === 'true-false' && j > 2){
+        if(currentQuestionType === 'short-answer' || currentQuestionType === 'numeric'){
+            el.style.display = 'none';
+        }else if(currentQuestionType === 'true-false' && j > 2){
             el.style.display = 'none';
         }else{
             el.style.display = text && text.trim().length ? 'block' : 'none';
@@ -269,6 +277,9 @@ function setCurrentAnswerTexts(answers){
 }
 
 function getVisibleAnswerFlags(){
+    if(currentQuestionType === 'short-answer' || currentQuestionType === 'numeric'){
+        return [false, false, false, false];
+    }
     var flags = [];
     for(var i = 0; i < 4; i++){
         var text = currentAnswerTexts[i];
@@ -292,6 +303,9 @@ function hideAnswerSquares(){
 }
 
 function highlightCorrectAnswers(correctAnswers){
+    if(currentQuestionType === 'short-answer' || currentQuestionType === 'numeric'){
+        return;
+    }
     var valid = Array.isArray(correctAnswers) ? correctAnswers : [];
     var correctSet = new Set(valid.map(Number));
     var visibleFlags = getVisibleAnswerFlags();
@@ -670,25 +684,69 @@ socket.on('questionOver', function(playerData, payload){
     document.getElementById('timerText').style.display = "none";
     setMedia(null, null);
     currentQuestionType = (payload && payload.type) || currentQuestionType;
-    highlightCorrectAnswers(payload && payload.correctAnswers);
-    var answerCounts = [0, 0, 0, 0];
     var totalPlayers = Array.isArray(playerData) ? playerData.length : 0;
-    function incrementAnswer(value){
-        var num = Number(value);
-        if(Number.isNaN(num) || num < 1 || num > 4) return;
-        answerCounts[num - 1] += 1;
-    }
-    (playerData || []).forEach(function(player){
-        var answer = player.gameData.answer;
-        if(Array.isArray(answer)){
-            answer.forEach(incrementAnswer);
-        }else{
-            incrementAnswer(answer);
+
+    // Tipos libres: no hay buckets 1-4; mostramos resumen simple.
+    if(currentQuestionType === 'short-answer' || currentQuestionType === 'numeric'){
+        hideAnswerSquares();
+        if(resultsChartEl){
+            var answeredCount = 0;
+            (playerData || []).forEach(function(player){
+                var answer = player && player.gameData ? player.gameData.answer : null;
+                if(!answer) return;
+                if(currentQuestionType === 'short-answer'){
+                    var txt = (answer && typeof answer === 'object') ? (answer.text || '') : String(answer || '');
+                    if(String(txt).trim()) answeredCount += 1;
+                }else{
+                    var n = (answer && typeof answer === 'object') ? answer.number : answer;
+                    if(String(n || '').trim()) answeredCount += 1;
+                }
+            });
+
+            var correctTxt = '';
+            if(payload && payload.type === 'short-answer'){
+                var acc = Array.isArray(payload.acceptedAnswers) ? payload.acceptedAnswers : [];
+                correctTxt = acc.join(', ');
+            }else if(payload && payload.type === 'numeric'){
+                var base = (payload.numericAnswer !== undefined && payload.numericAnswer !== null) ? payload.numericAnswer : '';
+                var tol = (payload.tolerance !== undefined && payload.tolerance !== null) ? payload.tolerance : 0;
+                if(base !== ''){
+                    correctTxt = Number(tol) > 0 ? (String(base) + ' ± ' + String(tol)) : String(base);
+                }
+            }
+
+            resultsChartEl.innerHTML = '';
+            var line1 = document.createElement('div');
+            line1.className = 'results-free-line';
+            line1.textContent = t('freeAnswersReceived')(answeredCount, totalPlayers);
+            resultsChartEl.appendChild(line1);
+            if(correctTxt){
+                var line2 = document.createElement('div');
+                line2.className = 'results-free-line';
+                line2.textContent = t('correctAnswerLabel') + ' ' + correctTxt;
+                resultsChartEl.appendChild(line2);
+            }
         }
-    });
-    // La gráfica se muestra dentro del modal (más visible) en lugar de en la vista principal.
-    hideAnswerSquares();
-    renderResultsChart(answerCounts, totalPlayers);
+    }else{
+        highlightCorrectAnswers(payload && payload.correctAnswers);
+        var answerCounts = [0, 0, 0, 0];
+        function incrementAnswer(value){
+            var num = Number(value);
+            if(Number.isNaN(num) || num < 1 || num > 4) return;
+            answerCounts[num - 1] += 1;
+        }
+        (playerData || []).forEach(function(player){
+            var answer = player.gameData.answer;
+            if(Array.isArray(answer)){
+                answer.forEach(incrementAnswer);
+            }else{
+                incrementAnswer(answer);
+            }
+        });
+        // La gráfica se muestra dentro del modal (más visible) en lugar de en la vista principal.
+        hideAnswerSquares();
+        renderResultsChart(answerCounts, totalPlayers);
+    }
     
     // El avance se hace desde el modal (Resultados -> Ranking -> Siguiente).
     document.getElementById('nextQButton').style.display = "none";

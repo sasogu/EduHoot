@@ -143,6 +143,9 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         rankingClose: 'Cerrar ranking',
         rankingEmpty: 'Aún no hay puntuaciones.',
         submitAnswers: 'Enviar respuestas',
+        freeTextPlaceholder: 'Escribe tu respuesta',
+        freeNumberPlaceholder: 'Introduce un número',
+        submitFreeAnswer: 'Enviar',
         footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
         en: {
@@ -221,6 +224,9 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             rankingClose: 'Close ranking',
             rankingEmpty: 'No rankings yet.',
             submitAnswers: 'Submit answers',
+                freeTextPlaceholder: 'Type your answer',
+                freeNumberPlaceholder: 'Enter a number',
+                submitFreeAnswer: 'Submit',
             footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
     },
         ca: {
@@ -299,6 +305,9 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             rankingClose: 'Tancar rànquing',
             rankingEmpty: 'Encara no hi ha puntuacions.',
             submitAnswers: 'Enviar respostes',
+            freeTextPlaceholder: 'Escriu la teua resposta',
+            freeNumberPlaceholder: 'Introdueix un número',
+            submitFreeAnswer: 'Enviar',
             footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
         }
     };
@@ -537,11 +546,84 @@ function renderSelectedMeta(){
         return copy;
     }
 
+    function normalizeFreeText(value){
+        var str = (value || '').toString().trim().toLowerCase();
+        if(!str) return '';
+        try{
+            str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }catch(e){}
+        str = str.replace(/[^a-z0-9\s]/g, ' ');
+        str = str.replace(/\s+/g, ' ').trim();
+        return str;
+    }
+
+    function splitAcceptedAnswers(raw){
+        var text = (raw || '').toString().trim();
+        if(!text) return [];
+        var parts = text.split(/[|\n]+/g);
+        var flat = [];
+        parts.forEach(function(chunk){
+            String(chunk || '').split(',').forEach(function(p){ flat.push(p); });
+        });
+        var out = [];
+        var seen = {};
+        flat.forEach(function(part){
+            var original = (part || '').toString().trim();
+            if(!original) return;
+            var key = normalizeFreeText(original);
+            if(!key) return;
+            if(seen[key]) return;
+            seen[key] = true;
+            out.push(original);
+        });
+        return out;
+    }
+
+    function parseLenientNumber(value){
+        if(value === undefined || value === null) return null;
+        if(typeof value === 'number' && Number.isFinite(value)) return value;
+        var raw = String(value).trim();
+        if(!raw) return null;
+        var normalized = raw.replace(/\s+/g, '').replace(',', '.');
+        var num = Number.parseFloat(normalized);
+        return Number.isFinite(num) ? num : null;
+    }
+
     function normalizeQuestionMeta(q){
         var type = (q && q.type) ? String(q.type).toLowerCase() : 'quiz';
-        if(type !== 'multiple' && type !== 'true-false'){
+        var allowed = { 'quiz': true, 'multiple': true, 'true-false': true, 'short-answer': true, 'numeric': true };
+        if(!allowed[type]){
             type = 'quiz';
         }
+
+        var acceptedAnswers = [];
+        var numericAnswer = null;
+        var tolerance = 0;
+        if(type === 'short-answer'){
+            if(Array.isArray(q && q.acceptedAnswers)){
+                acceptedAnswers = q.acceptedAnswers.slice();
+            }else{
+                acceptedAnswers = splitAcceptedAnswers((q && (q.texto || q.text || q.correctText || q.correct)) || '');
+            }
+        }
+        if(type === 'numeric'){
+            numericAnswer = parseLenientNumber(q && (q.numericAnswer !== undefined ? q.numericAnswer : (q.numero !== undefined ? q.numero : q.correct)));
+            var tol = parseLenientNumber(q && (q.tolerance !== undefined ? q.tolerance : q.tolerancia));
+            tolerance = (tol === null) ? 0 : tol;
+        }
+
+        // Para tipos no indexados mantenemos compatibilidad (correctAnswers = [1]).
+        if(type === 'short-answer' || type === 'numeric'){
+            return {
+                type: type,
+                correctAnswers: [1],
+                correct: 1,
+                acceptedAnswers: acceptedAnswers,
+                numericAnswer: numericAnswer,
+                tolerance: tolerance
+            };
+        }
+
         var answers = Array.isArray(q && q.correctAnswers) ? q.correctAnswers.slice() : [];
         if(!answers.length && q && typeof q.correct !== 'undefined'){
             var parsed = parseInt(q.correct, 10);
@@ -562,11 +644,17 @@ function renderSelectedMeta(){
         return {
             type: type,
             correctAnswers: normalized,
-            correct: first
+            correct: first,
+            acceptedAnswers: [],
+            numericAnswer: null,
+            tolerance: null
         };
     }
 
     function getVisibleAnswers(q, type){
+        if(type === 'short-answer' || type === 'numeric'){
+            return [];
+        }
         var answers = Array.isArray(q && q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
         while(answers.length < 4) answers.push('');
         if(type === 'true-false'){
@@ -588,6 +676,22 @@ function renderSelectedMeta(){
 
     function randomizeOneQuestion(q){
         var meta = normalizeQuestionMeta(q);
+
+        if(meta.type === 'short-answer' || meta.type === 'numeric'){
+            return {
+                question: q.question || '',
+                answers: Array.isArray(q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''],
+                correct: 1,
+                correctAnswers: [1],
+                type: meta.type,
+                image: q.image || '',
+                video: q.video || '',
+                time: q.time,
+                acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : [],
+                numericAnswer: meta.numericAnswer,
+                tolerance: meta.tolerance
+            };
+        }
 
         var answers = Array.isArray(q.answers) ? q.answers.slice(0, 4) : ['', '', '', ''];
         while(answers.length < 4) answers.push('');
@@ -1048,6 +1152,41 @@ function startQuiz(){
         if(!answersWrap) return;
         answersWrap.innerHTML = '';
         var metaInfo = meta || normalizeQuestionMeta(q);
+
+        if(metaInfo.type === 'short-answer' || metaInfo.type === 'numeric'){
+            var row = document.createElement('div');
+            row.className = 'free-answer-row';
+
+            var input = document.createElement('input');
+            input.id = 'solo-free-input';
+            input.className = 'free-answer-input';
+            input.type = 'text';
+            input.autocomplete = 'off';
+            input.placeholder = metaInfo.type === 'numeric' ? t('freeNumberPlaceholder') : t('freeTextPlaceholder');
+            input.addEventListener('keydown', function(ev){
+                if(ev.key === 'Enter'){
+                    ev.preventDefault();
+                    submitSoloFreeAnswer();
+                }
+            });
+
+            var btn = document.createElement('button');
+            btn.id = 'solo-free-submit';
+            btn.className = 'free-answer-submit';
+            btn.type = 'button';
+            btn.textContent = t('submitFreeAnswer');
+            btn.addEventListener('click', function(){ submitSoloFreeAnswer(); });
+
+            row.appendChild(input);
+            row.appendChild(btn);
+            answersWrap.appendChild(row);
+
+            setTimeout(function(){
+                try{ input.focus(); }catch(e){}
+            }, 50);
+            return;
+        }
+
         var answers = getVisibleAnswers(q, metaInfo.type);
         answers.forEach(function(ans, idx){
             var btn = document.createElement('button');
@@ -1060,10 +1199,22 @@ function startQuiz(){
         });
     }
 
+    function submitSoloFreeAnswer(){
+        if(state.locked) return;
+        var questions = getQuestions();
+        var q = questions[state.idx];
+        if(!q) return;
+        var meta = normalizeQuestionMeta(q);
+        if(meta.type !== 'short-answer' && meta.type !== 'numeric') return;
+        var input = document.getElementById('solo-free-input');
+        if(!input) return;
+        answerQuestion((input.value || '').toString(), false);
+    }
+
     function updateSoloSelectionStyles(){
         var answersWrap = document.getElementById('answers');
         if(!answersWrap) return;
-        Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
+        Array.prototype.slice.call(answersWrap.querySelectorAll('button.answer')).forEach(function(btn, idx){
             var n = idx + 1;
             if(Array.isArray(state.multiSelections) && state.multiSelections.indexOf(n) !== -1){
                 btn.classList.add('multi-selected');
@@ -1169,37 +1320,83 @@ function startQuiz(){
         var meta = normalizeQuestionMeta(q);
         var answersWrap = document.getElementById('answers');
         var feedback = document.getElementById('feedback');
-        var selected = [];
-        if(timedOut){
-            selected = [];
-        }else if(Array.isArray(choice)){
-            selected = choice.slice();
-        }else if(choice !== null && typeof choice !== 'undefined'){
-            selected = [choice];
-        }
-        var correctList = Array.isArray(meta.correctAnswers) && meta.correctAnswers.length ? meta.correctAnswers : [(parseInt(q.correct, 10) || 1)];
+
         var isCorrect = false;
-        if(meta.type === 'multiple'){
-            isCorrect = areAnswerSetsEqual(selected, correctList);
+        var correctAnswerText = '';
+
+        if(meta.type === 'short-answer'){
+            var rawText = timedOut ? '' : (typeof choice === 'string' ? choice : String(choice || ''));
+            var normalized = normalizeFreeText(rawText);
+            var accepted = Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : splitAcceptedAnswers(meta.acceptedAnswers);
+            isCorrect = !!normalized && accepted.some(function(ans){ return normalizeFreeText(ans) === normalized; });
+            correctAnswerText = accepted.join(', ');
+
+            var input = document.getElementById('solo-free-input');
+            var btn = document.getElementById('solo-free-submit');
+            if(input) input.disabled = true;
+            if(btn) btn.disabled = true;
+        }else if(meta.type === 'numeric'){
+            var rawNum = timedOut ? '' : (typeof choice === 'string' ? choice : String(choice || ''));
+            var num = parseLenientNumber(rawNum);
+            var target = (typeof meta.numericAnswer === 'number') ? meta.numericAnswer : parseLenientNumber(meta.numericAnswer);
+            var tol = (typeof meta.tolerance === 'number') ? meta.tolerance : (parseLenientNumber(meta.tolerance) || 0);
+            if(num !== null && target !== null){
+                isCorrect = Math.abs(num - target) <= Math.max(0, tol);
+            }else{
+                isCorrect = false;
+            }
+            if(target !== null){
+                correctAnswerText = (tol && tol > 0) ? (String(target) + ' ± ' + String(tol)) : String(target);
+            }
+
+            var input2 = document.getElementById('solo-free-input');
+            var btn2 = document.getElementById('solo-free-submit');
+            if(input2) input2.disabled = true;
+            if(btn2) btn2.disabled = true;
         }else{
-            isCorrect = selected.length && selected[0] === (meta.correct || correctList[0] || 1);
+            var selected = [];
+            if(timedOut){
+                selected = [];
+            }else if(Array.isArray(choice)){
+                selected = choice.slice();
+            }else if(choice !== null && typeof choice !== 'undefined'){
+                selected = [choice];
+            }
+            var correctList = Array.isArray(meta.correctAnswers) && meta.correctAnswers.length ? meta.correctAnswers : [(parseInt(q.correct, 10) || 1)];
+            if(meta.type === 'multiple'){
+                isCorrect = areAnswerSetsEqual(selected, correctList);
+            }else{
+                isCorrect = selected.length && selected[0] === (meta.correct || correctList[0] || 1);
+            }
+
+            if(answersWrap){
+                Array.prototype.slice.call(answersWrap.querySelectorAll('button.answer')).forEach(function(btnEl, idx){
+                    var n = idx + 1;
+                    btnEl.disabled = true;
+                    if(correctList.indexOf(n) !== -1){
+                        btnEl.classList.add('correct');
+                    }
+                    if(selected.indexOf(n) !== -1 && !isCorrect){
+                        btnEl.classList.add('wrong');
+                    }
+                });
+            }
+
+            if(Array.isArray(q.answers)){
+                var list = [];
+                correctList.forEach(function(idx){
+                    if(idx && q.answers[idx - 1]){
+                        list.push(q.answers[idx - 1]);
+                    }
+                });
+                correctAnswerText = list.join(', ');
+            }
         }
+
         if(isCorrect){
             state.correct += 1;
             var bonus = Math.max(100, Math.round(1000 * (state.timerLeft / state.timerTotal)));
             state.score += bonus;
-        }
-        if(answersWrap){
-            Array.prototype.slice.call(answersWrap.children).forEach(function(btn, idx){
-                var n = idx + 1;
-                btn.disabled = true;
-                if(correctList.indexOf(n) !== -1){
-                    btn.classList.add('correct');
-                }
-                if(selected.indexOf(n) !== -1 && !isCorrect){
-                    btn.classList.add('wrong');
-                }
-            });
         }
         if(feedback){
             if(timedOut){
@@ -1213,16 +1410,6 @@ function startQuiz(){
             }else{
                 feedback.classList.remove('feedback--muted', 'feedback--success');
                 feedback.classList.add('feedback--error');
-                var correctAnswerText = '';
-                if(Array.isArray(q.answers)){
-                    var list = [];
-                    correctList.forEach(function(idx){
-                        if(idx && q.answers[idx - 1]){
-                            list.push(q.answers[idx - 1]);
-                        }
-                    });
-                    correctAnswerText = list.join(', ');
-                }
                 var label = t('correctLabel');
                 feedback.textContent = correctAnswerText
                     ? t('wrongText') + ' · ' + (label === 'correctLabel' ? '' : label + ' ') + correctAnswerText
@@ -1244,10 +1431,8 @@ function startQuiz(){
         updateScorePill();
         state.awaitingConfirm = true;
         state.lastWrong = {
-            correct: correctList,
-            correctText: Array.isArray(q.answers) ? correctList.map(function(idx){
-                return q.answers[idx - 1] || '';
-            }).filter(Boolean).join(', ') : '',
+            correct: Array.isArray(meta.correctAnswers) ? meta.correctAnswers : [1],
+            correctText: correctAnswerText,
             question: q.question || ''
         };
         showFeedbackModal();

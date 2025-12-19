@@ -171,6 +171,8 @@ var i18n = {
         iaTypeQuiz: 'Quiz (1 correcta)',
         iaTypeMultiple: 'Respuesta Múltiple',
         iaTypeTf: 'Verdadero / Falso',
+        iaTypeShort: 'Respuesta corta',
+        iaTypeNumeric: 'Numérica',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt aparecerá aquí...',
@@ -355,6 +357,8 @@ var i18n = {
         iaTypeQuiz: 'Quiz (1 correct)',
         iaTypeMultiple: 'Multiple answers',
         iaTypeTf: 'True / False',
+        iaTypeShort: 'Short answer',
+        iaTypeNumeric: 'Numeric',
         btnGenPrompt: 'Generate prompt',
         btnCopyPrompt: 'Copy prompt',
         promptPlaceholder: 'Prompt will appear here...',
@@ -539,6 +543,8 @@ var i18n = {
         iaTypeQuiz: 'Quiz (1 correcta)',
         iaTypeMultiple: 'Resposta múltiple',
         iaTypeTf: 'Vertader / Fals',
+        iaTypeShort: 'Resposta curta',
+        iaTypeNumeric: 'Numèrica',
         btnGenPrompt: 'Generar prompt',
         btnCopyPrompt: 'Copiar prompt',
         promptPlaceholder: 'El prompt apareixerà aquí...',
@@ -1690,7 +1696,7 @@ function buildPrompt(params){
     var useDocs = !!params.useDocs;
     var tema = useDocs ? '' : (params.tema || '');
     var prompt = {
-        objetivo: "Generar un cuestionario en CSV con separador ';' siguiendo el formato: tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video",
+        objetivo: "Generar un cuestionario en CSV con separador ';' siguiendo el formato: tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video;texto;numero;tolerancia",
         nivel: params.nivel || '',
         tema: tema,
         idioma: idioma || 'Español',
@@ -1700,8 +1706,10 @@ function buildPrompt(params){
         instrucciones: params.extra || '',
         notas: [
             "Usa el punto y coma ';' como separador.",
-            "Columna 'tipo': usa uno de: quiz | multiple | true-false.",
-            "Columna 'correcta': índice (1-4). Si es múltiple, usa lista separada por comas (ej: 1,3).",
+            "Columna 'tipo': usa uno de: quiz | multiple | true-false | short-answer | numeric.",
+            "Tipos quiz/multiple/true-false: usa r1..r4 y 'correcta' (quiz/tf: índice; multiple: lista 1,3).",
+            "Tipo short-answer: deja r1..r4 vacío y pon respuestas válidas en 'texto' separadas por '|' (ej: madrid|barcelona).",
+            "Tipo numeric: deja r1..r4 vacío y pon la respuesta en 'numero' (acepta coma decimal) y la tolerancia en 'tolerancia' (0 si exacta).",
             "Si 'usar_documentos' es true, genera las preguntas SOLO a partir de los documentos adjuntos en la IA (no inventes contenido fuera de ellos).",
             "Columna 'imagen': solo URLs de imagen (png/jpg/webp).",
             "Columna 'video': URLs de vídeo (YouTube/Vimeo/MP4). Si hay vídeo, deja 'imagen' vacía.",
@@ -1716,9 +1724,13 @@ function getSelectedIaTypes(){
     var quiz = document.getElementById('ia-type-quiz');
     var multiple = document.getElementById('ia-type-multiple');
     var tf = document.getElementById('ia-type-tf');
+    var shortAns = document.getElementById('ia-type-short');
+    var numeric = document.getElementById('ia-type-numeric');
     if(quiz && quiz.checked) selected.push('quiz');
     if(multiple && multiple.checked) selected.push('multiple');
     if(tf && tf.checked) selected.push('true-false');
+    if(shortAns && shortAns.checked) selected.push('short-answer');
+    if(numeric && numeric.checked) selected.push('numeric');
     if(!selected.length) selected.push('quiz');
     return selected;
 }
@@ -2278,17 +2290,44 @@ var lastIaUploadedQuizId = null;
 function normalizeCsvForDownload(csvText){
     var text = (csvText || '').trim();
     if(!text) return '';
-    var header = 'Tipo;Pregunta;R1;R2;R3;R4;Tiempo;Correcta;URL Imagen';
+    var header = 'Tipo;Pregunta;R1;R2;R3;R4;Tiempo;Correcta;URL Imagen;Video;Texto;Numero;Tolerancia';
     if(!text.toLowerCase().includes('tipo;pregunta')){
         text = header + '\n' + text;
     }
     return text;
 }
 
+function splitSemicolons(line){
+    var parts = [];
+    var current = '';
+    var inQuotes = false;
+    for(var i=0;i<line.length;i++){
+        var ch = line[i];
+        if(ch === '"'){
+            if(inQuotes && line[i+1] === '"'){
+                current += '"';
+                i += 1;
+                continue;
+            }
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if(ch === ';' && !inQuotes){
+            parts.push(current);
+            current = '';
+        }else{
+            current += ch;
+        }
+    }
+    parts.push(current);
+    return parts.map(function(field){
+        return (field || '').toString().trim();
+    });
+}
+
 function parseCsvLines(csvText){
     var text = (csvText || '').trim();
     if(!text) return [];
-    var regex = /"((?:[^"]|"")*)"|([^;]+)/g;
     var linesRaw = text.split(/\r?\n/);
     var headerIndex = -1;
     for(var i=0;i<linesRaw.length;i++){
@@ -2299,16 +2338,19 @@ function parseCsvLines(csvText){
     lines.forEach(function(line){
         var l = (line || '').trim();
         if(!l) return;
-        var fields = Array.from(l.matchAll(regex), function(m){
-            return (m[1] ? m[1].replace(/""/g, '"') : (m[2] || '')).trim();
-        });
-        if(fields.length < 8) return;
+        var fields = splitSemicolons(l);
+        if(!fields || fields.length < 8) return;
         out.push({
             tipo: fields[0],
             pregunta: fields[1],
-            respuestas: fields.slice(2, 6),
+            respuestas: fields.slice(2, 6).concat(['','','','']).slice(0,4),
             tiempo: fields[6],
-            correcta: fields[7]
+            correcta: fields[7],
+            imagen: fields[8] || '',
+            video: fields[9] || '',
+            texto: fields[10] || '',
+            numero: fields[11] || '',
+            tolerancia: fields[12] || ''
         });
     });
     return out;
@@ -2332,25 +2374,76 @@ function renderIaPreview(csvText){
         card.appendChild(title);
         var list = document.createElement('div');
         list.className = 'ia-preview__answers';
-        var correctIdx = [];
-        (q.correcta || '').split(',').forEach(function(n){
-            var i = parseInt(String(n).trim(), 10);
-            if(!isNaN(i)) correctIdx.push(i - 1);
-        });
-        q.respuestas.forEach(function(a, i){
-            if(!a) return;
+
+        var qType = (q.tipo || '').toString().toLowerCase().trim();
+
+        function splitAccepted(raw){
+            var s = (raw || '').toString().trim();
+            if(!s) return [];
+            var parts = s.split(/[|\n]+/g);
+            var out = [];
+            parts.forEach(function(p){
+                p.split(',').forEach(function(pp){
+                    var clean = (pp || '').toString().trim();
+                    if(clean) out.push(clean);
+                });
+            });
+            return out;
+        }
+
+        if(qType === 'short-answer' || qType === 'shortanswer'){
+            var accepted = splitAccepted(q.texto || q.correcta);
+            if(!accepted.length) accepted = [''];
+            accepted.forEach(function(a){
+                var row = document.createElement('div');
+                row.className = 'ia-preview__answer is-correct';
+                var bullet = document.createElement('span');
+                bullet.className = 'ia-preview__bullet';
+                bullet.textContent = '✓';
+                var txt = document.createElement('span');
+                txt.className = 'ia-preview__text';
+                txt.textContent = a;
+                row.appendChild(bullet);
+                row.appendChild(txt);
+                list.appendChild(row);
+            });
+        }else if(qType === 'numeric' || qType === 'numerical'){
+            var n = (q.numero || q.correcta || '').toString().trim();
+            var tol = (q.tolerancia || '').toString().trim();
+            var label = n;
+            if(tol && tol !== '0') label = n + ' ± ' + tol;
             var row = document.createElement('div');
-            row.className = 'ia-preview__answer' + (correctIdx.indexOf(i) !== -1 ? ' is-correct' : '');
+            row.className = 'ia-preview__answer is-correct';
             var bullet = document.createElement('span');
             bullet.className = 'ia-preview__bullet';
-            bullet.textContent = (correctIdx.indexOf(i) !== -1 ? '✓' : '•');
+            bullet.textContent = '✓';
             var txt = document.createElement('span');
             txt.className = 'ia-preview__text';
-            txt.textContent = a;
+            txt.textContent = label;
             row.appendChild(bullet);
             row.appendChild(txt);
             list.appendChild(row);
-        });
+        }else{
+            var correctIdx = [];
+            (q.correcta || '').split(',').forEach(function(n){
+                var i = parseInt(String(n).trim(), 10);
+                if(!isNaN(i)) correctIdx.push(i - 1);
+            });
+            q.respuestas.forEach(function(a, i){
+                if(!a) return;
+                var row = document.createElement('div');
+                row.className = 'ia-preview__answer' + (correctIdx.indexOf(i) !== -1 ? ' is-correct' : '');
+                var bullet = document.createElement('span');
+                bullet.className = 'ia-preview__bullet';
+                bullet.textContent = (correctIdx.indexOf(i) !== -1 ? '✓' : '•');
+                var txt = document.createElement('span');
+                txt.className = 'ia-preview__text';
+                txt.textContent = a;
+                row.appendChild(bullet);
+                row.appendChild(txt);
+                list.appendChild(row);
+            });
+        }
         card.appendChild(list);
         iaPreviewContent.appendChild(card);
     });

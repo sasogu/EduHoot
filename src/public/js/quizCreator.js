@@ -48,7 +48,12 @@ var i18n = {
         questionTypeSingle: 'Quiz (1 correcta)',
         questionTypeMultiple: 'Respuesta múltiple',
         questionTypeTf: 'Verdadero / Falso',
+        questionTypeShort: 'Respuesta corta',
+        questionTypeNumeric: 'Numérica',
         questionTypeMultiHint: 'Marca todas las respuestas correctas.',
+        shortAnswersLabel: 'Respuestas válidas (separadas por |)',
+        numericAnswerLabel: 'Respuesta numérica',
+        numericToleranceLabel: 'Tolerancia (±)',
         imageLabel: 'Imagen (URL opcional)',
         videoLabel: 'Video (URL opcional)',
         namePlaceholder: 'Ej: Repaso de energía',
@@ -103,7 +108,12 @@ var i18n = {
         questionTypeSingle: 'Quiz (1 correct)',
         questionTypeMultiple: 'Multiple answers',
         questionTypeTf: 'True / False',
+        questionTypeShort: 'Short answer',
+        questionTypeNumeric: 'Numeric',
         questionTypeMultiHint: 'Check every answer that counts.',
+        shortAnswersLabel: 'Accepted answers (separated by |)',
+        numericAnswerLabel: 'Numeric answer',
+        numericToleranceLabel: 'Tolerance (±)',
         imageLabel: 'Image (optional URL)',
         videoLabel: 'Video (optional URL)',
         namePlaceholder: 'e.g. Energy review',
@@ -158,7 +168,12 @@ var i18n = {
         questionTypeSingle: 'Quiz (1 correcta)',
         questionTypeMultiple: 'Resposta múltiple',
         questionTypeTf: 'Cert / Fals',
+        questionTypeShort: 'Resposta curta',
+        questionTypeNumeric: 'Numèrica',
         questionTypeMultiHint: 'Marca totes les respostes correctes.',
+        shortAnswersLabel: 'Respostes vàlides (separades per |)',
+        numericAnswerLabel: 'Resposta numèrica',
+        numericToleranceLabel: 'Tolerància (±)',
         imageLabel: 'Imatge (URL opcional)',
         videoLabel: 'Vídeo (URL opcional)',
         namePlaceholder: 'Ex: Repàs d\'energia',
@@ -278,6 +293,9 @@ function buildQuizPayload(){
         var answer3 = document.getElementById(i + 'a3').value;
         var answer4 = document.getElementById(i + 'a4').value;
         var correct = document.getElementById('correct' + i).value;
+        var shortText = document.getElementById('short' + i) ? document.getElementById('short' + i).value : '';
+        var numText = document.getElementById('num' + i) ? document.getElementById('num' + i).value : '';
+        var tolText = document.getElementById('tol' + i) ? document.getElementById('tol' + i).value : '';
         var image = document.getElementById('img' + i) ? document.getElementById('img' + i).value : '';
         var video = document.getElementById('vid' + i) ? document.getElementById('vid' + i).value : '';
         var card = document.querySelector('.question-card[data-question="' + i + '"]');
@@ -303,7 +321,36 @@ function buildQuizPayload(){
             correctValues.push(single);
         }
         var answers = [answer1, answer2, answer3, answer4];
-        questions.push({
+
+        function splitAccepted(raw){
+            var s = (raw || '').toString().trim();
+            if(!s) return [];
+            var parts = s.split(/[|\n]+/g);
+            var out = [];
+            var seen = {};
+            parts.forEach(function(p){
+                p.split(',').forEach(function(pp){
+                    var clean = (pp || '').toString().trim();
+                    if(!clean) return;
+                    var key = clean.toLowerCase();
+                    if(seen[key]) return;
+                    seen[key] = true;
+                    out.push(clean);
+                });
+            });
+            return out;
+        }
+
+        function parseLenientNumber(v){
+            if(v === undefined || v === null) return null;
+            var raw = String(v).trim();
+            if(!raw) return null;
+            raw = raw.replace(/\s+/g, '').replace(',', '.');
+            var n = parseFloat(raw);
+            return isFinite(n) ? n : null;
+        }
+
+        var base = {
             "question": question,
             "answers": answers,
             "correct": correctValues[0],
@@ -311,7 +358,25 @@ function buildQuizPayload(){
             "type": questionType,
             "image": image,
             "video": video
-        });
+        };
+
+        if(questionType === 'short-answer'){
+            base.answers = ['', '', '', ''];
+            base.correct = 1;
+            base.correctAnswers = [1];
+            base.acceptedAnswers = splitAccepted(shortText);
+        }
+
+        if(questionType === 'numeric'){
+            base.answers = ['', '', '', ''];
+            base.correct = 1;
+            base.correctAnswers = [1];
+            base.numericAnswer = parseLenientNumber(numText);
+            var tol = parseLenientNumber(tolText);
+            base.tolerance = (tol === null ? 0 : tol);
+        }
+
+        questions.push(base);
     }
     return {
         name: name,
@@ -367,13 +432,26 @@ async function saveLocal(){
 }
 
 function quizToCsv(quiz){
-    var header = ['tipo','pregunta','r1','r2','r3','r4','tiempo','correcta','imagen','video'].join(';');
+    var header = ['tipo','pregunta','r1','r2','r3','r4','tiempo','correcta','imagen','video','texto','numero','tolerancia'].join(';');
     var lines = (quiz.questions || []).map(function(q){
         var answers = q.answers || [];
         var type = q.type || 'quiz';
         var correctVals = Array.isArray(q.correctAnswers) && q.correctAnswers.length
             ? q.correctAnswers.join(',')
             : (q.correct || 1);
+
+        var texto = '';
+        var numero = '';
+        var tolerancia = '';
+        if(type === 'short-answer'){
+            var acc = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : [];
+            texto = acc.join('|');
+            correctVals = texto;
+        }else if(type === 'numeric'){
+            numero = (q.numericAnswer === undefined || q.numericAnswer === null) ? '' : String(q.numericAnswer);
+            tolerancia = (q.tolerance === undefined || q.tolerance === null) ? '0' : String(q.tolerance);
+            correctVals = numero;
+        }
         function esc(v){
             if(v === undefined || v === null) return '';
             var s = String(v);
@@ -382,7 +460,21 @@ function quizToCsv(quiz){
             }
             return s;
         }
-        return [type, esc(q.question||''), esc(answers[0]||''), esc(answers[1]||''), esc(answers[2]||''), esc(answers[3]||''), esc(q.time||20), esc(correctVals), esc(q.image||''), esc(q.video||'')].join(';');
+        return [
+            type,
+            esc(q.question||''),
+            esc(answers[0]||''),
+            esc(answers[1]||''),
+            esc(answers[2]||''),
+            esc(answers[3]||''),
+            esc(q.time||20),
+            esc(correctVals),
+            esc(q.image||''),
+            esc(q.video||''),
+            esc(texto),
+            esc(numero),
+            esc(tolerancia)
+        ].join(';');
     });
     return [header].concat(lines).join('\n');
 }
@@ -464,6 +556,35 @@ function getTfFallbackAnswers(){
     return ['Verdadero', 'Falso'];
 }
 
+function splitAcceptedAnswersForExport(raw){
+    var text = (raw || '').toString().trim();
+    if(!text) return [];
+    var parts = text.split(/[|\n]+/g);
+    var out = [];
+    var seen = {};
+    parts.forEach(function(p){
+        p.split(',').forEach(function(pp){
+            var clean = (pp || '').toString().trim();
+            if(!clean) return;
+            var key = clean.toLowerCase();
+            if(seen[key]) return;
+            seen[key] = true;
+            out.push(clean);
+        });
+    });
+    return out;
+}
+
+function parseLenientNumberForExport(value){
+    if(value === undefined || value === null) return null;
+    if(typeof value === 'number' && isFinite(value)) return value;
+    var raw = String(value).trim();
+    if(!raw) return null;
+    raw = raw.replace(/\s+/g, '').replace(',', '.');
+    var n = parseFloat(raw);
+    return isFinite(n) ? n : null;
+}
+
 function buildMoodleXml(quiz){
     var title = (quiz.name || 'EduHoot quiz').trim() || 'EduHoot quiz';
     var lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<quiz>'];
@@ -472,6 +593,53 @@ function buildMoodleXml(quiz){
         var qType = (question && question.type) ? String(question.type) : 'quiz';
         var nameText = title + ' pregunta ' + (index + 1);
         var html = buildQuestionHtml(question) || '<p>' + escapeHtmlText((question && question.question) || '') + '</p>';
+
+        if(qType === 'short-answer'){
+            lines.push('  <question type="shortanswer">');
+            lines.push('    <name><text>' + wrapCdata(nameText) + '</text></name>');
+            lines.push('    <questiontext format="html">');
+            lines.push('      <text>' + wrapCdata(html) + '</text>');
+            lines.push('    </questiontext>');
+            lines.push('    <defaultgrade>1</defaultgrade>');
+            lines.push('    <penalty>0.0</penalty>');
+            lines.push('    <hidden>0</hidden>');
+            lines.push('    <usecase>0</usecase>');
+
+            var accepted = Array.isArray(question.acceptedAnswers) && question.acceptedAnswers.length
+                ? question.acceptedAnswers
+                : splitAcceptedAnswersForExport(question.texto || question.correctText || question.correcta || '');
+            if(!accepted.length) accepted = [''];
+            accepted.forEach(function(ans){
+                lines.push('    <answer fraction="100" format="html">');
+                lines.push('      <text>' + wrapCdata(escapeHtmlText(ans || '')) + '</text>');
+                lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+                lines.push('    </answer>');
+            });
+            lines.push('  </question>');
+            return;
+        }
+
+        if(qType === 'numeric'){
+            lines.push('  <question type="numerical">');
+            lines.push('    <name><text>' + wrapCdata(nameText) + '</text></name>');
+            lines.push('    <questiontext format="html">');
+            lines.push('      <text>' + wrapCdata(html) + '</text>');
+            lines.push('    </questiontext>');
+            lines.push('    <defaultgrade>1</defaultgrade>');
+            lines.push('    <penalty>0.0</penalty>');
+            lines.push('    <hidden>0</hidden>');
+
+            var n = parseLenientNumberForExport(question.numericAnswer);
+            var tol = parseLenientNumberForExport(question.tolerance);
+            if(tol === null) tol = 0;
+            lines.push('    <answer fraction="100" format="html">');
+            lines.push('      <text>' + wrapCdata(escapeHtmlText(n === null ? '' : String(n))) + '</text>');
+            lines.push('      <tolerance>' + wrapCdata(escapeHtmlText(String(tol))) + '</tolerance>');
+            lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+            lines.push('    </answer>');
+            lines.push('  </question>');
+            return;
+        }
 
         if(qType === 'true-false'){
             lines.push('  <question type="truefalse">');
@@ -665,7 +833,7 @@ function buildQuestionCard(num, data){
     var typeSelect = document.createElement('select');
     typeSelect.className = 'question-type';
     typeSelect.id = 'type' + String(num);
-    [['quiz', 'questionTypeSingle'], ['multiple', 'questionTypeMultiple'], ['true-false', 'questionTypeTf']].forEach(function(pair){
+    [['quiz', 'questionTypeSingle'], ['multiple', 'questionTypeMultiple'], ['true-false', 'questionTypeTf'], ['short-answer', 'questionTypeShort'], ['numeric', 'questionTypeNumeric']].forEach(function(pair){
         var option = document.createElement('option');
         option.value = pair[0];
         option.textContent = t(pair[1]);
@@ -723,6 +891,34 @@ function buildQuestionCard(num, data){
         ? data.correctAnswers[0]
         : ((data && data.correct) ? data.correct : 1);
     correctField.value = providedCorrect;
+
+    var shortLabel = document.createElement('label');
+    shortLabel.textContent = t('shortAnswersLabel');
+    var shortField = document.createElement('input');
+    shortField.id = 'short' + String(num);
+    shortField.type = 'text';
+    shortField.placeholder = 'madrid|barcelona';
+    shortField.value = (data && Array.isArray(data.acceptedAnswers)) ? data.acceptedAnswers.join('|') : '';
+    shortLabel.appendChild(shortField);
+
+    var numLabel = document.createElement('label');
+    numLabel.textContent = t('numericAnswerLabel');
+    var numField = document.createElement('input');
+    numField.id = 'num' + String(num);
+    numField.type = 'text';
+    numField.placeholder = '3,14';
+    numField.value = (data && data.numericAnswer !== undefined && data.numericAnswer !== null) ? String(data.numericAnswer) : '';
+    numLabel.appendChild(numField);
+
+    var tolLabel = document.createElement('label');
+    tolLabel.textContent = t('numericToleranceLabel');
+    var tolField = document.createElement('input');
+    tolField.id = 'tol' + String(num);
+    tolField.type = 'text';
+    tolField.placeholder = '0,1';
+    tolField.value = (data && data.tolerance !== undefined && data.tolerance !== null) ? String(data.tolerance) : '0';
+    tolLabel.appendChild(tolField);
+
     var initialType = (data && data.type) ? data.type : 'quiz';
     typeSelect.value = initialType;
     var initialCorrectAnswers = data && Array.isArray(data.correctAnswers) ? data.correctAnswers : [];
@@ -733,8 +929,18 @@ function buildQuestionCard(num, data){
         var currentType = typeSelect.value;
         var showMultiple = currentType === 'multiple';
         var showTf = currentType === 'true-false';
+        var showShort = currentType === 'short-answer';
+        var showNumeric = currentType === 'numeric';
         multiCorrect.classList.toggle('hidden', !showMultiple);
-        correctLabel.style.display = showMultiple ? 'none' : '';
+        correctLabel.style.display = (showMultiple || showShort || showNumeric) ? 'none' : '';
+        correctField.style.display = (showMultiple || showShort || showNumeric) ? 'none' : '';
+
+        answersWrap.style.display = (showShort || showNumeric) ? 'none' : '';
+
+        shortLabel.style.display = showShort ? '' : 'none';
+        numLabel.style.display = showNumeric ? '' : 'none';
+        tolLabel.style.display = showNumeric ? '' : 'none';
+
         answerGroups.forEach(function(group, idx){
             if(showTf && idx >= 2){
                 group.label.style.display = 'none';
@@ -743,6 +949,10 @@ function buildQuestionCard(num, data){
                 group.label.style.display = '';
             }
         });
+
+        if(showShort || showNumeric){
+            answerGroups.forEach(function(group){ group.input.value = ''; });
+        }
     }
     typeSelect.addEventListener('change', refreshTypeDependent);
     refreshTypeDependent();
@@ -799,6 +1009,9 @@ function buildQuestionCard(num, data){
     card.appendChild(multiCorrect);
     card.appendChild(correctLabel);
     card.appendChild(correctField);
+    card.appendChild(shortLabel);
+    card.appendChild(numLabel);
+    card.appendChild(tolLabel);
     card.appendChild(imageLabel);
     card.appendChild(imageField);
     card.appendChild(imagePreview);
@@ -901,6 +1114,12 @@ function renumberQuestions(){
         if(typeSelect) typeSelect.id = 'type' + num;
         var correct = card.querySelector('.correct');
         if(correct) correct.id = 'correct' + num;
+        var shortField = card.querySelector('input[id^="short"]');
+        if(shortField) shortField.id = 'short' + num;
+        var numField = card.querySelector('input[id^="num"]');
+        if(numField) numField.id = 'num' + num;
+        var tolField = card.querySelector('input[id^="tol"]');
+        if(tolField) tolField.id = 'tol' + num;
         var img = card.querySelector('input[id^="img"]');
         if(img) img.id = 'img' + num;
         var vid = card.querySelector('input[id^="vid"]');

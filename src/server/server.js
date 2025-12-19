@@ -9,7 +9,12 @@ const crypto = require('crypto');
 const { parseCsv, toQuestion } = require('./importCsv');
 const { LiveGames } = require('./utils/liveGames');
 const { Players } = require('./utils/players');
-const { normalizeQuestionMeta, normalizeCorrectAnswers } = require('./questionUtils');
+const {
+  normalizeQuestionMeta,
+  normalizeCorrectAnswers,
+  splitAcceptedAnswers,
+  parseLenientNumber
+} = require('./questionUtils');
 
 const publicPath = path.join(__dirname, '../public');
 const BODY_LIMIT = '1mb';
@@ -377,13 +382,35 @@ function escapeCsvField(value) {
 }
 
 function quizToCsv(quiz) {
-  const header = 'tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video';
+  const header = 'tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video;texto;numero;tolerancia';
   const lines = (quiz.questions || []).map((q) => {
     const answers = Array.isArray(q.answers) ? q.answers : ['', '', '', ''];
     const type = (q && q.type) ? String(q.type) : 'quiz';
-    const correctVals = Array.isArray(q && q.correctAnswers) && q.correctAnswers.length
+    let correctVals = Array.isArray(q && q.correctAnswers) && q.correctAnswers.length
       ? q.correctAnswers.join(',')
       : (q && q.correct ? q.correct : 1);
+
+    let texto = '';
+    let numero = '';
+    let tolerancia = '';
+
+    if (type === 'short-answer') {
+      const accepted = Array.isArray(q.acceptedAnswers)
+        ? q.acceptedAnswers
+        : splitAcceptedAnswers(q.texto || q.correctText || q.correcta || q.correct);
+      texto = accepted.join('|');
+      // Compatibilidad: en correctVals también ponemos las respuestas.
+      correctVals = texto;
+    }
+
+    if (type === 'numeric') {
+      const n = parseLenientNumber(q.numericAnswer ?? q.numero ?? q.correcta ?? q.correct);
+      const t = parseLenientNumber(q.tolerance ?? q.tolerancia ?? q.numericTolerance);
+      numero = n === null ? '' : String(n);
+      tolerancia = t === null ? '0' : String(t);
+      correctVals = numero;
+    }
+
     const row = [
       escapeCsvField(type),
       escapeCsvField(q.question || ''),
@@ -394,7 +421,10 @@ function quizToCsv(quiz) {
       escapeCsvField(q.time || 20),
       escapeCsvField(correctVals),
       escapeCsvField(q.image || ''),
-      escapeCsvField(q.video || '')
+      escapeCsvField(q.video || ''),
+      escapeCsvField(texto),
+      escapeCsvField(numero),
+      escapeCsvField(tolerancia)
     ];
     return row.join(';');
   });
@@ -445,34 +475,173 @@ function quizToMoodleXml(quiz) {
   const title = (quiz.name || 'EduHoot quiz').trim() || 'EduHoot quiz';
   const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
   const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<quiz>'];
+
+  function normalizeCorrectAnswersForExport(question, maxAnswerIndex) {
+    const limit = Math.max(1, parseInt(maxAnswerIndex, 10) || 4);
+    const list = Array.isArray(question && question.correctAnswers) && question.correctAnswers.length
+      ? question.correctAnswers.slice()
+      : (typeof question?.correct !== 'undefined' ? [question.correct] : []);
+    const seen = new Set();
+    const out = [];
+    list.forEach((v) => {
+      let num = parseInt(v, 10);
+      if (!Number.isFinite(num)) return;
+      num = Math.max(1, Math.min(limit, num));
+      if (seen.has(num)) return;
+      seen.add(num);
+      out.push(num);
+    });
+    if (!out.length) out.push(1);
+    out.sort((a, b) => a - b);
+    return out;
+  }
+
+  function getNonEmptyAnswersForExport(question, maxCount) {
+    const raw = Array.isArray(question && question.answers) ? question.answers.slice(0, maxCount) : [];
+    while (raw.length < maxCount) raw.push('');
+    const out = [];
+    raw.forEach((text, idx) => {
+      const clean = (text || '').toString().trim();
+      if (!clean) return;
+      out.push({ index: idx + 1, text: clean });
+    });
+    return out;
+  }
+
+  function getTfFallbackAnswers() {
+    return ['Verdadero', 'Falso'];
+  }
+
   questions.forEach((question, index) => {
+    const qType = (question && question.type) ? String(question.type) : 'quiz';
+    const nameText = `${title} pregunta ${index + 1}`;
+    const html = buildQuestionHtml(question) || `<p>${escapeHtmlText((question && question.question) || '')}</p>`;
+
+    if (qType === 'short-answer') {
+      lines.push('  <question type="shortanswer">');
+      lines.push(`    <name><text>${wrapCdata(nameText)}</text></name>`);
+      lines.push('    <questiontext format="html">');
+      lines.push(`      <text>${wrapCdata(html)}</text>`);
+      lines.push('    </questiontext>');
+      lines.push('    <defaultgrade>1</defaultgrade>');
+      lines.push('    <penalty>0.0</penalty>');
+      lines.push('    <hidden>0</hidden>');
+      // Moodle: 0 = no distinguir mayúsculas/minúsculas.
+      lines.push('    <usecase>0</usecase>');
+
+      const accepted = Array.isArray(question.acceptedAnswers)
+        ? question.acceptedAnswers
+        : splitAcceptedAnswers(question.texto || question.correctText || question.correcta || question.correct);
+
+      const safe = accepted.length ? accepted : [''];
+      safe.forEach((ans) => {
+        lines.push('    <answer fraction="100" format="html">');
+        lines.push(`      <text>${wrapCdata(escapeHtmlText(ans || ''))}</text>`);
+        lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+        lines.push('    </answer>');
+      });
+      lines.push('  </question>');
+      return;
+    }
+
+    if (qType === 'numeric') {
+      lines.push('  <question type="numerical">');
+      lines.push(`    <name><text>${wrapCdata(nameText)}</text></name>`);
+      lines.push('    <questiontext format="html">');
+      lines.push(`      <text>${wrapCdata(html)}</text>`);
+      lines.push('    </questiontext>');
+      lines.push('    <defaultgrade>1</defaultgrade>');
+      lines.push('    <penalty>0.0</penalty>');
+      lines.push('    <hidden>0</hidden>');
+
+      const n = parseLenientNumber(question.numericAnswer ?? question.numero ?? question.correcta ?? question.correct);
+      const t = parseLenientNumber(question.tolerance ?? question.tolerancia ?? question.numericTolerance);
+      const tol = t === null ? 0 : t;
+      lines.push('    <answer fraction="100" format="html">');
+      lines.push(`      <text>${wrapCdata(escapeHtmlText(n === null ? '' : String(n)))}</text>`);
+      lines.push(`      <tolerance>${wrapCdata(escapeHtmlText(String(tol)))}</tolerance>`);
+      lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+      lines.push('    </answer>');
+      lines.push('  </question>');
+      return;
+    }
+
+    if (qType === 'true-false') {
+      lines.push('  <question type="truefalse">');
+      lines.push(`    <name><text>${wrapCdata(nameText)}</text></name>`);
+      lines.push('    <questiontext format="html">');
+      lines.push(`      <text>${wrapCdata(html)}</text>`);
+      lines.push('    </questiontext>');
+      lines.push('    <defaultgrade>1</defaultgrade>');
+      lines.push('    <penalty>0.0</penalty>');
+      lines.push('    <hidden>0</hidden>');
+
+      const tfAnswers = getNonEmptyAnswersForExport(question, 2);
+      const tfFallback = getTfFallbackAnswers();
+      const trueLabel = (tfAnswers[0] && tfAnswers[0].text) ? tfAnswers[0].text : tfFallback[0];
+      const falseLabel = (tfAnswers[1] && tfAnswers[1].text) ? tfAnswers[1].text : tfFallback[1];
+      const tfCorrect = normalizeCorrectAnswersForExport(question, 2);
+      const correctIsTrue = tfCorrect[0] === 1;
+
+      lines.push(`    <answer fraction="${correctIsTrue ? '100' : '0'}" format="html">`);
+      lines.push(`      <text>${wrapCdata(escapeHtmlText(trueLabel))}</text>`);
+      lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+      lines.push('    </answer>');
+      lines.push(`    <answer fraction="${correctIsTrue ? '0' : '100'}" format="html">`);
+      lines.push(`      <text>${wrapCdata(escapeHtmlText(falseLabel))}</text>`);
+      lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
+      lines.push('    </answer>');
+      lines.push('  </question>');
+      return;
+    }
+
+    // Por defecto: multichoice (single o multiple)
+    const isMultiple = qType === 'multiple';
     lines.push('  <question type="multichoice">');
-    lines.push(`    <name><text>${wrapCdata(`${title} pregunta ${index + 1}`)}</text></name>`);
-    const questionHtml = buildQuestionHtml(question) || `<p>${escapeHtmlText(question.question || '')}</p>`;
+    lines.push(`    <name><text>${wrapCdata(nameText)}</text></name>`);
     lines.push('    <questiontext format="html">');
-    lines.push(`      <text>${wrapCdata(questionHtml)}</text>`);
+    lines.push(`      <text>${wrapCdata(html)}</text>`);
     lines.push('    </questiontext>');
     lines.push('    <defaultgrade>1</defaultgrade>');
     lines.push('    <penalty>0.0</penalty>');
     lines.push('    <hidden>0</hidden>');
-    lines.push('    <single>true</single>');
+    lines.push(`    <single>${isMultiple ? 'false' : 'true'}</single>`);
     lines.push('    <shuffleanswers>true</shuffleanswers>');
     lines.push('    <answernumbering>abc</answernumbering>');
-    const answers = Array.isArray(question.answers) ? question.answers.slice(0, 4) : [];
-    while (answers.length < 4) answers.push('');
-    const correctIndex = Math.max(
-      0,
-      Math.min(answers.length - 1, (parseInt(question.correct, 10) || 1) - 1)
-    );
-    answers.forEach((answer, answerIndex) => {
-      const fraction = answerIndex === correctIndex ? '100' : '0';
-      lines.push(`    <answer fraction="${fraction}" format="html">`);
-      lines.push(`      <text>${wrapCdata(escapeHtmlText(answer || ''))}</text>`);
+
+    let answerItems = getNonEmptyAnswersForExport(question, 4);
+    if (answerItems.length < 2) {
+      const fallback = getTfFallbackAnswers();
+      answerItems = [
+        { index: 1, text: fallback[0] },
+        { index: 2, text: fallback[1] }
+      ];
+    }
+
+    const correctAnswers = normalizeCorrectAnswersForExport(question, 4);
+    let correctMap = {};
+    correctAnswers.forEach((n) => { correctMap[n] = true; });
+    const anyCorrectVisible = answerItems.some((it) => !!correctMap[it.index]);
+    if (!anyCorrectVisible) {
+      correctMap = {};
+      correctMap[answerItems[0].index] = true;
+    }
+
+    let correctCount = answerItems.reduce((acc, it) => acc + (correctMap[it.index] ? 1 : 0), 0);
+    if (correctCount <= 0) correctCount = 1;
+    const perCorrect = isMultiple ? (100 / correctCount) : 100;
+
+    answerItems.forEach((item) => {
+      const fraction = correctMap[item.index] ? perCorrect : 0;
+      const fractionStr = (Math.round(fraction * 100000) / 100000).toString();
+      lines.push(`    <answer fraction="${fractionStr}" format="html">`);
+      lines.push(`      <text>${wrapCdata(escapeHtmlText(item.text || ''))}</text>`);
       lines.push('      <feedback><text><![CDATA[]]></text></feedback>');
       lines.push('    </answer>');
     });
     lines.push('  </question>');
   });
+
   lines.push('</quiz>');
   return lines.join('\n');
 }
@@ -483,7 +652,7 @@ function normalizeQuestions(list = []) {
       const answers = Array.isArray(item.answers) ? item.answers : [];
       const safeAnswers = [answers[0] || '', answers[1] || '', answers[2] || '', answers[3] || ''];
       const meta = normalizeQuestionMeta(item);
-      return {
+      const base = {
         question: item.question || '',
         answers: safeAnswers,
         correct: meta.correct,
@@ -493,6 +662,23 @@ function normalizeQuestions(list = []) {
         image: item.image || '',
         video: item.video || ''
       };
+
+      if (meta.type === 'short-answer') {
+        return {
+          ...base,
+          acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : []
+        };
+      }
+
+      if (meta.type === 'numeric') {
+        return {
+          ...base,
+          numericAnswer: meta.numericAnswer,
+          tolerance: meta.tolerance
+        };
+      }
+
+      return base;
     })
     .filter((q) => q.question.trim().length > 0);
 }
@@ -659,17 +845,58 @@ function shuffleQuestions(originalQuestions = []) {
   return ordered;
 }
 
+// Multijugador: preguntas de respuesta libre (se omiten en multijugador).
+function isMultiplayerFreeTypeQuestion(q) {
+  if (!q) return false;
+  const meta = normalizeQuestionMeta(q);
+  if (meta.type === 'short-answer' || meta.type === 'numeric') return true;
+
+  // Señales defensivas por si el tipo está corrupto pero vienen campos libres.
+  const accepted = q.acceptedAnswers;
+  const hasAccepted = Array.isArray(accepted)
+    ? accepted.length > 0
+    : (typeof accepted === 'string' && accepted.trim().length > 0);
+
+  const hasNumeric =
+    (typeof q.numericAnswer === 'number') ||
+    (q.numericAnswer !== null && q.numericAnswer !== undefined && typeof q.numericAnswer === 'string' && q.numericAnswer.trim().length > 0) ||
+    (q.numero !== null && q.numero !== undefined && String(q.numero).trim().length > 0) ||
+    (q.tolerancia !== null && q.tolerancia !== undefined && String(q.tolerancia).trim().length > 0) ||
+    (q.tolerance !== null && q.tolerance !== undefined && String(q.tolerance).trim().length > 0);
+
+  return hasAccepted || hasNumeric;
+}
+
 function buildQuestions(questions = [], opts = {}) {
   const randomQ = opts.randomQuestions !== false;
   const randomA = opts.randomAnswers !== false;
   const overrideTime = parseInt(opts.timePerQuestion, 10);
   const useOverrideTime = !Number.isNaN(overrideTime) && overrideTime > 0;
 
-  const base = randomQ ? shuffleQuestions(questions) : [...questions];
+  const filtered = Array.isArray(questions) ? questions.filter((q) => !isMultiplayerFreeTypeQuestion(q)) : [];
+
+  const base = randomQ ? shuffleQuestions(filtered) : [...filtered];
 
   return base.map((q) => {
     const meta = normalizeQuestionMeta(q);
     const type = meta.type || (q.type || 'quiz');
+
+    // Tipos de respuesta libre: no barajar opciones y preservar meta.
+    if (type === 'short-answer' || type === 'numeric') {
+      return {
+        question: q.question,
+        answers: Array.isArray(q.answers) ? q.answers.slice(0, 4) : [],
+        correct: 1,
+        correctAnswers: [1],
+        type,
+        time: useOverrideTime ? overrideTime : (q.time || 0),
+        image: q.image || '',
+        video: q.video || '',
+        acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : [],
+        numericAnswer: typeof meta.numericAnswer === 'number' ? meta.numericAnswer : null,
+        tolerance: typeof meta.tolerance === 'number' ? meta.tolerance : 0
+      };
+    }
 
     // Para verdadero/falso: trabajamos solo con 2 opciones y evitamos que el shuffle
     // meta strings vacíos en A/B o que el correcto acabe en 3/4.
@@ -713,12 +940,45 @@ function getQuestionMeta(question) {
     return { correctAnswers: [1], type: 'quiz' };
   }
   const meta = normalizeQuestionMeta(question);
-  return { correctAnswers: meta.correctAnswers, type: meta.type };
+  return {
+    correctAnswers: meta.correctAnswers,
+    type: meta.type,
+    acceptedAnswers: meta.acceptedAnswers,
+    numericAnswer: meta.numericAnswer,
+    tolerance: meta.tolerance
+  };
+}
+
+function normalizeFreeText(value) {
+  let str = (value || '').toString().trim().toLowerCase();
+  if (!str) return '';
+  try {
+    str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  } catch (e) {}
+  str = str.replace(/[^a-z0-9\s]/g, ' ');
+  str = str.replace(/\s+/g, ' ').trim();
+  return str;
 }
 
 function isSubmissionCorrect(meta, submission) {
   if (!meta || !Array.isArray(meta.correctAnswers) || !meta.correctAnswers.length) {
     return false;
+  }
+  if (meta.type === 'short-answer') {
+    const raw = submission && typeof submission === 'object' && submission.text !== undefined ? submission.text : submission;
+    const normalized = normalizeFreeText(raw);
+    if (!normalized) return false;
+    const accepted = Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : splitAcceptedAnswers(meta.acceptedAnswers);
+    return accepted.some((ans) => normalizeFreeText(ans) === normalized);
+  }
+  if (meta.type === 'numeric') {
+    const raw = submission && typeof submission === 'object' && submission.number !== undefined ? submission.number : submission;
+    const num = parseLenientNumber(raw);
+    if (num === null) return false;
+    const target = typeof meta.numericAnswer === 'number' ? meta.numericAnswer : parseLenientNumber(meta.numericAnswer);
+    if (target === null) return false;
+    const tol = typeof meta.tolerance === 'number' ? meta.tolerance : (parseLenientNumber(meta.tolerance) || 0);
+    return Math.abs(num - target) <= Math.max(0, tol);
   }
   if (meta.type === 'multiple') {
     if (!Array.isArray(submission) || submission.length === 0) {
@@ -1161,13 +1421,20 @@ app.get('/api/quizzes/:id', async (req, res) => {
     if (!canUseQuiz(quiz, req.user)) {
       return res.status(403).json({ error: 'No autorizado para ver este quiz.' });
     }
+
+    const mode = (req.query.mode || '').toString();
+    const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    const questions = mode === 'multiplayer'
+      ? allQuestions.filter((q) => !isMultiplayerFreeTypeQuestion(q))
+      : allQuestions;
+
     return res.json({
       id: quiz.id,
       name: quiz.name,
       tags: quiz.tags || [],
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
-      questions: quiz.questions || [],
+      questions,
       visibility: currentVisibility(quiz),
       allowClone: normalizeAllowClone(quiz.allowClone),
       ownerId: quiz.ownerId,
@@ -1475,14 +1742,24 @@ io.on('connection', (socket) => {
       if (kahoot && canUseQuiz(kahoot, socket.user)) {
         const gamePin = Math.floor(Math.random() * 90000) + 10000; // new pin for game
 
+        const originalQuestions = Array.isArray(kahoot.questions) ? kahoot.questions : [];
+        const multiplayerQuestions = originalQuestions.filter((q) => !isMultiplayerFreeTypeQuestion(q));
+        if (multiplayerQuestions.length === 0) {
+          socket.emit('hostError', {
+            error: 'Este quiz no tiene preguntas compatibles con multijugador (se omiten las de escribir: respuesta corta/numérica).'
+          });
+          socket.emit('noGameFound');
+          return;
+        }
+
         games.addGame(gamePin, socket.id, false, {
           playersAnswered: 0,
           questionLive: false,
           gameid: data.id,
           question: 1,
           questions: [],
-          originalQuestions: kahoot.questions || [],
-          totalQuestions: (kahoot.questions || []).length,
+          originalQuestions: multiplayerQuestions,
+          totalQuestions: multiplayerQuestions.length,
           options: {
             randomQuestions: true,
             randomAnswers: true,
@@ -1734,8 +2011,24 @@ io.on('connection', (socket) => {
         }
 
         const meta = getQuestionMeta(current);
-        const isMultiple = meta.type === 'multiple';
-        const normalizedSubmission = isMultiple ? normalizeCorrectAnswers(num, false) : Number(num);
+        let normalizedSubmission;
+        if (meta.type === 'multiple') {
+          normalizedSubmission = normalizeCorrectAnswers(num, false);
+        } else if (meta.type === 'short-answer') {
+          if (num && typeof num === 'object' && num.text !== undefined) {
+            normalizedSubmission = { text: String(num.text || '') };
+          } else {
+            normalizedSubmission = { text: String(num || '') };
+          }
+        } else if (meta.type === 'numeric') {
+          if (num && typeof num === 'object' && num.number !== undefined) {
+            normalizedSubmission = { number: num.number };
+          } else {
+            normalizedSubmission = { number: num };
+          }
+        } else {
+          normalizedSubmission = Number(num);
+        }
         player.gameData.answer = normalizedSubmission;
 
         if (isSubmissionCorrect(meta, normalizedSubmission)) {
@@ -1994,8 +2287,15 @@ io.on('connection', (socket) => {
       options.timePerQuestion = 20;
     }
     game.gameData.options = options;
-    // build question set based on options
-    game.gameData.questions = buildQuestions(game.gameData.originalQuestions || [], options);
+    const originalQuestions = Array.isArray(game.gameData.originalQuestions) ? game.gameData.originalQuestions : [];
+    // build question set based on options (incluye filtrado de tipos libres)
+    game.gameData.questions = buildQuestions(originalQuestions, options);
+    if (!game.gameData.questions || game.gameData.questions.length === 0) {
+      socket.emit('hostError', {
+        error: 'Este quiz no tiene preguntas compatibles con multijugador (se omiten las de escribir: respuesta corta/numérica).'
+      });
+      return;
+    }
     game.gameData.totalQuestions = (game.gameData.questions || []).length;
     game.gameLive = true;
     game.gameOver = false;
@@ -2126,6 +2426,8 @@ app.get('/api/quizzes', async (req, res) => {
 // Listar solo quizzes públicos (para modo individual)
 app.get('/api/public-quizzes', async (req, res) => {
   try {
+    const mode = (req.query.mode || '').toString();
+    const multiplayerMode = mode === 'multiplayer';
     const collection = await getGamesCollection();
     const quizzes = await collection
       .find({ $or: [{ visibility: 'public' }, { visibility: { $exists: false } }] })
@@ -2142,8 +2444,12 @@ app.get('/api/public-quizzes', async (req, res) => {
       })
       .toArray();
 
-    const mapped = (quizzes || []).map((quiz) => {
-      const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    let mapped = (quizzes || []).map((quiz) => {
+      const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
+      const questions = multiplayerMode
+        ? allQuestions.filter((q) => !isMultiplayerFreeTypeQuestion(q))
+        : allQuestions;
+
       const mediaQuestions = questions.filter((q) => q && (q.image || q.video));
       const mediaQuestion = mediaQuestions.length
         ? mediaQuestions[Math.floor(Math.random() * mediaQuestions.length)]
@@ -2161,6 +2467,10 @@ app.get('/api/public-quizzes', async (req, res) => {
         coverVideo: mediaQuestion ? mediaQuestion.video : ''
       };
     });
+
+    if (multiplayerMode) {
+      mapped = mapped.filter((q) => (q.questionsCount || 0) > 0);
+    }
     return res.json(mapped);
   } catch (err) {
     console.error('list-public-quizzes error', err);
