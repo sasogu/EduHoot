@@ -15,6 +15,18 @@
 
 *{ box-sizing: border-box; }
 
+.sr-only{
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 @keyframes gradientMove {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -171,6 +183,17 @@ body.playing .hero{
     font-size: 12px;
     cursor: pointer;
 }
+.tag-filter__btn.is-icon{
+    width: 34px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 16px;
+}
+.tag-filter__icon{ display: inline-block; }
 .tag-filter__btn:hover{ filter: brightness(1.05); }
 .tag-filter__item{
     display: inline-flex;
@@ -390,6 +413,10 @@ body.playing #public-pagination{
     background: rgba(255,255,255,0.12);
     color: var(--text);
     font-size: 12px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .pill{
@@ -743,4 +770,43 @@ body.playing #game-panel{
 
 @media (max-width: 600px){
     .answers{ grid-template-columns: 1fr; }
+    .cards{ grid-template-columns: 1fr; }
+    .card{ padding: 10px; }
+
+    .panel__header{
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .panel__actions{
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .panel__actions input#search,
+    .panel__actions select#sort{
+        width: 100%;
+        min-width: 0;
+    }
+    .panel__actions label[for="sort"]{
+        display: none;
+    }
+
+    /* Filtros: Etiquetas en una fila; Preguntas en otra */
+    .panel__filters label[for="tag-filter"],
+    .panel__filters #tag-filter,
+    .panel__filters .tag-filter__actions{
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    .panel__filters label[for="min-questions"]{
+        flex: 0 0 100%;
+    }
+    .panel__filters input#min-questions,
+    .panel__filters input#max-questions{
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .panel__filters .checkbox-inline{
+        flex: 0 0 100%;
+    }
 }

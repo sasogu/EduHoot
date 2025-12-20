@@ -39,6 +39,7 @@
       landing_play_multi: 'Jugar en el aula',
       landing_play_local_multi: 'Multijugador',
       landing_play_solo: 'Jugar solo',
+      landing_install_app: 'Instalar app',
       landing_langLabel: 'Idioma',
       landing_prof_access: 'Acceso profesorado',
       footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
@@ -81,6 +82,7 @@
       landing_play_multi: 'Jugar a l\'aula',
       landing_play_local_multi: 'Multijugador',
       landing_play_solo: 'Jugar sol',
+      landing_install_app: 'Instal·lar app',
       landing_langLabel: 'Idioma',
       landing_prof_access: 'Accés professorat',
       footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
@@ -123,6 +125,7 @@
       landing_play_multi: 'Play in the classroom',
       landing_play_local_multi: 'Multiplayer',
       landing_play_solo: 'Play solo',
+      landing_install_app: 'Install app',
       landing_langLabel: 'Language',
       landing_prof_access: 'Teacher access',
       footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'

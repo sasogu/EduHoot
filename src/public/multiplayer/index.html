@@ -54,8 +54,14 @@
           <label for="tag-filter" class="muted" data-i18n="filterTagLabel">Etiqueta</label>
           <div id="tag-filter" class="tag-filter" role="group" aria-label="Etiquetas"></div>
           <div class="tag-filter__actions">
-            <button id="tags-select-all" class="tag-filter__btn" type="button" data-i18n="filterTagSelectAll">Seleccionar todas</button>
-            <button id="tags-clear" class="tag-filter__btn" type="button" data-i18n="filterTagClear">Limpiar</button>
+            <button id="tags-select-all" class="tag-filter__btn is-icon" type="button" data-i18n="filterTagSelectAll" aria-label="Seleccionar todas">
+              <span class="tag-filter__icon" aria-hidden="true">✓</span>
+              <span class="sr-only">Seleccionar todas</span>
+            </button>
+            <button id="tags-clear" class="tag-filter__btn is-icon" type="button" data-i18n="filterTagClear" aria-label="Limpiar">
+              <span class="tag-filter__icon" aria-hidden="true">×</span>
+              <span class="sr-only">Limpiar</span>
+            </button>
           </div>
           <label for="min-questions" class="muted" data-i18n="filterQuestionsLabel">Preguntas</label>
           <input id="min-questions" type="number" min="1" inputmode="numeric" data-i18n-placeholder="filterMinPlaceholder" placeholder="mín">

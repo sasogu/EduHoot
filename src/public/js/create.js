@@ -1819,6 +1819,7 @@ var iaIdioma = document.getElementById('ia-idioma');
 var iaIdiomaCustom = document.getElementById('ia-idioma-custom');
 var iaUseDocs = document.getElementById('ia-use-docs');
 var iaGenSvg = document.getElementById('ia-gen-svg');
+var iaGenSvgWrap = document.getElementById('ia-gen-svg-wrap');
 var iaDocsHint = document.getElementById('ia-docs-hint');
 var iaTema = document.getElementById('ia-tema');
 
@@ -1943,6 +1944,15 @@ function updateAuthUI(){
     }
     if(authLogoutBtn){
         authLogoutBtn.classList.toggle('hidden', !(authState && authState.user));
+    }
+
+    if(iaGenSvgWrap){
+        var isLogged = !!(authState && authState.user);
+        iaGenSvgWrap.classList.toggle('hidden', !isLogged);
+        if(!isLogged && iaGenSvg){
+            iaGenSvg.checked = false;
+            try{ localStorage.setItem('eduh_ia_gen_svg', '0'); }catch(e){}
+        }
     }
 
     updateTopAuthButton();

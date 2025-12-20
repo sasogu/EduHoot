@@ -71,7 +71,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             back: 'Volver',
             eyebrow: 'Modo individual',
             title: 'EduHoot',
-            subtitle: 'Elige un quiz público, responde las preguntas y entra en el ranking global. El Top 10 solo se muestra al final.',
+            subtitle: 'Elige un quiz público, responde las preguntas y entra en el ranking global.',
             langLabel: 'Idioma',
             publicListEyebrow: 'Catálogo público',
             publicListTitle: 'Juegos públicos',
@@ -152,7 +152,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             back: 'Back',
             eyebrow: 'Solo mode',
             title: 'EduHoot',
-            subtitle: 'Pick a public quiz, answer, and try to get into the global ranking. Top 10 only appears at the end.',
+            subtitle: 'Pick a public quiz, answer, and try to get into the global ranking.',
             langLabel: 'Language',
             publicListEyebrow: 'Public catalog',
             publicListTitle: 'Public games',
@@ -233,7 +233,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             back: 'Tornar',
             eyebrow: 'Mode individual',
             title: 'EduHoot',
-            subtitle: 'Tria un quiz públic, respon i entra al rànquing global. El Top 10 només surt al final.',
+            subtitle: 'Tria un quiz públic, respon i entra al rànquing global.',
             langLabel: 'Idioma',
             publicListEyebrow: 'Catàleg públic',
             publicListTitle: 'Jocs públics',
@@ -325,7 +325,14 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         document.querySelectorAll('[data-i18n]').forEach(function(el){
             var key = el.getAttribute('data-i18n');
             if(i18n[lang] && i18n[lang][key]){
-                el.textContent = t(key);
+                if(el.classList && el.classList.contains('is-icon')){
+                    var label = t(key);
+                    el.setAttribute('aria-label', label);
+                    var sr = el.querySelector('.sr-only');
+                    if(sr) sr.textContent = label;
+                }else{
+                    el.textContent = t(key);
+                }
             }
         });
         document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
@@ -371,14 +378,22 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             btn = document.createElement('button');
             btn.id = 'tags-toggle';
             btn.type = 'button';
-            btn.className = 'tag-filter__btn';
+            btn.className = 'tag-filter__btn is-icon';
+            btn.setAttribute('aria-label', t('filterTagShowMore'));
+            btn.innerHTML = '<span class="tag-filter__icon" aria-hidden="true">▾</span><span class="sr-only"></span>';
             btn.addEventListener('click', function(){
                 tagFilterExpanded = !tagFilterExpanded;
                 updateTagFilterOptions();
             });
             actions.insertBefore(btn, clearBtn);
         }
-        btn.textContent = tagFilterExpanded ? t('filterTagShowLess') : t('filterTagShowMore');
+        var label = tagFilterExpanded ? t('filterTagShowLess') : t('filterTagShowMore');
+        var icon = tagFilterExpanded ? '▴' : '▾';
+        btn.setAttribute('aria-label', label);
+        var iconEl = btn.querySelector('.tag-filter__icon');
+        if(iconEl) iconEl.textContent = icon;
+        var sr = btn.querySelector('.sr-only');
+        if(sr) sr.textContent = label;
         btn.style.display = total > 0 ? '' : 'none';
     }
 

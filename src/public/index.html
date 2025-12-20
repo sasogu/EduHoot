@@ -4,6 +4,8 @@
         <meta charset="utf-8">
         <title>EduHoot</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#6c2bd9">
+        <link rel="manifest" href="manifest.webmanifest">
         <link rel="icon" href="/icons/logo.svg" type="image/svg+xml">
         <link rel="stylesheet" href="css/landing.css">
     </head>
@@ -26,6 +28,7 @@
             <div class="landing-professor">
                 <a href="/create/" class="landing-professor__link" data-i18n="landing_prof_access">Acceso profesorado</a>
             </div>
+            <button id="installApp" class="install-button" type="button" data-i18n="landing_install_app" hidden>Instalar app</button>
         </main>
         <footer class="site-footer">
             <div class="site-footer__content">
@@ -37,5 +40,6 @@
             </div>
         </footer>
         <script src="js/i18n-player.js"></script>
+        <script src="js/pwa-install.js"></script>
     </body>
 </html>
