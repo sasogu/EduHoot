@@ -441,13 +441,48 @@ socket.on('GameOver', function(){
     document.getElementById('message').innerHTML = window.i18nPlayer ? window.i18nPlayer.t('game_over') : "GAME OVER";
 });
 
+function normalizeSvgDataUrlForImg(url){
+    if(!url) return url;
+    var raw = String(url).trim();
+    if(!raw) return raw;
+    var lower = raw.toLowerCase();
+    if(!lower.startsWith('data:image/svg+xml')) return raw;
+    var comma = raw.indexOf(',');
+    if(comma === -1) return raw;
+    var header = raw.slice(0, comma + 1);
+    var payload = raw.slice(comma + 1);
+    if(!payload) return raw;
+    if(/;base64/i.test(header)) return raw;
+
+    // Ya URL-encoded: recortar cualquier sufijo tras </svg>
+    if(/%[0-9a-fA-F]{2}/.test(payload)){
+        var lp = payload.toLowerCase();
+        var endEnc = '%3c%2fsvg%3e';
+        var posEnc = lp.lastIndexOf(endEnc);
+        if(posEnc !== -1) return header + payload.slice(0, posEnc + endEnc.length);
+        return raw;
+    }
+
+    // Raw: recortar tras </svg> y URL-encode
+    var lpr = payload.toLowerCase();
+    var endRaw = '</svg>';
+    var posRaw = lpr.lastIndexOf(endRaw);
+    if(posRaw !== -1){
+        payload = payload.slice(0, posRaw + endRaw.length);
+    }
+    if(payload.indexOf('<') !== -1 || payload.indexOf('#') !== -1 || payload.indexOf('"') !== -1 || payload.indexOf("'") !== -1){
+        return header + encodeURIComponent(payload);
+    }
+    return raw;
+}
+
 function setMedia(imageUrl, videoUrl){
     var img = document.getElementById('playerQuestionImage');
     var vid = document.getElementById('playerQuestionVideo');
     var iframe = document.getElementById('playerQuestionIframe');
     if(img){
         if(imageUrl){
-            img.src = imageUrl;
+            img.src = normalizeSvgDataUrlForImg(imageUrl);
             img.style.display = 'block';
         }else{
             img.removeAttribute('src');

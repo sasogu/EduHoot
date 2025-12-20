@@ -123,6 +123,50 @@ function parseCsv(content) {
   return rows;
 }
 
+function normalizeSvgDataUrl(value) {
+  const raw = (value || '').toString().trim();
+  if (!raw) return '';
+  // Soportamos las variantes más comunes.
+  // Ej: data:image/svg+xml;utf8,<svg ...>
+  //     data:image/svg+xml;charset=utf-8,<svg ...>
+  const lower = raw.toLowerCase();
+  if (!lower.startsWith('data:image/svg+xml')) return raw;
+
+  const commaIdx = raw.indexOf(',');
+  if (commaIdx === -1) return raw;
+  const header = raw.slice(0, commaIdx + 1);
+  const payload = raw.slice(commaIdx + 1);
+  if (!payload) return raw;
+
+  const lowerPayload = payload.toLowerCase();
+  const encodedEndTag = '%3c%2fsvg%3e';
+  const encodedEndPos = lowerPayload.lastIndexOf(encodedEndTag);
+  if (encodedEndPos !== -1) {
+    return header + payload.slice(0, encodedEndPos + encodedEndTag.length);
+  }
+
+  const rawEndPos = lowerPayload.lastIndexOf('</svg>');
+  if (rawEndPos !== -1) {
+    const cut = payload.slice(0, rawEndPos + '</svg>'.length);
+    // Si parece ya URL-encoded no tocamos más.
+    if (/%[0-9a-fA-F]{2}/.test(payload)) return header + cut;
+    if (/;base64/i.test(header)) return raw;
+    return header + encodeURIComponent(cut);
+  }
+
+  // Si ya parece URL-encoded (tiene %3C, %23, etc.), no tocamos.
+  if (/%[0-9a-fA-F]{2}/.test(payload)) return raw;
+
+  // Si parece base64, tampoco.
+  if (/;base64/i.test(header)) return raw;
+
+  // Si contiene un SVG literal, lo codificamos.
+  if (payload.includes('<svg') || payload.includes('<?xml') || payload.includes('<')) {
+    return header + encodeURIComponent(payload);
+  }
+  return raw;
+}
+
 function toQuestion(row) {
   const answers = [row.r1, row.r2, row.r3, row.r4];
   const meta = normalizeQuestionMeta({
@@ -140,7 +184,7 @@ function toQuestion(row) {
     correct: meta.correct,
     correctAnswers: meta.correctAnswers,
     time: Number(row.tiempo) || 0,
-    image: row.imagen || '',
+    image: normalizeSvgDataUrl(row.imagen || ''),
     video: row.video || ''
   };
 

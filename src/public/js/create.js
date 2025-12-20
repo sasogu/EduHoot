@@ -163,6 +163,7 @@ var i18n = {
         iaLevel: 'Nivel del alumnado',
         iaTopic: 'Tema del cuestionario',
         iaUseDocs: 'Usar documentos como conocimiento exclusivo',
+        iaGenSvg: 'Pedir a la IA imágenes SVG',
         iaDocsHint: 'Cuando ejecutes este prompt en la IA, te pedirá que adjuntes los documentos. No subas nada aquí: adjunta los archivos allí y las preguntas se generarán exclusivamente a partir de esos documentos.',
         iaLang: 'Idioma del cuestionario',
         iaNum: 'Número de preguntas',
@@ -349,6 +350,7 @@ var i18n = {
         iaLevel: 'Students level',
         iaTopic: 'Quiz topic',
         iaUseDocs: 'Use documents as exclusive knowledge',
+        iaGenSvg: 'Ask the AI to generate SVG images',
         iaDocsHint: 'When you run this prompt in the AI, it will ask you to attach the documents. Do not upload anything here: attach the files there and the questions will be generated exclusively from those documents.',
         iaLang: 'Quiz language',
         iaNum: 'Number of questions',
@@ -535,6 +537,7 @@ var i18n = {
         iaLevel: 'Nivell de l\'alumnat',
         iaTopic: 'Tema del qüestionari',
         iaUseDocs: 'Usar documents com a coneixement exclusiu',
+        iaGenSvg: 'Demanar a la IA imatges SVG',
         iaDocsHint: 'Quan executes aquest prompt a la IA, et demanarà adjuntar els documents. No puges res ací: adjunta els fitxers allí i les preguntes es generaran exclusivament a partir d\'aquests documents.',
         iaLang: 'Idioma del qüestionari',
         iaNum: 'Nombre de preguntes',
@@ -1694,6 +1697,7 @@ function buildPrompt(params){
     var idioma = params.idioma === 'otro' && params.idiomaCustom ? params.idiomaCustom : params.idioma;
     var tipos = Array.isArray(params.tipos) && params.tipos.length ? params.tipos : ['quiz'];
     var useDocs = !!params.useDocs;
+    var genSvg = !!params.genSvg;
     var tema = useDocs ? '' : (params.tema || '');
     var prompt = {
         objetivo: "Generar un cuestionario en CSV con separador ';' siguiendo el formato: tipo;pregunta;r1;r2;r3;r4;tiempo;correcta;imagen;video;texto;numero;tolerancia",
@@ -1703,15 +1707,19 @@ function buildPrompt(params){
         numero_preguntas: params.num,
         tipos: tipos,
         usar_documentos: useDocs,
+        generar_imagenes_svg: genSvg,
         instrucciones: params.extra || '',
         notas: [
             "Usa el punto y coma ';' como separador.",
+            "Si algún campo contiene ';' o comillas o saltos de línea, envuélvelo en comillas dobles y escapa comillas internas como \"\" (CSV estándar).",
             "Columna 'tipo': usa uno de: quiz | multiple | true-false | short-answer | numeric.",
             "Tipos quiz/multiple/true-false: usa r1..r4 y 'correcta' (quiz/tf: índice; multiple: lista 1,3).",
             "Tipo short-answer: deja r1..r4 vacío y pon respuestas válidas en 'texto' separadas por '|' (ej: madrid|barcelona).",
             "Tipo numeric: deja r1..r4 vacío y pon la respuesta en 'numero' (acepta coma decimal) y la tolerancia en 'tolerancia' (0 si exacta).",
             "Si 'usar_documentos' es true, genera las preguntas SOLO a partir de los documentos adjuntos en la IA (no inventes contenido fuera de ellos).",
-            "Columna 'imagen': solo URLs de imagen (png/jpg/webp).",
+            (genSvg
+                ? "Columna 'imagen': genera SVG como data URL con el SVG URL-encoded (muy importante para que '#' en colores no rompa la URL). Ejemplo: \"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%2523ff0000%22%2F%3E%3C%2Fsvg%3E\". Si contiene ';', pon el campo entrecomillado."
+                : "Columna 'imagen': solo URLs de imagen (png/jpg/webp)."),
             "Columna 'video': URLs de vídeo (YouTube/Vimeo/MP4). Si hay vídeo, deja 'imagen' vacía.",
             "Tiempo: en segons (ex: 20)."
         ]
@@ -1794,6 +1802,7 @@ var iaPrompt = document.getElementById('ia-prompt');
 var iaIdioma = document.getElementById('ia-idioma');
 var iaIdiomaCustom = document.getElementById('ia-idioma-custom');
 var iaUseDocs = document.getElementById('ia-use-docs');
+var iaGenSvg = document.getElementById('ia-gen-svg');
 var iaDocsHint = document.getElementById('ia-docs-hint');
 var iaTema = document.getElementById('ia-tema');
 
@@ -2252,6 +2261,15 @@ if(iaUseDocs){
     });
 }
 
+if(iaGenSvg){
+    try{
+        iaGenSvg.checked = localStorage.getItem('eduh_ia_gen_svg') === '1';
+    }catch(e){}
+    iaGenSvg.addEventListener('change', function(){
+        try{ localStorage.setItem('eduh_ia_gen_svg', iaGenSvg.checked ? '1' : '0'); }catch(e){}
+    });
+}
+
 if (iaGenerate) {
     iaGenerate.addEventListener('click', function(){
         var params = {
@@ -2263,7 +2281,8 @@ if (iaGenerate) {
             num: parseInt(document.getElementById('ia-num').value, 10) || 10,
             extra: document.getElementById('ia-extra').value.trim(),
             tipos: getSelectedIaTypes(),
-            useDocs: iaUseDocs ? iaUseDocs.checked : false
+            useDocs: iaUseDocs ? iaUseDocs.checked : false,
+            genSvg: iaGenSvg ? iaGenSvg.checked : false
         };
         iaPrompt.textContent = buildPrompt(params);
     });
