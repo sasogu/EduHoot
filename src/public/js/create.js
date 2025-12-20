@@ -1717,9 +1717,10 @@ function buildPrompt(params){
             "Tipo short-answer: deja r1..r4 vacío y pon respuestas válidas en 'texto' separadas por '|' (ej: madrid|barcelona).",
             "Tipo numeric: deja r1..r4 vacío y pon la respuesta en 'numero' (acepta coma decimal) y la tolerancia en 'tolerancia' (0 si exacta).",
             "Si 'usar_documentos' es true, genera las preguntas SOLO a partir de los documentos adjuntos en la IA (no inventes contenido fuera de ellos).",
+            "Imágenes: PROHIBIDO usar URLs externas (http/https) y PROHIBIDO Wikimedia. Si no puedes generar una imagen embebida, deja 'imagen' vacío.",
             (genSvg
                 ? "Columna 'imagen': genera SVG como data URL con el SVG URL-encoded (muy importante para que '#' en colores no rompa la URL). Ejemplo: \"data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%2523ff0000%22%2F%3E%3C%2Fsvg%3E\". Si contiene ';', pon el campo entrecomillado."
-                : "Columna 'imagen': solo URLs de imagen (png/jpg/webp)."),
+                : "Columna 'imagen': déjala VACÍA (no uses URLs externas)."),
             "Columna 'video': URLs de vídeo (YouTube/Vimeo/MP4). Si hay vídeo, deja 'imagen' vacía.",
             "Tiempo: en segons (ex: 20)."
         ]
@@ -1777,10 +1778,25 @@ function buildIaTags(){
         });
     }
 
+    function addSingleFromList(text){
+        // Para campos como "nivel educativo": nos interesa solo 1 etiqueta.
+        var raw = (text || '').toString();
+        var parts = raw.split(/[,;|]+/);
+        for(var i=0;i<parts.length;i++){
+            var p = (parts[i] || '').toString().trim();
+            if(p){
+                addTag(p);
+                return;
+            }
+        }
+    }
+
     var temaVal = document.getElementById('ia-tema') ? document.getElementById('ia-tema').value : '';
     var nivelVal = document.getElementById('ia-nivel') ? document.getElementById('ia-nivel').value : '';
+    // Nivel: solo una etiqueta (la primera si hay varias)
+    addSingleFromList(nivelVal);
+    // Tema: puede aportar 1-2 tags útiles
     addFromList(temaVal);
-    addFromList(nivelVal);
 
     var idiomaVal = '';
     if(iaIdioma){
@@ -2316,6 +2332,54 @@ function normalizeCsvForDownload(csvText){
     return text;
 }
 
+function escapeCsvField(value){
+    var s = (value === undefined || value === null) ? '' : String(value);
+    if(/[";\r\n]/.test(s)){
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+
+function sanitizeIaCsv(csvText){
+    // Objetivo: evitar portadas rotas por URLs externas (Wikimedia y similares).
+    // Solo se aplica al flujo de IA (textarea/archivo) antes de previsualizar/guardar/subir.
+    var raw = (csvText || '').trim();
+    if(!raw) return '';
+
+    var linesRaw = raw.split(/\r?\n/);
+    var headerIndex = -1;
+    for(var i=0;i<linesRaw.length;i++){
+        if((linesRaw[i] || '').toLowerCase().includes('tipo;pregunta')){ headerIndex = i; break; }
+    }
+
+    var outLines = [];
+    if(headerIndex !== -1){
+        for(var h=0;h<=headerIndex;h++) outLines.push(linesRaw[h]);
+    }
+
+    var start = headerIndex !== -1 ? headerIndex + 1 : 0;
+    for(var li=start; li<linesRaw.length; li++){
+        var line = (linesRaw[li] || '').trim();
+        if(!line) continue;
+        var fields = splitSemicolons(line);
+        if(!fields || fields.length < 8){
+            outLines.push(linesRaw[li]);
+            continue;
+        }
+        while(fields.length < 13) fields.push('');
+
+        var img = (fields[8] || '').toString().trim();
+        // Quita URLs externas (http/https) y especialmente Wikimedia.
+        if(/^https?:\/\//i.test(img) || /upload\.wikimedia\.org/i.test(img)){
+            fields[8] = '';
+        }
+
+        outLines.push(fields.map(escapeCsvField).join(';'));
+    }
+
+    return outLines.join('\n');
+}
+
 function splitSemicolons(line){
     var parts = [];
     var current = '';
@@ -2472,7 +2536,10 @@ function renderIaPreview(csvText){
 if(iaPreviewBtn){
     iaPreviewBtn.addEventListener('click', function(){
         var csvText = document.getElementById('ia-csv') ? document.getElementById('ia-csv').value : '';
-        renderIaPreview(csvText);
+        var clean = sanitizeIaCsv(csvText);
+        var ta = document.getElementById('ia-csv');
+        if(ta && clean) ta.value = clean;
+        renderIaPreview(clean || csvText);
     });
 }
 
@@ -2495,7 +2562,10 @@ if(iaOpenBtn && iaCsvFile){
 if(iaDownloadBtn){
     iaDownloadBtn.addEventListener('click', function(){
         var csvText = document.getElementById('ia-csv') ? document.getElementById('ia-csv').value : '';
-        var normalized = normalizeCsvForDownload(csvText);
+        var cleaned = sanitizeIaCsv(csvText);
+        var ta = document.getElementById('ia-csv');
+        if(ta && cleaned) ta.value = cleaned;
+        var normalized = normalizeCsvForDownload(cleaned || csvText);
         if(!normalized){
             alert(t('alertNothingToSave'));
             return;
@@ -2523,6 +2593,11 @@ if (iaUpload) {
     iaUpload.addEventListener('click', async function(){
         var status = document.getElementById('ia-status');
         var csvText = document.getElementById('ia-csv').value.trim();
+        var cleaned = sanitizeIaCsv(csvText);
+        if(cleaned){
+            csvText = cleaned.trim();
+            try{ document.getElementById('ia-csv').value = cleaned; }catch(e){}
+        }
         var quizName = document.getElementById('ia-name').value.trim();
         if (!csvText) {
             status.textContent = t('selectCsv');
