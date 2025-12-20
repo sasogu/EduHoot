@@ -279,6 +279,17 @@ input{
   border-radius: 12px;
   padding: 10px 12px;
 }
+#sort{
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--card);
+  background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23e9eefb' d='M1 1l5 5 5-5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  padding-right: 34px;
+}
 
 select:focus-visible,
 input:focus-visible{
@@ -401,6 +412,63 @@ input[type="search"]::placeholder{ color: #9fb1d9; }
   flex-direction: column;
   gap: 8px;
   box-shadow: var(--shadow);
+}
+.card-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.favorite-btn{
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.7);
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.favorite-btn:hover{
+  transform: translateY(-1px);
+  color: #ffe9a3;
+  border-color: rgba(255,255,255,0.5);
+}
+.favorite-btn.is-active{
+  color: #ffe166;
+  border-color: rgba(255,225,102,0.8);
+}
+.card-rating{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rating-stars{
+  display: inline-flex;
+  gap: 4px;
+}
+.rating-star{
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.35);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+.rating-star:hover{
+  transform: translateY(-1px);
+  color: #ffe9a3;
+}
+.rating-star.is-filled{
+  color: #ffe166;
+}
+.rating-summary{
+  font-size: 12px;
 }
 
 .card-thumb{

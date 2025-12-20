@@ -6,6 +6,7 @@ var state = {
         quizData: null,
         questions: [],
     desiredQuestionCount: null,
+        desiredQuestionTime: null,
         page: 0,
         pageSize: 12,
         sortOrder: 'plays',
@@ -25,11 +26,148 @@ var state = {
         playerName: 'Anónimo',
         awaitingConfirm: false,
         lastWrong: null,
-        multiSelections: []
+        multiSelections: [],
+        favoriteIds: new Set()
 };
 var soloMusicPlayerInstance = null;
 var SOLO_MUSIC_STORAGE_KEY = 'eduhoot-solo-music';
 var SOLO_MUSIC_STORAGE_KEY_LEGACY = 'eduhook-solo-music';
+var FAVORITES_STORAGE_KEY = 'eduhoot-favorite-quizzes';
+var USER_RATING_STORAGE_KEY = 'eduhoot-user-ratings';
+var DEVICE_ID_STORAGE_KEY = 'eduhoot-device-id';
+var userRatings = {};
+var deviceId = '';
+
+function loadFavorites(){
+    try{
+        var raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+        if(!raw) return new Set();
+        var parsed = JSON.parse(raw);
+        if(!Array.isArray(parsed)) return new Set();
+        return new Set(parsed.map(function(id){ return String(id); }));
+    }catch(e){
+        return new Set();
+    }
+}
+
+function saveFavorites(){
+    try{
+        localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(state.favoriteIds)));
+    }catch(e){}
+}
+
+function isFavorite(id){
+    return state.favoriteIds && state.favoriteIds.has(String(id));
+}
+
+function toggleFavorite(id){
+    var key = String(id);
+    if(isFavorite(key)){
+        state.favoriteIds.delete(key);
+    }else{
+        state.favoriteIds.add(key);
+    }
+    saveFavorites();
+}
+
+function updateFavoriteButton(btn, id){
+    if(!btn) return;
+    var active = isFavorite(id);
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    var label = active ? t('favoriteRemove') : t('favoriteAdd');
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.textContent = active ? '❤' : '♡';
+}
+
+function getDeviceId(){
+    try{
+        var existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+        if(existing) return existing;
+        var bytes = new Uint8Array(12);
+        if(window.crypto && window.crypto.getRandomValues){
+            window.crypto.getRandomValues(bytes);
+        }else{
+            for(var i = 0; i < bytes.length; i++){
+                bytes[i] = Math.floor(Math.random() * 256);
+            }
+        }
+        var id = Array.from(bytes).map(function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+        localStorage.setItem(DEVICE_ID_STORAGE_KEY, id);
+        return id;
+    }catch(e){
+        return 'anon-' + Math.random().toString(16).slice(2);
+    }
+}
+
+function loadUserRatings(){
+    try{
+        var raw = localStorage.getItem(USER_RATING_STORAGE_KEY);
+        if(!raw) return {};
+        var parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    }catch(e){
+        return {};
+    }
+}
+
+function saveUserRatings(){
+    try{
+        localStorage.setItem(USER_RATING_STORAGE_KEY, JSON.stringify(userRatings));
+    }catch(e){}
+}
+
+function getUserRating(id){
+    return userRatings && userRatings[String(id)];
+}
+
+function setUserRating(id, rating){
+    userRatings[String(id)] = rating;
+    saveUserRatings();
+}
+
+function formatRatingSummary(avg, count){
+    if(!count){
+        return t('ratingEmpty');
+    }
+    return format(t('ratingSummary'), { avg: avg.toFixed(1), count: count });
+}
+
+function updateRatingStars(starsWrap, displayRating){
+    if(!starsWrap) return;
+    var buttons = starsWrap.querySelectorAll('button[data-value]');
+    Array.prototype.forEach.call(buttons, function(btn){
+        var value = parseInt(btn.getAttribute('data-value'), 10);
+        btn.classList.toggle('is-filled', value <= displayRating);
+    });
+}
+
+function submitRating(quizId, rating, summaryEl, starsWrap, quizRef){
+    if(!deviceId) deviceId = getDeviceId();
+    fetch('/api/quizzes/' + encodeURIComponent(quizId) + '/rating', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: rating, deviceId: deviceId })
+    })
+        .then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+        .then(function(payload){
+            if(!payload.ok) return;
+            var avg = Number(payload.body && payload.body.avg);
+            if(!Number.isFinite(avg)) avg = 0;
+            var count = Number(payload.body && payload.body.count);
+            if(!Number.isFinite(count)) count = 0;
+            count = Math.max(0, Math.round(count));
+            if(quizRef){
+                quizRef.ratingAvg = avg;
+                quizRef.ratingCount = count;
+            }
+            setUserRating(quizId, rating);
+            if(summaryEl) summaryEl.textContent = formatRatingSummary(avg, count);
+            updateRatingStars(starsWrap, rating);
+        })
+        .catch(function(){});
+}
 
 function sortPublicQuizzes(list){
     if(!Array.isArray(list)) return list;
@@ -49,6 +187,23 @@ function sortPublicQuizzes(list){
             var nda = (a && a.name ? a.name : '').toLowerCase();
             var ndb = (b && b.name ? b.name : '').toLowerCase();
             return ndb.localeCompare(nda);
+        }
+        if(state.sortOrder === 'rating'){
+            var ra = Number(a && a.ratingAvg);
+            var rb = Number(b && b.ratingAvg);
+            ra = Number.isFinite(ra) ? ra : 0;
+            rb = Number.isFinite(rb) ? rb : 0;
+            if(ra === rb){
+                var ca = Number(a && a.ratingCount);
+                var cb = Number(b && b.ratingCount);
+                ca = Number.isFinite(ca) ? ca : 0;
+                cb = Number.isFinite(cb) ? cb : 0;
+                if(ca === cb){
+                    return (b && b.playsCount ? b.playsCount : 0) - (a && a.playsCount ? a.playsCount : 0);
+                }
+                return cb - ca;
+            }
+            return rb - ra;
         }
         var pa = a && typeof a.playsCount === 'number' ? a.playsCount : 0;
         var pb = b && typeof b.playsCount === 'number' ? b.playsCount : 0;
@@ -90,10 +245,16 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             sortPlays: 'Más jugados',
             sortLeastPlays: 'Menos jugados',
             sortNewest: 'Más recientes',
+            sortRating: 'Mejor valorados',
             sortAlphaAsc: 'A-Z',
             sortAlphaDesc: 'Z-A',
             playsShort: 'partidas',
             playersShort: 'jugadores',
+            ratingSummary: '{avg} · {count} votos',
+            ratingEmpty: 'Sin valoraciones',
+            ratingStarLabel: '{stars} estrellas',
+            favoriteAdd: 'Guardar en favoritos',
+            favoriteRemove: 'Quitar de favoritos',
             soloEyebrow: 'Modo individual',
             soloTitle: 'Elige un juego para empezar',
             nameLabel: 'Tu nombre (opcional)',
@@ -102,9 +263,11 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             nameSave: 'Guardar',
             nameSkip: 'Omitir',
             namePlaceholder: 'AAA',
-        questionCountLabel: 'Preguntas a responder',
-        questionCountTotal: 'de {total}',
-        startButton: 'Jugar en solitario',
+            questionCountLabel: 'Preguntas a responder',
+            questionCountTotal: 'de {total}',
+            questionTimeLabel: 'Tiempo por pregunta (segundos)',
+            questionTimePlaceholder: 'Auto',
+            startButton: 'Jugar en solitario',
         startHint: 'El tiempo por pregunta se respeta si el quiz lo define.',
         questionOf: 'Pregunta {current} de {total}',
         score: 'Puntos',
@@ -171,10 +334,16 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             sortPlays: 'Most played',
             sortLeastPlays: 'Least played',
             sortNewest: 'Newest',
+            sortRating: 'Top rated',
             sortAlphaAsc: 'A-Z',
             sortAlphaDesc: 'Z-A',
             playsShort: 'plays',
             playersShort: 'players',
+            ratingSummary: '{avg} · {count} votes',
+            ratingEmpty: 'No ratings yet',
+            ratingStarLabel: '{stars} stars',
+            favoriteAdd: 'Save as favorite',
+            favoriteRemove: 'Remove favorite',
             soloEyebrow: 'Solo mode',
             soloTitle: 'Pick a game to start',
             nameLabel: 'Your name (optional)',
@@ -185,6 +354,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             namePlaceholder: 'AAA',
             questionCountLabel: 'Questions to answer',
             questionCountTotal: 'of {total}',
+            questionTimeLabel: 'Time per question (seconds)',
+            questionTimePlaceholder: 'Auto',
             startButton: 'Play solo',
             startHint: 'Per-question timers are respected if set on the quiz.',
             questionOf: 'Question {current} of {total}',
@@ -252,10 +423,16 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             sortPlays: 'Més jugats',
             sortLeastPlays: 'Menys jugats',
             sortNewest: 'Més recents',
+            sortRating: 'Més ben valorats',
             sortAlphaAsc: 'A-Z',
             sortAlphaDesc: 'Z-A',
             playsShort: 'partides',
             playersShort: 'jugadors',
+            ratingSummary: '{avg} · {count} vots',
+            ratingEmpty: 'Sense valoracions',
+            ratingStarLabel: '{stars} estrelles',
+            favoriteAdd: 'Desar a favorits',
+            favoriteRemove: 'Treure de favorits',
             soloEyebrow: 'Mode individual',
             soloTitle: 'Tria un joc per començar',
             nameLabel: 'El teu nom (opcional)',
@@ -266,6 +443,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             namePlaceholder: 'AAA',
             questionCountLabel: 'Preguntes a respondre',
             questionCountTotal: 'de {total}',
+            questionTimeLabel: 'Temps per pregunta (segons)',
+            questionTimePlaceholder: 'Auto',
             startButton: 'Jugar en solitari',
             startHint: 'El temps per pregunta es respecta si el quiz el defineix.',
             questionOf: 'Pregunta {current} de {total}',
@@ -311,6 +490,10 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
         }
     };
+
+    state.favoriteIds = loadFavorites();
+    userRatings = loadUserRatings();
+    deviceId = getDeviceId();
 
     function t(key){
         return (i18n[lang] && i18n[lang][key]) || i18n.es[key] || key;
@@ -503,6 +686,16 @@ function syncQuestionCountControls(){
     }
 }
 
+function syncQuestionTimeControls(){
+    var input = document.getElementById('question-time');
+    if(!input) return;
+    if(state.desiredQuestionTime == null){
+        input.value = '';
+        return;
+    }
+    input.value = String(state.desiredQuestionTime);
+}
+
 function getDesiredQuestionCount(){
     var total = getQuizTotalQuestions();
     if(total <= 0) return 0;
@@ -524,12 +717,14 @@ function renderSelectedMeta(){
     if(!state.quizData){
         meta.textContent = t('startSelect');
         syncQuestionCountControls();
+        syncQuestionTimeControls();
         return;
     }
     var count = Array.isArray(state.quizData.questions) ? state.quizData.questions.length : 0;
     var tags = Array.isArray(state.quizData.tags) ? state.quizData.tags.join(', ') : (Array.isArray(state.quizData.questionsTags) ? state.quizData.questionsTags.join(', ') : '');
     meta.textContent = format(t('selectedMeta'), { count: count, tags: tags || '—' });
     syncQuestionCountControls();
+    syncQuestionTimeControls();
 }
 
     function normalizeName(str){
@@ -831,7 +1026,18 @@ function renderList(){
         if(state.page >= totalPages){
             state.page = totalPages - 1;
         }
-        filtered = sortPublicQuizzes(filtered);
+        var favorites = [];
+        var nonFavorites = [];
+        filtered.forEach(function(q){
+            if(isFavorite(q.id)){
+                favorites.push(q);
+            }else{
+                nonFavorites.push(q);
+            }
+        });
+        favorites = sortPublicQuizzes(favorites);
+        nonFavorites = sortPublicQuizzes(nonFavorites);
+        filtered = favorites.concat(nonFavorites);
         var start = state.page * state.pageSize;
         var pageItems = filtered.slice(start, start + state.pageSize);
         pageItems.forEach(function(q){
@@ -882,8 +1088,21 @@ function renderList(){
             }
             thumb.appendChild(img);
             card.appendChild(thumb);
+            var header = document.createElement('div');
+            header.className = 'card-header';
             var title = document.createElement('h3');
             title.textContent = q.name || 'Quiz';
+            var favBtn = document.createElement('button');
+            favBtn.type = 'button';
+            favBtn.className = 'favorite-btn';
+            favBtn.addEventListener('click', function(ev){
+                ev.stopPropagation();
+                toggleFavorite(q.id);
+                updateFavoriteButton(favBtn, q.id);
+            });
+            updateFavoriteButton(favBtn, q.id);
+            header.appendChild(title);
+            header.appendChild(favBtn);
             var meta = document.createElement('p');
             meta.className = 'muted';
             meta.textContent = format(t('byline'), { count: q.questionsCount || 0 });
@@ -896,6 +1115,42 @@ function renderList(){
                     tagsWrap.appendChild(el);
                 });
             }
+            var ratingWrap = document.createElement('div');
+            ratingWrap.className = 'card-rating';
+            var ratingStars = document.createElement('div');
+            ratingStars.className = 'rating-stars';
+            for(var i = 1; i <= 5; i++){
+                (function(stars){
+                    var starBtn = document.createElement('button');
+                    starBtn.type = 'button';
+                    starBtn.className = 'rating-star';
+                    starBtn.setAttribute('data-value', String(stars));
+                    starBtn.textContent = '★';
+                    var label = format(t('ratingStarLabel'), { stars: stars });
+                    starBtn.setAttribute('aria-label', label);
+                    starBtn.title = label;
+                    starBtn.addEventListener('click', function(ev){
+                        ev.stopPropagation();
+                        updateRatingStars(ratingStars, stars);
+                        setUserRating(q.id, stars);
+                        submitRating(q.id, stars, ratingSummary, ratingStars, q);
+                    });
+                    ratingStars.appendChild(starBtn);
+                })(i);
+            }
+            var ratingSummary = document.createElement('span');
+            ratingSummary.className = 'rating-summary muted';
+            var avg = Number(q && q.ratingAvg);
+            if(!Number.isFinite(avg)) avg = 0;
+            var count = Number(q && q.ratingCount);
+            if(!Number.isFinite(count)) count = 0;
+            count = Math.max(0, Math.round(count));
+            ratingSummary.textContent = formatRatingSummary(avg, count);
+            var userRating = getUserRating(q.id);
+            var displayRating = userRating ? userRating : Math.round(avg || 0);
+            updateRatingStars(ratingStars, displayRating);
+            ratingWrap.appendChild(ratingStars);
+            ratingWrap.appendChild(ratingSummary);
             var stats = document.createElement('div');
             stats.className = 'card-stats';
             var plays = q.playsCount || 0;
@@ -905,9 +1160,10 @@ function renderList(){
             btn.className = 'btn btn-primary';
             btn.textContent = t('playCta');
             btn.onclick = function(){ ensureSoloMusicPlaying(); selectQuiz(q.id); };
-            card.appendChild(title);
+            card.appendChild(header);
             card.appendChild(meta);
             card.appendChild(tagsWrap);
+            card.appendChild(ratingWrap);
             card.appendChild(stats);
             var cardLinks = document.createElement('div');
             cardLinks.className = 'card-links';
@@ -1098,7 +1354,9 @@ function startQuiz(){
         renderAnswers(q, meta);
         updateSoloSelectionStyles();
         updateSoloMultiSubmitVisibility(meta);
-        var time = (typeof q.time === 'number' && q.time > 0) ? q.time : 20;
+        var time = (typeof state.desiredQuestionTime === 'number' && state.desiredQuestionTime > 0)
+            ? state.desiredQuestionTime
+            : ((typeof q.time === 'number' && q.time > 0) ? q.time : 20);
         startTimer(time);
         var feedback = document.getElementById('feedback');
         if(feedback){
@@ -1798,6 +2056,19 @@ function startQuiz(){
                 if(v == null) return;
                 questionCount.value = String(v);
                 state.desiredQuestionCount = v;
+            });
+        }
+        var questionTime = document.getElementById('question-time');
+        if(questionTime){
+            questionTime.addEventListener('input', function(){
+                if(!questionTime.value){
+                    state.desiredQuestionTime = null;
+                    return;
+                }
+                var v = clampInt(questionTime.value, 5, 120);
+                if(v == null) return;
+                questionTime.value = String(v);
+                state.desiredQuestionTime = v;
             });
         }
         var playAgain = document.getElementById('play-again');

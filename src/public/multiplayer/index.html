@@ -45,6 +45,7 @@
               <option value="plays" data-i18n="sortPlays">Más jugados</option>
               <option value="least" data-i18n="sortLeastPlays">Menos jugados</option>
               <option value="recent" data-i18n="sortNewest">Más recientes</option>
+              <option value="rating" data-i18n="sortRating">Mejor valorados</option>
               <option value="alpha" data-i18n="sortAlphaAsc">A-Z</option>
               <option value="alpha-desc" data-i18n="sortAlphaDesc">Z-A</option>
             </select>
@@ -109,6 +110,12 @@
             <div class="question-count-controls">
               <input id="question-count" type="number" min="1" step="1" inputmode="numeric" autocomplete="off">
               <span id="question-count-total" class="muted"></span>
+            </div>
+          </div>
+          <div class="setup-row setup-row--question-count">
+            <label for="question-time" class="muted" data-i18n="questionTimeLabel">Tiempo por pregunta (segundos)</label>
+            <div class="question-count-controls">
+              <input id="question-time" type="number" min="5" max="120" step="1" inputmode="numeric" autocomplete="off" data-i18n-placeholder="questionTimePlaceholder" placeholder="Auto">
             </div>
           </div>
 

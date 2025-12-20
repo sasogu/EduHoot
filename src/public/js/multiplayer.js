@@ -14,6 +14,7 @@
     currentQuizId: null,
     quizData: null,
     desiredQuestionCount: null,
+    desiredQuestionTime: null,
     questionMode: 'shared',
     questions: [],
     rounds: [],
@@ -25,11 +26,148 @@
     players: [],
     playerNames: [],
     playerIcons: [],
-    phaseLocked: false
+    phaseLocked: false,
+    favoriteIds: new Set()
   };
 
   var NAMES_KEY = 'multiplayerPlayerNames';
   var ICONS_KEY = 'multiplayerPlayerIcons';
+  var FAVORITES_STORAGE_KEY = 'eduhoot-favorite-quizzes';
+  var USER_RATING_STORAGE_KEY = 'eduhoot-user-ratings';
+  var DEVICE_ID_STORAGE_KEY = 'eduhoot-device-id';
+  var userRatings = {};
+  var deviceId = '';
+
+  function loadFavorites(){
+    try{
+      var raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if(!raw) return new Set();
+      var parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.map(function(id){ return String(id); }));
+    }catch(e){
+      return new Set();
+    }
+  }
+
+  function saveFavorites(){
+    try{
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(state.favoriteIds)));
+    }catch(e){}
+  }
+
+  function isFavorite(id){
+    return state.favoriteIds && state.favoriteIds.has(String(id));
+  }
+
+  function toggleFavorite(id){
+    var key = String(id);
+    if(isFavorite(key)){
+      state.favoriteIds.delete(key);
+    }else{
+      state.favoriteIds.add(key);
+    }
+    saveFavorites();
+  }
+
+  function updateFavoriteButton(btn, id){
+    if(!btn) return;
+    var active = isFavorite(id);
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    var label = active ? t('favoriteRemove') : t('favoriteAdd');
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.textContent = active ? '❤' : '♡';
+  }
+
+  function getDeviceId(){
+    try{
+      var existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+      if(existing) return existing;
+      var bytes = new Uint8Array(12);
+      if(window.crypto && window.crypto.getRandomValues){
+        window.crypto.getRandomValues(bytes);
+      }else{
+        for(var i = 0; i < bytes.length; i++){
+          bytes[i] = Math.floor(Math.random() * 256);
+        }
+      }
+      var id = Array.from(bytes).map(function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+      localStorage.setItem(DEVICE_ID_STORAGE_KEY, id);
+      return id;
+    }catch(e){
+      return 'anon-' + Math.random().toString(16).slice(2);
+    }
+  }
+
+  function loadUserRatings(){
+    try{
+      var raw = localStorage.getItem(USER_RATING_STORAGE_KEY);
+      if(!raw) return {};
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    }catch(e){
+      return {};
+    }
+  }
+
+  function saveUserRatings(){
+    try{
+      localStorage.setItem(USER_RATING_STORAGE_KEY, JSON.stringify(userRatings));
+    }catch(e){}
+  }
+
+  function getUserRating(id){
+    return userRatings && userRatings[String(id)];
+  }
+
+  function setUserRating(id, rating){
+    userRatings[String(id)] = rating;
+    saveUserRatings();
+  }
+
+  function formatRatingSummary(avg, count){
+    if(!count){
+      return t('ratingEmpty');
+    }
+    return format(t('ratingSummary'), { avg: avg.toFixed(1), count: count });
+  }
+
+  function updateRatingStars(starsWrap, displayRating){
+    if(!starsWrap) return;
+    var buttons = starsWrap.querySelectorAll('button[data-value]');
+    Array.prototype.forEach.call(buttons, function(btn){
+      var value = parseInt(btn.getAttribute('data-value'), 10);
+      btn.classList.toggle('is-filled', value <= displayRating);
+    });
+  }
+
+  function submitRating(quizId, rating, summaryEl, starsWrap, quizRef){
+    if(!deviceId) deviceId = getDeviceId();
+    fetch('/api/quizzes/' + encodeURIComponent(quizId) + '/rating', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: rating, deviceId: deviceId })
+    })
+      .then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+      .then(function(payload){
+        if(!payload.ok) return;
+        var avg = Number(payload.body && payload.body.avg);
+        if(!Number.isFinite(avg)) avg = 0;
+        var count = Number(payload.body && payload.body.count);
+        if(!Number.isFinite(count)) count = 0;
+        count = Math.max(0, Math.round(count));
+        if(quizRef){
+          quizRef.ratingAvg = avg;
+          quizRef.ratingCount = count;
+        }
+        setUserRating(quizId, rating);
+        if(summaryEl) summaryEl.textContent = formatRatingSummary(avg, count);
+        updateRatingStars(starsWrap, rating);
+      })
+      .catch(function(){});
+  }
 
   // Reutilizamos el set de iconos del selector de /join.
   var ICONS = [
@@ -72,10 +210,16 @@
       sortPlays: 'Más jugados',
       sortLeastPlays: 'Menos jugados',
       sortNewest: 'Más recientes',
+      sortRating: 'Mejor valorados',
       sortAlphaAsc: 'A-Z',
       sortAlphaDesc: 'Z-A',
       playsShort: 'partidas',
       playersShort: 'jugadores',
+      ratingSummary: '{avg} · {count} votos',
+      ratingEmpty: 'Sin valoraciones',
+      ratingStarLabel: '{stars} estrellas',
+      favoriteAdd: 'Guardar en favoritos',
+      favoriteRemove: 'Quitar de favoritos',
       gameEyebrow: 'Partida local',
       gameTitle: 'Elige un quiz para empezar',
       startSelect: 'Selecciona un quiz público.',
@@ -86,6 +230,8 @@
       questionModePerPlayer: 'Una diferente por jugador',
       questionCountLabel: 'Preguntas a jugar',
       questionCountTotal: 'de {total}',
+      questionTimeLabel: 'Tiempo por pregunta (segundos)',
+      questionTimePlaceholder: 'Auto',
       playerNamesLabel: 'Nombres de jugadores',
       bgMusicTitle: 'Música de fondo',
       bgMusicChoose: 'Elige un tema',
@@ -135,10 +281,16 @@
       sortPlays: 'Most played',
       sortLeastPlays: 'Least played',
       sortNewest: 'Newest',
+      sortRating: 'Top rated',
       sortAlphaAsc: 'A-Z',
       sortAlphaDesc: 'Z-A',
       playsShort: 'plays',
       playersShort: 'players',
+      ratingSummary: '{avg} · {count} votes',
+      ratingEmpty: 'No ratings yet',
+      ratingStarLabel: '{stars} stars',
+      favoriteAdd: 'Save as favorite',
+      favoriteRemove: 'Remove favorite',
       gameEyebrow: 'Local match',
       gameTitle: 'Pick a quiz to start',
       startSelect: 'Select a public quiz.',
@@ -149,6 +301,8 @@
       questionModePerPlayer: 'Different per player',
       questionCountLabel: 'Questions to play',
       questionCountTotal: 'of {total}',
+      questionTimeLabel: 'Time per question (seconds)',
+      questionTimePlaceholder: 'Auto',
       playerNamesLabel: 'Player names',
       bgMusicTitle: 'Background music',
       bgMusicChoose: 'Choose a track',
@@ -198,10 +352,16 @@
       sortPlays: 'Més jugats',
       sortLeastPlays: 'Menys jugats',
       sortNewest: 'Més recents',
+      sortRating: 'Més ben valorats',
       sortAlphaAsc: 'A-Z',
       sortAlphaDesc: 'Z-A',
       playsShort: 'partides',
       playersShort: 'jugadors',
+      ratingSummary: '{avg} · {count} vots',
+      ratingEmpty: 'Sense valoracions',
+      ratingStarLabel: '{stars} estrelles',
+      favoriteAdd: 'Desar a favorits',
+      favoriteRemove: 'Treure de favorits',
       gameEyebrow: 'Partida local',
       gameTitle: 'Tria un quiz per començar',
       startSelect: 'Selecciona un quiz públic.',
@@ -212,6 +372,8 @@
       questionModePerPlayer: 'Una diferent per jugador',
       questionCountLabel: 'Preguntes a jugar',
       questionCountTotal: 'de {total}',
+      questionTimeLabel: 'Temps per pregunta (segons)',
+      questionTimePlaceholder: 'Auto',
       playerNamesLabel: 'Noms de jugadors',
       bgMusicTitle: 'Música de fons',
       bgMusicChoose: 'Tria un tema',
@@ -239,6 +401,10 @@
       iconLabel: 'Icona'
     }
   };
+
+  state.favoriteIds = loadFavorites();
+  userRatings = loadUserRatings();
+  deviceId = getDeviceId();
 
   function t(key){
     return (i18n[lang] && i18n[lang][key]) || (i18n.es && i18n.es[key]) || key;
@@ -1082,6 +1248,23 @@
         var ndb = (b && b.name ? b.name : '').toLowerCase();
         return ndb.localeCompare(nda);
       }
+      if(state.sortOrder === 'rating'){
+        var ra = Number(a && a.ratingAvg);
+        var rb = Number(b && b.ratingAvg);
+        ra = Number.isFinite(ra) ? ra : 0;
+        rb = Number.isFinite(rb) ? rb : 0;
+        if(ra === rb){
+          var ca = Number(a && a.ratingCount);
+          var cb = Number(b && b.ratingCount);
+          ca = Number.isFinite(ca) ? ca : 0;
+          cb = Number.isFinite(cb) ? cb : 0;
+          if(ca === cb){
+            return (b && b.playsCount ? b.playsCount : 0) - (a && a.playsCount ? a.playsCount : 0);
+          }
+          return cb - ca;
+        }
+        return rb - ra;
+      }
       var pa = a && typeof a.playsCount === 'number' ? a.playsCount : 0;
       var pb = b && typeof b.playsCount === 'number' ? b.playsCount : 0;
       if(state.sortOrder === 'least'){
@@ -1179,7 +1362,18 @@
     }
     if(empty) empty.textContent = '';
 
-    filtered = sortPublicQuizzes(filtered);
+    var favorites = [];
+    var nonFavorites = [];
+    filtered.forEach(function(q){
+      if(isFavorite(q.id)){
+        favorites.push(q);
+      }else{
+        nonFavorites.push(q);
+      }
+    });
+    favorites = sortPublicQuizzes(favorites);
+    nonFavorites = sortPublicQuizzes(nonFavorites);
+    filtered = favorites.concat(nonFavorites);
     var totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
     if(state.page >= totalPages) state.page = totalPages - 1;
     var start = state.page * state.pageSize;
@@ -1189,8 +1383,21 @@
       var card = document.createElement('div');
       card.className = 'card';
 
+      var header = document.createElement('div');
+      header.className = 'card-header';
       var title = document.createElement('h3');
       title.textContent = q.name || 'Quiz';
+      var favBtn = document.createElement('button');
+      favBtn.type = 'button';
+      favBtn.className = 'favorite-btn';
+      favBtn.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        toggleFavorite(q.id);
+        updateFavoriteButton(favBtn, q.id);
+      });
+      updateFavoriteButton(favBtn, q.id);
+      header.appendChild(title);
+      header.appendChild(favBtn);
 
       var meta = document.createElement('p');
       meta.className = 'muted';
@@ -1207,6 +1414,43 @@
           tagsWrap.appendChild(el);
         });
       }
+
+      var ratingWrap = document.createElement('div');
+      ratingWrap.className = 'card-rating';
+      var ratingStars = document.createElement('div');
+      ratingStars.className = 'rating-stars';
+      for(var i = 1; i <= 5; i++){
+        (function(stars){
+          var starBtn = document.createElement('button');
+          starBtn.type = 'button';
+          starBtn.className = 'rating-star';
+          starBtn.setAttribute('data-value', String(stars));
+          starBtn.textContent = '★';
+          var label = format(t('ratingStarLabel'), { stars: stars });
+          starBtn.setAttribute('aria-label', label);
+          starBtn.title = label;
+          starBtn.addEventListener('click', function(ev){
+            ev.stopPropagation();
+            updateRatingStars(ratingStars, stars);
+            setUserRating(q.id, stars);
+            submitRating(q.id, stars, ratingSummary, ratingStars, q);
+          });
+          ratingStars.appendChild(starBtn);
+        })(i);
+      }
+      var ratingSummary = document.createElement('span');
+      ratingSummary.className = 'rating-summary muted';
+      var avg = Number(q && q.ratingAvg);
+      if(!Number.isFinite(avg)) avg = 0;
+      var count = Number(q && q.ratingCount);
+      if(!Number.isFinite(count)) count = 0;
+      count = Math.max(0, Math.round(count));
+      ratingSummary.textContent = formatRatingSummary(avg, count);
+      var userRating = getUserRating(q.id);
+      var displayRating = userRating ? userRating : Math.round(avg || 0);
+      updateRatingStars(ratingStars, displayRating);
+      ratingWrap.appendChild(ratingStars);
+      ratingWrap.appendChild(ratingSummary);
 
       var stats = document.createElement('p');
       stats.className = 'muted';
@@ -1236,9 +1480,10 @@
       btn.onclick = function(){ selectQuiz(q.id); };
 
       card.appendChild(thumb);
-      card.appendChild(title);
+      card.appendChild(header);
       card.appendChild(meta);
       card.appendChild(tagsWrap);
+      card.appendChild(ratingWrap);
       card.appendChild(stats);
       card.appendChild(btn);
       list.appendChild(card);
@@ -1255,6 +1500,7 @@
     var qCountInput = document.getElementById('question-count');
     var qCountTotal = document.getElementById('question-count-total');
     var qModeSelect = document.getElementById('question-mode');
+    var qTimeInput = document.getElementById('question-time');
 
     if(!state.quizData){
       if(gamePanel) gamePanel.classList.add('hidden');
@@ -1266,6 +1512,9 @@
         qCountInput.removeAttribute('max');
       }
       if(qCountTotal) qCountTotal.textContent = '';
+      if(qTimeInput){
+        qTimeInput.value = state.desiredQuestionTime == null ? '' : String(state.desiredQuestionTime);
+      }
       if(qModeSelect) qModeSelect.value = state.questionMode || 'shared';
       return;
     }
@@ -1290,6 +1539,10 @@
     }
     if(qCountTotal){
       qCountTotal.textContent = total ? format(t('questionCountTotal'), { total: total }) : '';
+    }
+
+    if(qTimeInput){
+      qTimeInput.value = state.desiredQuestionTime == null ? '' : String(state.desiredQuestionTime);
     }
 
     if(qModeSelect){
@@ -1782,6 +2035,9 @@
     }
 
     state.phaseLocked = false;
+    var forcedTime = (typeof state.desiredQuestionTime === 'number' && state.desiredQuestionTime > 0)
+      ? state.desiredQuestionTime
+      : null;
 
     if(state.questionMode === 'per-player'){
       var questionEl = document.getElementById('question-text');
@@ -1796,7 +2052,7 @@
         if(tVal > maxTime) maxTime = tVal;
       });
       updatePlayerPanelsForQuestion({ answers: [] });
-      startTimer(maxTime);
+      startTimer(forcedTime || maxTime);
       scrollToBottom({ behavior: 'auto' });
       return;
     }
@@ -1809,7 +2065,7 @@
     updatePlayerPanelsForQuestion(q);
 
     var time = (typeof q.time === 'number' && q.time > 0) ? q.time : 20;
-    startTimer(time);
+    startTimer(forcedTime || time);
 
     scrollToBottom({ behavior: 'auto' });
   }
@@ -2072,6 +2328,21 @@
         var total = Array.isArray(state.quizData.questions) ? state.quizData.questions.length : 0;
         state.desiredQuestionCount = clampQuestionCount(questionCount.value, total);
         questionCount.value = state.desiredQuestionCount ? String(state.desiredQuestionCount) : '';
+      });
+    }
+    var questionTime = document.getElementById('question-time');
+    if(questionTime){
+      questionTime.addEventListener('input', function(){
+        if(!questionTime.value){
+          state.desiredQuestionTime = null;
+          return;
+        }
+        var v = parseInt(questionTime.value, 10);
+        if(isNaN(v)) return;
+        if(v < 5) v = 5;
+        if(v > 120) v = 120;
+        questionTime.value = String(v);
+        state.desiredQuestionTime = v;
       });
     }
 

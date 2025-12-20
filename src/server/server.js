@@ -170,6 +170,8 @@ const GAMES_COLLECTION = 'kahootGames';
 const USERS_COLLECTION = 'users';
 const SOLO_SCORES_COLLECTION = 'soloScores';
 const EPHEMERAL_COLLECTION = 'ephemeralQuizzes';
+const RATINGS_COLLECTION = 'quizRatings';
+const RATING_VOTES_COLLECTION = 'quizRatingVotes';
 const MONGO_MAX_RETRIES = 5;
 const MONGO_RETRY_DELAY_MS = 3000;
 const mongoClient = new MongoClient(mongoUrl, {
@@ -253,6 +255,8 @@ async function ensureIndexes(dbInstance) {
   const users = dbInstance.collection(USERS_COLLECTION);
   const soloScores = dbInstance.collection(SOLO_SCORES_COLLECTION);
   const ephemerals = dbInstance.collection(EPHEMERAL_COLLECTION);
+  const ratings = dbInstance.collection(RATINGS_COLLECTION);
+  const ratingVotes = dbInstance.collection(RATING_VOTES_COLLECTION);
   indexesReadyPromise = Promise.all([
     games.createIndex({ id: 1 }, { unique: true, sparse: true }),
     games.createIndex({ visibility: 1 }),
@@ -261,7 +265,9 @@ async function ensureIndexes(dbInstance) {
     users.createIndex({ email: 1 }, { unique: true, sparse: true }),
     users.createIndex({ resetToken: 1 }, { sparse: true }),
     ephemerals.createIndex({ id: 1 }, { unique: true, sparse: true }),
-    ephemerals.createIndex({ expires: 1 }, { expireAfterSeconds: 0 })
+    ephemerals.createIndex({ expires: 1 }, { expireAfterSeconds: 0 }),
+    ratings.createIndex({ quizId: 1 }, { unique: true, sparse: true }),
+    ratingVotes.createIndex({ quizId: 1, deviceId: 1 }, { unique: true })
   ]).catch((err) => {
     console.error('ensureIndexes error', err);
     indexesReadyPromise = null;
@@ -293,6 +299,16 @@ async function getSoloScoresCollection() {
 async function getEphemeralCollection() {
   const database = await getDb();
   return database.collection(EPHEMERAL_COLLECTION);
+}
+
+async function getRatingsCollection() {
+  const database = await getDb();
+  return database.collection(RATINGS_COLLECTION);
+}
+
+async function getRatingVotesCollection() {
+  const database = await getDb();
+  return database.collection(RATING_VOTES_COLLECTION);
 }
 
 function normalizeSoloName(name) {
@@ -842,6 +858,46 @@ function shuffleArray(list) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+  if (typeof value === 'bigint') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.toNumber === 'function') {
+      try {
+        const n = value.toNumber();
+        return Number.isFinite(n) ? n : fallback;
+      } catch (_) {
+        // ignore
+      }
+    }
+    if (typeof value.valueOf === 'function') {
+      try {
+        const v = value.valueOf();
+        if (v !== value) return toFiniteNumber(v, fallback);
+      } catch (_) {
+        // ignore
+      }
+    }
+    if (typeof value.toString === 'function') {
+      try {
+        const n = Number(value.toString());
+        return Number.isFinite(n) ? n : fallback;
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+  return fallback;
 }
 
 function normalizeVisibility(value, fallback = 'private') {
@@ -2443,20 +2499,44 @@ app.get('/api/quizzes', async (req, res) => {
         return false;
       });
     }
-    const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
-      id: quiz.id,
-      name: quiz.name,
-      tags: quiz.tags || [],
-      playsCount: quiz.playsCount || 0,
-      playersCount: quiz.playersCount || 0,
-      visibility: currentVisibility(quiz),
-      allowClone: normalizeAllowClone(quiz.allowClone),
-      ownerId: quiz.ownerId,
-      ownerEmail: quiz.ownerEmail || '',
-      ownerNickname: quiz.ownerNickname || '',
-      sourceQuizId: quiz.sourceQuizId,
-      createdAt: quiz.createdAt || quiz.updatedAt || new Date(0)
-    }));
+    const visibleQuizzes = selectQuizzesForUser(quizzesRaw, req.user);
+    const ratingCollection = await getRatingsCollection();
+    const quizIds = (visibleQuizzes || []).map((quiz) => quiz.id).filter((id) => id !== undefined && id !== null);
+    const ratingQueryIds = new Set();
+    quizIds.forEach((id) => {
+      ratingQueryIds.add(String(id));
+      if (typeof id === 'number' && Number.isFinite(id)) {
+        ratingQueryIds.add(id);
+      }
+    });
+    const ratingsList = ratingQueryIds.size
+      ? await ratingCollection.find({ quizId: { $in: Array.from(ratingQueryIds) } }).project({ quizId: 1, avg: 1, count: 1 }).toArray()
+      : [];
+    const ratingsById = new Map();
+    ratingsList.forEach((r) => {
+      if (!r || r.quizId === undefined || r.quizId === null) return;
+      ratingsById.set(String(r.quizId), { avg: toFiniteNumber(r.avg, 0), count: toFiniteNumber(r.count, 0) });
+    });
+
+    const quizzes = visibleQuizzes.map((quiz) => {
+      const rating = ratingsById.get(String(quiz.id)) || { avg: 0, count: 0 };
+      return {
+        id: quiz.id,
+        name: quiz.name,
+        tags: quiz.tags || [],
+        playsCount: quiz.playsCount || 0,
+        playersCount: quiz.playersCount || 0,
+        visibility: currentVisibility(quiz),
+        allowClone: normalizeAllowClone(quiz.allowClone),
+        ownerId: quiz.ownerId,
+        ownerEmail: quiz.ownerEmail || '',
+        ownerNickname: quiz.ownerNickname || '',
+        sourceQuizId: quiz.sourceQuizId,
+        createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
+        ratingAvg: rating.avg,
+        ratingCount: rating.count
+      };
+    });
     // Añadir quizzes efímeros solicitados
     const localIdsParam = req.query.localIds;
     const localIds = Array.isArray(localIdsParam)
@@ -2478,7 +2558,9 @@ app.get('/api/quizzes', async (req, res) => {
           ownerEmail: '',
           ownerNickname: '',
           sourceQuizId: q.sourceQuizId,
-          createdAt: q.createdAt || q.updatedAt || new Date()
+          createdAt: q.createdAt || q.updatedAt || new Date(),
+          ratingAvg: 0,
+          ratingCount: 0
         });
       }
     }
@@ -2510,6 +2592,24 @@ app.get('/api/public-quizzes', async (req, res) => {
       })
       .toArray();
 
+    const ratingCollection = await getRatingsCollection();
+    const quizIds = (quizzes || []).map((quiz) => quiz.id).filter((id) => id !== undefined && id !== null);
+    const ratingQueryIds = new Set();
+    quizIds.forEach((id) => {
+      ratingQueryIds.add(String(id));
+      if (typeof id === 'number' && Number.isFinite(id)) {
+        ratingQueryIds.add(id);
+      }
+    });
+    const ratingsList = ratingQueryIds.size
+      ? await ratingCollection.find({ quizId: { $in: Array.from(ratingQueryIds) } }).project({ quizId: 1, avg: 1, count: 1 }).toArray()
+      : [];
+    const ratingsById = new Map();
+    ratingsList.forEach((r) => {
+      if (!r || r.quizId === undefined || r.quizId === null) return;
+      ratingsById.set(String(r.quizId), { avg: toFiniteNumber(r.avg, 0), count: toFiniteNumber(r.count, 0) });
+    });
+
     let mapped = (quizzes || []).map((quiz) => {
       const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
       const questions = multiplayerMode
@@ -2520,6 +2620,7 @@ app.get('/api/public-quizzes', async (req, res) => {
       const mediaQuestion = mediaQuestions.length
         ? mediaQuestions[Math.floor(Math.random() * mediaQuestions.length)]
         : null;
+      const rating = ratingsById.get(String(quiz.id)) || { avg: 0, count: 0 };
       return {
         id: quiz.id,
         name: quiz.name,
@@ -2530,7 +2631,9 @@ app.get('/api/public-quizzes', async (req, res) => {
         createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
         questionsCount: questions.length,
         coverImage: mediaQuestion ? mediaQuestion.image : '',
-        coverVideo: mediaQuestion ? mediaQuestion.video : ''
+        coverVideo: mediaQuestion ? mediaQuestion.video : '',
+        ratingAvg: rating.avg,
+        ratingCount: rating.count
       };
     });
 
@@ -2541,6 +2644,59 @@ app.get('/api/public-quizzes', async (req, res) => {
   } catch (err) {
     console.error('list-public-quizzes error', err);
     return res.status(500).json({ error: 'No se pudo obtener la lista.' });
+  }
+});
+
+// Valorar quiz (1-5 estrellas)
+app.post('/api/quizzes/:id/rating', async (req, res) => {
+  const quizIdParam = req.params.id;
+  const rating = parseInt(req.body && req.body.rating, 10);
+  const deviceId = (req.body && req.body.deviceId ? req.body.deviceId : '').toString().trim();
+  if (!quizIdParam) return res.status(400).json({ error: 'Falta id.' });
+  if (!deviceId) return res.status(400).json({ error: 'Falta deviceId.' });
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Valor inválido.' });
+  }
+  try {
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz) return res.status(404).json({ error: 'Quiz no encontrado.' });
+    if (currentVisibility(quiz) !== 'public') {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    const ratings = await getRatingsCollection();
+    const votes = await getRatingVotesCollection();
+    const quizIdStr = String(quiz.id);
+    const existing = await votes.findOne({ deviceId, quizId: { $in: [quiz.id, quizIdStr] } });
+
+    if (existing) {
+      if (existing.rating === rating) {
+        const agg = await ratings.findOne({ quizId: { $in: [quiz.id, quizIdStr] } }) || { avg: rating, count: 1 };
+        return res.json({ avg: toFiniteNumber(agg.avg, rating), count: toFiniteNumber(agg.count, 1) });
+      }
+      await votes.updateOne(
+        { _id: existing._id },
+        { $set: { quizId: quizIdStr, rating, updatedAt: new Date() } }
+      );
+    } else {
+      await votes.insertOne({ quizId: quizIdStr, deviceId, rating, createdAt: new Date(), updatedAt: new Date() });
+    }
+
+    const agg = await votes.aggregate([
+      { $match: { quizId: { $in: [quiz.id, quizIdStr] } } },
+      { $group: { _id: null, sum: { $sum: '$rating' }, count: { $sum: 1 } } }
+    ]).next();
+    const sum = toFiniteNumber(agg && agg.sum, 0);
+    const count = toFiniteNumber(agg && agg.count, 0);
+    const avg = count ? Number((sum / count).toFixed(2)) : 0;
+    await ratings.updateOne(
+      { quizId: quizIdStr },
+      { $set: { quizId: quizIdStr, sum, count, avg, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    return res.json({ avg, count });
+  } catch (err) {
+    console.error('rate-quiz error', err);
+    return res.status(500).json({ error: 'No se pudo registrar la valoración.' });
   }
 });
 

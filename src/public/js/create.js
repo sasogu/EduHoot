@@ -61,6 +61,14 @@ function getQuizTimestamp(quiz){
     if(!isNaN(parsed)) return parsed;
     return 0;
 }
+function getQuizRatingAvg(quiz){
+    var avg = Number(quiz && quiz.ratingAvg);
+    return Number.isFinite(avg) ? avg : 0;
+}
+function getQuizRatingCount(quiz){
+    var count = Number(quiz && quiz.ratingCount);
+    return Number.isFinite(count) ? count : 0;
+}
 function sortLibraryQuizzes(quizzes){
     if(!quizzes || !quizzes.slice) return quizzes;
     var sorted = quizzes.slice();
@@ -71,6 +79,20 @@ function sortLibraryQuizzes(quizzes){
     }else if(currentSort === 'oldest'){
         sorted.sort(function(a, b){
             return getQuizTimestamp(a) - getQuizTimestamp(b);
+        });
+    }else if(currentSort === 'rating'){
+        sorted.sort(function(a, b){
+            var ra = getQuizRatingAvg(a);
+            var rb = getQuizRatingAvg(b);
+            if(ra === rb){
+                var ca = getQuizRatingCount(a);
+                var cb = getQuizRatingCount(b);
+                if(ca === cb){
+                    return getQuizTimestamp(b) - getQuizTimestamp(a);
+                }
+                return cb - ca;
+            }
+            return rb - ra;
         });
     }else if(currentSort === 'alpha-asc'){
         sorted.sort(function(a, b){
@@ -215,6 +237,7 @@ var i18n = {
         sortLabel: 'Ordenar por',
         sortNewest: 'Más recientes primero',
         sortOldest: 'Más antiguos primero',
+        sortRating: 'Mejor valorados',
         sortAlphaAsc: 'Orden alfabético A-Z',
         sortAlphaDesc: 'Orden alfabético Z-A',
         playsShort: 'partidas',
@@ -402,6 +425,7 @@ var i18n = {
         sortLabel: 'Sort by',
         sortNewest: 'Newest first',
         sortOldest: 'Oldest first',
+        sortRating: 'Top rated',
         sortAlphaAsc: 'Alphabetical A-Z',
         sortAlphaDesc: 'Alphabetical Z-A',
         playsShort: 'plays',
@@ -589,6 +613,7 @@ var i18n = {
         sortLabel: 'Ordenar per',
         sortNewest: 'Els més recents primer',
         sortOldest: 'Els més antics primer',
+        sortRating: 'Més ben valorats',
         sortAlphaAsc: 'Alfabètic A-Z',
         sortAlphaDesc: 'Alfabètic Z-A',
         playsShort: 'partides',
