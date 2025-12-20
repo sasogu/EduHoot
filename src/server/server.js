@@ -64,12 +64,51 @@ function extractKahootId(raw = '') {
   return '';
 }
 
-function saveEphemeralQuiz(quiz) {
+function isEphemeralExpired(quiz) {
+  if (!quiz || !quiz.expires) return false;
+  const exp = coerceDate(quiz.expires);
+  if (!exp) return false;
+  return exp.getTime() < Date.now();
+}
+
+function normalizeEphemeralQuiz(raw) {
+  if (!raw) return null;
+  return {
+    ...raw,
+    createdAt: coerceDate(raw.createdAt, new Date()),
+    updatedAt: coerceDate(raw.updatedAt, new Date()),
+    expires: coerceDate(raw.expires, null)
+  };
+}
+
+async function persistEphemeralQuiz(quiz) {
+  if (!quiz || !quiz.id) return;
+  ephemeralQuizzes.set(quiz.id, quiz);
+  try {
+    const collection = await getEphemeralCollection();
+    await collection.replaceOne({ id: quiz.id }, quiz, { upsert: true });
+  } catch (err) {
+    console.error('persistEphemeralQuiz error', err);
+  }
+}
+
+async function deleteEphemeralQuiz(id) {
+  if (!id) return;
+  ephemeralQuizzes.delete(id);
+  try {
+    const collection = await getEphemeralCollection();
+    await collection.deleteOne({ id });
+  } catch (err) {
+    console.error('deleteEphemeralQuiz error', err);
+  }
+}
+
+async function saveEphemeralQuiz(quiz) {
   const id = `local-${crypto.randomBytes(6).toString('hex')}`;
   const visibility = normalizeVisibility(quiz.visibility, 'public');
   const allowClone = normalizeAllowClone(quiz.allowClone, false);
   // Si se usa para invitados, caduca en 24h
-  const expires = Date.now() + 24 * 60 * 60 * 1000;
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const ownerToken = (quiz.ownerToken || '').toString().trim();
   const sanitized = {
     id,
@@ -88,18 +127,35 @@ function saveEphemeralQuiz(quiz) {
   if (ownerToken) {
     sanitized.ownerToken = ownerToken;
   }
-  ephemeralQuizzes.set(id, sanitized);
+  await persistEphemeralQuiz(sanitized);
   return sanitized;
 }
 
-function getEphemeralQuiz(id) {
-  const quiz = ephemeralQuizzes.get(id);
-  if (!quiz) return null;
-  if (quiz.expires && quiz.expires < Date.now()) {
-    ephemeralQuizzes.delete(id);
+async function getEphemeralQuiz(id) {
+  if (!id) return null;
+  const cached = ephemeralQuizzes.get(id);
+  if (cached) {
+    if (isEphemeralExpired(cached)) {
+      await deleteEphemeralQuiz(id);
+      return null;
+    }
+    return cached;
+  }
+  try {
+    const collection = await getEphemeralCollection();
+    const doc = await collection.findOne({ id });
+    if (!doc) return null;
+    const normalized = normalizeEphemeralQuiz(doc);
+    if (!normalized || isEphemeralExpired(normalized)) {
+      await deleteEphemeralQuiz(id);
+      return null;
+    }
+    ephemeralQuizzes.set(id, normalized);
+    return normalized;
+  } catch (err) {
+    console.error('getEphemeralQuiz error', err);
     return null;
   }
-  return quiz;
 }
 
 function isLocalQuizId(id) {
@@ -113,6 +169,7 @@ const DB_NAME = 'kahootDB';
 const GAMES_COLLECTION = 'kahootGames';
 const USERS_COLLECTION = 'users';
 const SOLO_SCORES_COLLECTION = 'soloScores';
+const EPHEMERAL_COLLECTION = 'ephemeralQuizzes';
 const MONGO_MAX_RETRIES = 5;
 const MONGO_RETRY_DELAY_MS = 3000;
 const mongoClient = new MongoClient(mongoUrl, {
@@ -195,13 +252,16 @@ async function ensureIndexes(dbInstance) {
   const games = dbInstance.collection(GAMES_COLLECTION);
   const users = dbInstance.collection(USERS_COLLECTION);
   const soloScores = dbInstance.collection(SOLO_SCORES_COLLECTION);
+  const ephemerals = dbInstance.collection(EPHEMERAL_COLLECTION);
   indexesReadyPromise = Promise.all([
     games.createIndex({ id: 1 }, { unique: true, sparse: true }),
     games.createIndex({ visibility: 1 }),
     games.createIndex({ ownerId: 1 }),
     soloScores.createIndex({ quizId: 1, score: -1, createdAt: 1 }),
     users.createIndex({ email: 1 }, { unique: true, sparse: true }),
-    users.createIndex({ resetToken: 1 }, { sparse: true })
+    users.createIndex({ resetToken: 1 }, { sparse: true }),
+    ephemerals.createIndex({ id: 1 }, { unique: true, sparse: true }),
+    ephemerals.createIndex({ expires: 1 }, { expireAfterSeconds: 0 })
   ]).catch((err) => {
     console.error('ensureIndexes error', err);
     indexesReadyPromise = null;
@@ -228,6 +288,11 @@ async function getUsersCollection() {
 async function getSoloScoresCollection() {
   const database = await getDb();
   return database.collection(SOLO_SCORES_COLLECTION);
+}
+
+async function getEphemeralCollection() {
+  const database = await getDb();
+  return database.collection(EPHEMERAL_COLLECTION);
 }
 
 function normalizeSoloName(name) {
@@ -361,7 +426,7 @@ async function findGameById(gameId) {
   const [game] = await collection.find(query).limit(1).toArray();
   if (game) return game;
   if (typeof gameId === 'string' && gameId.startsWith('local-')) {
-    return getEphemeralQuiz(gameId);
+    return await getEphemeralQuiz(gameId);
   }
   return null;
 }
@@ -1118,7 +1183,7 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
         logEvent('upload-csv:public-anon', { filename: req.file.originalname, newId, count: questions.length });
         return res.json({ id: newId, name: quizName, count: questions.length, local: false });
       } else {
-        const saved = saveEphemeralQuiz({ name: quizName, tags, questions, visibility: 'private', allowClone, ownerToken });
+        const saved = await saveEphemeralQuiz({ name: quizName, tags, questions, visibility: 'private', allowClone, ownerToken });
         logEvent('upload-csv:local', { filename: req.file.originalname, id: saved.id, count: questions.length });
         return res.json({ id: saved.id, name: quizName, count: questions.length, local: true });
       }
@@ -1398,7 +1463,7 @@ app.post('/api/import/kahoot', async (req, res) => {
 
     // Si no hay usuario y es privado, se guarda en memoria; si es público/unlisted se persiste con owner global
     if (!req.user && visibility === 'private') {
-      const saved = saveEphemeralQuiz({ name, tags, questions, visibility, allowClone, ownerToken, sourceQuizId: kahootId });
+      const saved = await saveEphemeralQuiz({ name, tags, questions, visibility, allowClone, ownerToken, sourceQuizId: kahootId });
       return res.json({ id: saved.id, name, count: questions.length, local: true });
     }
 
@@ -1502,10 +1567,10 @@ app.patch('/api/quizzes/:id', async (req, res) => {
   try {
     // Permitir renombrar quizzes locales sin sesión
     if (isLocalQuizId(quizIdParam)) {
-      const q = getEphemeralQuiz(quizIdParam);
+      const q = await getEphemeralQuiz(quizIdParam);
       if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
-      q.name = newName;
-      ephemeralQuizzes.set(quizIdParam, { ...q, updatedAt: new Date() });
+      const updated = { ...q, name: newName, updatedAt: new Date() };
+      await persistEphemeralQuiz(updated);
       return res.json({ ok: true, id: q.id, name: newName, local: true });
     }
     if (!req.user) {
@@ -1544,9 +1609,10 @@ app.patch('/api/quizzes/:id/tags', async (req, res) => {
   try {
     // Permitir editar tags de quizzes locales sin sesión
     if (isLocalQuizId(quizIdParam)) {
-      const q = getEphemeralQuiz(quizIdParam);
+      const q = await getEphemeralQuiz(quizIdParam);
       if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
-      ephemeralQuizzes.set(quizIdParam, { ...q, tags, updatedAt: new Date() });
+      const updated = { ...q, tags, updatedAt: new Date() };
+      await persistEphemeralQuiz(updated);
       return res.json({ ok: true, id: quizIdParam, tags, local: true });
     }
 
@@ -1590,9 +1656,9 @@ app.put('/api/quizzes/:id', async (req, res) => {
   }
   try {
     if (isLocalQuizId(quizIdParam)) {
-      const q = getEphemeralQuiz(quizIdParam);
+      const q = await getEphemeralQuiz(quizIdParam);
       if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
-      ephemeralQuizzes.set(quizIdParam, {
+      const updated = {
         ...q,
         name,
         tags,
@@ -1600,7 +1666,8 @@ app.put('/api/quizzes/:id', async (req, res) => {
         visibility,
         allowClone,
         updatedAt: new Date()
-      });
+      };
+      await persistEphemeralQuiz(updated);
       return res.json({ ok: true, id: quizIdParam, name, local: true });
     }
     if (!req.user) {
@@ -1641,9 +1708,9 @@ app.delete('/api/quizzes/:id', async (req, res) => {
   if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
   try {
     if (isLocalQuizId(quizIdParam)) {
-      const exists = getEphemeralQuiz(quizIdParam);
+      const exists = await getEphemeralQuiz(quizIdParam);
       if (!exists) return res.status(404).json({ error: 'Quiz no encontrado.' });
-      ephemeralQuizzes.delete(quizIdParam);
+      await deleteEphemeralQuiz(quizIdParam);
       return res.json({ ok: true, id: quizIdParam, local: true });
     }
     if (!req.user) {
@@ -1677,7 +1744,7 @@ app.patch('/api/quizzes/:id/sharing', async (req, res) => {
   if (ownerToken) req.user = { ...(req.user || {}), ownerToken };
   try {
     if (isLocalQuizId(quizIdParam)) {
-      const q = getEphemeralQuiz(quizIdParam);
+      const q = await getEphemeralQuiz(quizIdParam);
       if (!q) return res.status(404).json({ error: 'Quiz no encontrado.' });
       // Permitir marcar como público: se mueve a la colección persistente
       if (visibility === 'public') {
@@ -1700,11 +1767,11 @@ app.patch('/api/quizzes/:id/sharing', async (req, res) => {
           updatedAt: new Date()
         };
         await collection.insertOne(doc);
-        ephemeralQuizzes.delete(quizIdParam);
+        await deleteEphemeralQuiz(quizIdParam);
         return res.json({ ok: true, id: newId, visibility: 'public', migrated: true });
       }
       const updated = { ...q, visibility, allowClone, ownerToken: q.ownerToken || ownerToken || '', updatedAt: new Date() };
-      ephemeralQuizzes.set(quizIdParam, updated);
+      await persistEphemeralQuiz(updated);
       return res.json({ ok: true, id: quizIdParam, visibility, allowClone, local: true });
     }
     if (!req.user) {
@@ -2396,26 +2463,25 @@ app.get('/api/quizzes', async (req, res) => {
       ? localIdsParam
       : (typeof localIdsParam === 'string' && localIdsParam.length ? localIdsParam.split(',') : []);
     const validLocal = [];
-    const now = Date.now();
-    localIds.forEach((id) => {
-      const q = getEphemeralQuiz(id);
-      if (q && (!q.expires || q.expires >= now)) {
+    for (const id of localIds) {
+      const q = await getEphemeralQuiz(id);
+      if (q && !isEphemeralExpired(q)) {
         validLocal.push({
-        id: q.id,
-        name: q.name,
-        tags: q.tags || [],
-        playsCount: 0,
-        playersCount: 0,
-        visibility: currentVisibility(q),
-        allowClone: normalizeAllowClone(q.allowClone),
-        ownerId: null,
-        ownerEmail: '',
-        ownerNickname: '',
-        sourceQuizId: q.sourceQuizId,
-        createdAt: q.createdAt || q.updatedAt || new Date()
-      });
+          id: q.id,
+          name: q.name,
+          tags: q.tags || [],
+          playsCount: 0,
+          playersCount: 0,
+          visibility: currentVisibility(q),
+          allowClone: normalizeAllowClone(q.allowClone),
+          ownerId: null,
+          ownerEmail: '',
+          ownerNickname: '',
+          sourceQuizId: q.sourceQuizId,
+          createdAt: q.createdAt || q.updatedAt || new Date()
+        });
       }
-    });
+    }
     return res.json(quizzes.concat(validLocal));
   } catch (err) {
     console.error('list-quizzes error', err);
@@ -2610,7 +2676,7 @@ app.post('/api/quizzes/local', async (req, res) => {
     if (!tags.length) return res.status(400).json({ error: 'Añade al menos una etiqueta.' });
     if (!questions.length) return res.status(400).json({ error: 'Añade preguntas.' });
     if (visibility === 'private') {
-      const saved = saveEphemeralQuiz({ name, questions, tags, visibility, allowClone });
+      const saved = await saveEphemeralQuiz({ name, questions, tags, visibility, allowClone });
       return res.json({ ok: true, id: saved.id, count: questions.length });
     }
     const collection = await getGamesCollection();
@@ -2772,8 +2838,12 @@ app.get('/api/admin/stats', requireRole('admin'), async (req, res) => {
     const liveGames = games.games.length;
     const livePlayers = games.games.reduce((acc, g) => acc + players.getPlayers(g.hostId).length, 0);
 
-    const now = Date.now();
-    const ephemeralList = Array.from(ephemeralQuizzes.values()).filter((q) => !q.expires || q.expires >= now);
+    const ephemerals = await getEphemeralCollection();
+    const now = new Date();
+    const ephemeralList = await ephemerals.find(
+      { $or: [{ expires: { $exists: false } }, { expires: { $gte: now } }] },
+      { projection: { questions: 1 } }
+    ).toArray();
     const ephemeralQuestions = ephemeralList.reduce((sum, q) => sum + ((q.questions || []).length), 0);
 
     const avgQuestionsPerQuiz = totalQuizzes ? Number((totalQuestions / totalQuizzes).toFixed(2)) : 0;
