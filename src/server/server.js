@@ -2499,44 +2499,20 @@ app.get('/api/quizzes', async (req, res) => {
         return false;
       });
     }
-    const visibleQuizzes = selectQuizzesForUser(quizzesRaw, req.user);
-    const ratingCollection = await getRatingsCollection();
-    const quizIds = (visibleQuizzes || []).map((quiz) => quiz.id).filter((id) => id !== undefined && id !== null);
-    const ratingQueryIds = new Set();
-    quizIds.forEach((id) => {
-      ratingQueryIds.add(String(id));
-      if (typeof id === 'number' && Number.isFinite(id)) {
-        ratingQueryIds.add(id);
-      }
-    });
-    const ratingsList = ratingQueryIds.size
-      ? await ratingCollection.find({ quizId: { $in: Array.from(ratingQueryIds) } }).project({ quizId: 1, avg: 1, count: 1 }).toArray()
-      : [];
-    const ratingsById = new Map();
-    ratingsList.forEach((r) => {
-      if (!r || r.quizId === undefined || r.quizId === null) return;
-      ratingsById.set(String(r.quizId), { avg: toFiniteNumber(r.avg, 0), count: toFiniteNumber(r.count, 0) });
-    });
-
-    const quizzes = visibleQuizzes.map((quiz) => {
-      const rating = ratingsById.get(String(quiz.id)) || { avg: 0, count: 0 };
-      return {
-        id: quiz.id,
-        name: quiz.name,
-        tags: quiz.tags || [],
-        playsCount: quiz.playsCount || 0,
-        playersCount: quiz.playersCount || 0,
-        visibility: currentVisibility(quiz),
-        allowClone: normalizeAllowClone(quiz.allowClone),
-        ownerId: quiz.ownerId,
-        ownerEmail: quiz.ownerEmail || '',
-        ownerNickname: quiz.ownerNickname || '',
-        sourceQuizId: quiz.sourceQuizId,
-        createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
-        ratingAvg: rating.avg,
-        ratingCount: rating.count
-      };
-    });
+    const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
+      id: quiz.id,
+      name: quiz.name,
+      tags: quiz.tags || [],
+      playsCount: quiz.playsCount || 0,
+      playersCount: quiz.playersCount || 0,
+      visibility: currentVisibility(quiz),
+      allowClone: normalizeAllowClone(quiz.allowClone),
+      ownerId: quiz.ownerId,
+      ownerEmail: quiz.ownerEmail || '',
+      ownerNickname: quiz.ownerNickname || '',
+      sourceQuizId: quiz.sourceQuizId,
+      createdAt: quiz.createdAt || quiz.updatedAt || new Date(0)
+    }));
     // Añadir quizzes efímeros solicitados
     const localIdsParam = req.query.localIds;
     const localIds = Array.isArray(localIdsParam)
@@ -2558,9 +2534,7 @@ app.get('/api/quizzes', async (req, res) => {
           ownerEmail: '',
           ownerNickname: '',
           sourceQuizId: q.sourceQuizId,
-          createdAt: q.createdAt || q.updatedAt || new Date(),
-          ratingAvg: 0,
-          ratingCount: 0
+          createdAt: q.createdAt || q.updatedAt || new Date()
         });
       }
     }

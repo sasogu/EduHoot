@@ -240,6 +240,11 @@ input{
     background-position: right 12px center;
     background-size: 12px 8px;
     padding-right: 34px;
+    color-scheme: dark;
+}
+#sort option{
+    background-color: #0f172a;
+    color: #e9eefb;
 }
 .panel__filters input[type="number"]{
     max-width: 90px;
