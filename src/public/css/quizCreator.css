@@ -119,6 +119,18 @@ body.modal-open{
     width: auto;
 }
 
+.btn-icon{
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    object-fit: contain;
+    margin-left: 8px;
+    border-radius: 3px;
+    vertical-align: -3px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.10);
+}
+
 input, textarea{
     width: 100%;
     box-sizing: border-box;
@@ -319,6 +331,7 @@ label{
     box-shadow: 0 8px 18px rgba(0,0,0,0.25);
 }
 
+
 .actions{
     text-align: right;
 }
@@ -327,6 +340,11 @@ label{
     gap: 10px;
     flex-wrap: wrap;
     justify-content: flex-end;
+}
+
+.sw-version{
+    margin: 10px 0 0;
+    text-align: center;
 }
 
 .moodle-modal{

@@ -72,8 +72,9 @@
                     <button class="btn btn-primary" onclick="updateDatabase()" data-i18n="btnSave">Guardar quiz</button>
                     <button class="btn btn-ghost" onclick="saveLocal()" data-i18n="btnPlayLocal">Jugar sin guardar</button>
                     <button class="btn btn-ghost" onclick="exportCsv()" data-i18n="btnExportCsv">Exportar CSV</button>
-                    <button class="btn btn-ghost" onclick="exportPdf()"><span data-i18n="btnExportPdf">Exportar PDF</span> <span aria-hidden="true">📥</span></button>
-                    <button class="btn btn-ghost" onclick="exportMoodleXml()" data-i18n="btnExportMoodleXml">Exportar XML (Moodle) <span aria-hidden="true">📥</span></button>
+                    <button class="btn btn-ghost" onclick="exportPdf()"><span data-i18n="btnExportPdf">Exportar PDF</span> <img class="btn-icon" src="/icons/pdf.jpeg" alt="" aria-hidden="true"></button>
+                    <button class="btn btn-ghost" onclick="exportPdf({ includeAnswers: false })"><span data-i18n="btnExportPdfNoAnswers">Exportar PDF (sin respuestas)</span> <img class="btn-icon" src="/icons/pdf.jpeg" alt="" aria-hidden="true"></button>
+                    <button class="btn btn-ghost" onclick="exportMoodleXml()"><span data-i18n="btnExportMoodleXml">Exportar XML (Moodle)</span> <span aria-hidden="true">↓</span></button>
                     <button class="btn btn-ghost" onclick="cancelQuiz()" data-i18n="btnCancel">Cancelar y volver</button>
                 </div>
                 <p class="subtext" data-i18n="localInfo">
@@ -83,6 +84,8 @@
                     Con sesión iniciada, se guardan en tu usuario.
                 </p>
             </div>
+
+            <p class="subtext sw-version" id="sw-version" aria-live="polite"></p>
         </div>
 
         <div id="moodleModal" class="moodle-modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="moodleModalTitle">
@@ -104,5 +107,6 @@
         <script src = "../../socket.io/socket.io.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
         <script src = "../../js/quizCreator.js"></script>
+        <script src="/js/sw-version.js"></script>
     </body>
 </html>

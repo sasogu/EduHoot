@@ -615,6 +615,17 @@ details.panel[open] > summary{
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
+.btn.btn-with-icon{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-icon{
+    width: 18px;
+    height: 18px;
+    object-fit: cover;
+    border-radius: 4px;
+}
 .btn-primary{
     background: linear-gradient(135deg, #ffee70, #ffb347);
     color: #1b1b1b;

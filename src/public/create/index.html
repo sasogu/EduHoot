@@ -124,7 +124,10 @@
                     <h4 data-i18n="adminBackupTitle">Importar / Exportar todos los quizzes</h4>
                     <p class="subtext" data-i18n="adminBackupDesc">Crea un backup completo (JSON) o restaura todos los quizzes desde un archivo.</p>
                     <div class="actions-row">
-                        <button id="admin-export-quizzes" class="btn btn-ghost" data-i18n="btnExportAllQuizzes">Exportar todos</button>
+                        <button id="admin-export-quizzes" class="btn btn-ghost btn-with-icon">
+                            <span data-i18n="btnExportAllQuizzes">Exportar todos</span>
+                            <img class="btn-icon" src="/icons/pdf.jpeg" alt="Descargar" loading="lazy" decoding="async">
+                        </button>
                     </div>
                     <div class="auth-grid">
                         <label data-i18n="labelImportAllQuizzes">Archivo JSON
@@ -233,7 +236,10 @@
 
                 <div class="actions-row">
                     <button id="ia-open" class="btn btn-ghost" type="button" data-i18n="btnOpenCsv">Abrir CSV</button>
-                    <button id="ia-download" class="btn btn-ghost" type="button" data-i18n="btnDownloadCsv">Descargar CSV</button>
+                    <button id="ia-download" class="btn btn-ghost btn-with-icon" type="button">
+                        <span data-i18n="btnDownloadCsv">Descargar CSV</span>
+                        <img class="btn-icon" src="/icons/pdf.jpeg" alt="Descargar" loading="lazy" decoding="async">
+                    </button>
                     <button id="ia-preview" class="btn btn-ghost" type="button" data-i18n="btnPreviewCsv">Vista previa</button>
                 </div>
 
@@ -339,9 +345,11 @@
                     <span>edutictac.es</span>
                 </a>
                 <p class="site-footer__about" data-i18n="footerLicense">EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)</p>
+                <p class="site-footer__about" id="sw-version" aria-live="polite"></p>
             </div>
         </footer>
         <script src = "../socket.io/socket.io.js"></script>
         <script src = "../js/create.js"></script>
+        <script src="/js/sw-version.js"></script>
     </body>
 </html>
