@@ -298,6 +298,78 @@ function pdfAddWrapped(doc, text, x, y, maxWidth, opts){
     return y;
 }
 
+function getImageFormatFromDataUrl(dataUrl){
+    var match = /^data:image\/(png|jpeg|jpg|webp);/i.exec(dataUrl || '');
+    if(!match) return '';
+    var ext = match[1].toLowerCase();
+    if(ext === 'png') return 'PNG';
+    if(ext === 'webp') return 'WEBP';
+    return 'JPEG';
+}
+
+function blobToDataUrl(blob){
+    return new Promise(function(resolve){
+        var reader = new FileReader();
+        reader.onload = function(){ resolve(reader.result || ''); };
+        reader.onerror = function(){ resolve(''); };
+        reader.readAsDataURL(blob);
+    });
+}
+
+function loadImageForPdf(url){
+    return new Promise(function(resolve){
+        var raw = (url || '').toString().trim();
+        if(!raw) return resolve(null);
+        var normalized = normalizeSvgDataUrlForImg(raw);
+        var isDataUrl = normalized.toLowerCase().startsWith('data:image/');
+        var dataUrlPromise = isDataUrl
+            ? Promise.resolve(normalized)
+            : fetch(normalized, { mode: 'cors', cache: 'no-store' })
+                .then(function(res){ return res && res.ok ? res.blob() : null; })
+                .then(function(blob){ return blob ? blobToDataUrl(blob) : ''; })
+                .catch(function(){ return ''; });
+
+        dataUrlPromise.then(function(dataUrl){
+            if(!dataUrl) return resolve(null);
+            var format = getImageFormatFromDataUrl(dataUrl);
+            if(!format) return resolve(null);
+            var img = new Image();
+            img.onload = function(){
+                resolve({
+                    dataUrl: dataUrl,
+                    format: format,
+                    width: img.naturalWidth || img.width || 0,
+                    height: img.naturalHeight || img.height || 0
+                });
+            };
+            img.onerror = function(){ resolve(null); };
+            img.src = dataUrl;
+        });
+    });
+}
+
+function pdfAddImage(doc, image, x, y, maxWidth, opts){
+    opts = opts || {};
+    var marginTop = opts.marginTop || 40;
+    var bottomLimit = doc.internal.pageSize.getHeight() - (opts.marginBottomLimit || 40);
+    var maxHeight = opts.maxHeight || 240;
+    var marginBottom = opts.marginBottom === undefined ? 6 : opts.marginBottom;
+    if(!image || !image.width || !image.height) return y;
+
+    var scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+    var drawWidth = image.width * scale;
+    var drawHeight = image.height * scale;
+
+    if(y + drawHeight > bottomLimit){
+        doc.addPage();
+        y = marginTop;
+    }
+
+    doc.addImage(image.dataUrl, image.format, x, y, drawWidth, drawHeight);
+    y += drawHeight + marginBottom;
+    return y;
+}
+
 function t(key){
     return (i18n[lang] && i18n[lang][key]) || i18n.es[key] || key;
 }
@@ -887,7 +959,7 @@ function exportMoodleXml(){
     openMoodleExportModal(quiz);
 }
 
-function exportPdf(options){
+async function exportPdf(options){
     options = options || {};
     var includeAnswers = options.includeAnswers !== false;
 
@@ -925,7 +997,8 @@ function exportPdf(options){
         y += 6;
     }
 
-    quiz.questions.forEach(function(q, idx){
+    for(var idx = 0; idx < quiz.questions.length; idx++){
+        var q = quiz.questions[idx];
         var qNum = idx + 1;
         var qText = (q && q.question) ? String(q.question).trim() : '';
         var qType = (q && q.type) ? String(q.type) : 'quiz';
@@ -966,7 +1039,12 @@ function exportPdf(options){
 
         // URLs como texto (no embebemos imágenes/vídeos en PDF para mantenerlo simple y robusto)
         if(q && q.image){
-            y = pdfAddWrapped(doc, t('pdfImage') + ': ' + String(q.image), margin, y, maxWidth, { fontSize: 10 });
+            var imageData = await loadImageForPdf(q.image);
+            if(imageData){
+                y = pdfAddImage(doc, imageData, margin, y, maxWidth);
+            }else{
+                y = pdfAddWrapped(doc, t('pdfImage') + ': ' + String(q.image), margin, y, maxWidth, { fontSize: 10 });
+            }
         }
         if(q && q.video){
             y = pdfAddWrapped(doc, t('pdfVideo') + ': ' + String(q.video), margin, y, maxWidth, { fontSize: 10 });
@@ -997,7 +1075,7 @@ function exportPdf(options){
         }else{
             y += 10;
         }
-    });
+    }
 
     var baseName = sanitizeFilename(title, 'quiz');
     var filename = baseName + (includeAnswers ? '' : '_sin_respuestas') + '.pdf';
