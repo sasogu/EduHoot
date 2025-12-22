@@ -38,6 +38,7 @@ var i18n = {
         btnSave: 'Guardar quiz',
         btnPlayLocal: 'Jugar sin guardar',
         btnExportCsv: 'Exportar CSV',
+        btnExportPdf: 'Exportar PDF',
         btnExportMoodleXml: 'Exportar XML (Moodle)',
         btnCancel: 'Cancelar y volver',
         localInfo: 'Sin sesión: “Guardar” o “Jugar sin guardar” crean un quiz anónimo. Si es Solo yo caduca en 24h; Por enlace/Público se guarda globalmente. Con sesión se guarda en tu usuario.',
@@ -72,7 +73,15 @@ var i18n = {
         moodleModalStep2: 'Ve a Administración del curso > Importar y selecciona el tipo "Moodle XML".',
         moodleModalStep3: 'Sube el archivo descargado y sigue el asistente para confirmar las preguntas.',
         moodleModalCancel: 'Cerrar',
-        moodleModalConfirm: 'Descargar XML'
+        moodleModalConfirm: 'Descargar XML',
+        pdfTags: 'Etiquetas',
+        pdfCorrect: 'Correcta',
+        pdfAcceptedAnswers: 'Respuestas válidas',
+        pdfNumericAnswer: 'Respuesta',
+        pdfTolerance: 'Tolerancia',
+        pdfImage: 'Imagen',
+        pdfVideo: 'Video',
+        pdfMissingLib: 'No se pudo generar el PDF (librería no disponible).'
     },
     en: {
         back: 'Back',
@@ -98,6 +107,7 @@ var i18n = {
         btnSave: 'Save quiz',
         btnPlayLocal: 'Play without saving',
         btnExportCsv: 'Export CSV',
+        btnExportPdf: 'Export PDF',
         btnExportMoodleXml: 'Export Moodle XML',
         btnCancel: 'Cancel and go back',
         localInfo: 'Without session: “Save” or “Play without saving” create an anonymous quiz. "Only me" expires in 24h; "By link/Public" is stored globally. With session, it is saved to your user.',
@@ -132,7 +142,15 @@ var i18n = {
         moodleModalStep2: 'Go to Course administration > Import and choose "Moodle XML" as the source.',
         moodleModalStep3: 'Upload this file and follow the wizard to review questions and settings.',
         moodleModalCancel: 'Close',
-        moodleModalConfirm: 'Download XML'
+        moodleModalConfirm: 'Download XML',
+        pdfTags: 'Tags',
+        pdfCorrect: 'Correct',
+        pdfAcceptedAnswers: 'Accepted answers',
+        pdfNumericAnswer: 'Answer',
+        pdfTolerance: 'Tolerance',
+        pdfImage: 'Image',
+        pdfVideo: 'Video',
+        pdfMissingLib: 'Could not generate the PDF (library not available).'
     },
     ca: {
         back: 'Tornar',
@@ -158,6 +176,7 @@ var i18n = {
         btnSave: 'Desar quiz',
         btnPlayLocal: 'Jugar sense desar',
         btnExportCsv: 'Exportar CSV',
+        btnExportPdf: 'Exportar PDF',
         btnExportMoodleXml: 'Exportar XML (Moodle)',
         btnCancel: 'Cancel·lar i tornar',
         localInfo: 'Sense sessió: “Desar” o “Jugar sense desar” creen un quiz anònim. "Només jo" caduca en 24h; "Per enllaç/Públic" es guarda globalment. Amb sessió, queda al teu usuari.',
@@ -192,9 +211,89 @@ var i18n = {
         moodleModalStep2: 'Vés a Administració del curs > Importa i tria "Moodle XML".',
         moodleModalStep3: 'Carrega aquest fitxer i segueix l\'assistència per revisar les preguntes.',
         moodleModalCancel: 'Tancar',
-        moodleModalConfirm: 'Descarregar XML'
+        moodleModalConfirm: 'Descarregar XML',
+        pdfTags: 'Etiquetes',
+        pdfCorrect: 'Correcta',
+        pdfAcceptedAnswers: 'Respostes vàlides',
+        pdfNumericAnswer: 'Resposta',
+        pdfTolerance: 'Tolerància',
+        pdfImage: 'Imatge',
+        pdfVideo: 'Vídeo',
+        pdfMissingLib: 'No s\'ha pogut generar el PDF (llibreria no disponible).'
     }
 };
+
+function getJsPdf(){
+    try{
+        if(window.jspdf && window.jspdf.jsPDF){
+            return window.jspdf.jsPDF;
+        }
+    }catch(e){
+        // ignore
+    }
+    return null;
+}
+
+function sanitizeFilename(name, fallback){
+    var base = (name || '').toString().trim();
+    if(!base) base = fallback || 'quiz';
+    // Quitar caracteres típicamente problemáticos en descargas
+    base = base.replace(/[\\/\n\r\t\0]+/g, ' ');
+    base = base.replace(/[:*?"<>|]+/g, '');
+    base = base.replace(/\s+/g, ' ').trim();
+    if(!base) base = fallback || 'quiz';
+    return base;
+}
+
+function toLetterAnswer(n){
+    var num = parseInt(n, 10);
+    if(!isFinite(num)) return '';
+    if(num === 1) return 'A';
+    if(num === 2) return 'B';
+    if(num === 3) return 'C';
+    if(num === 4) return 'D';
+    return String(num);
+}
+
+function getTfLabelsForPdf(question){
+    var raw = Array.isArray(question && question.answers) ? question.answers : [];
+    var a = (raw[0] || '').toString().trim();
+    var b = (raw[1] || '').toString().trim();
+    var fallback = getTfFallbackAnswers();
+    return [a || fallback[0], b || fallback[1]];
+}
+
+function pdfAddWrapped(doc, text, x, y, maxWidth, opts){
+    opts = opts || {};
+    var fontSize = opts.fontSize || 11;
+    var lineHeight = opts.lineHeight || Math.round(fontSize * 1.25);
+    var isBold = !!opts.bold;
+    var marginBottom = (opts.marginBottom === undefined ? 0 : opts.marginBottom);
+
+    doc.setFontSize(fontSize);
+    try{
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    }catch(e){
+        // ignore if font set fails
+    }
+
+    var pageHeight = doc.internal.pageSize.getHeight();
+    var marginTop = opts.marginTop || 40;
+    var bottomLimit = pageHeight - (opts.marginBottomLimit || 40);
+
+    var safeText = (text === undefined || text === null) ? '' : String(text);
+    var lines = doc.splitTextToSize(safeText, maxWidth);
+    for(var i = 0; i < lines.length; i++){
+        if(y + lineHeight > bottomLimit){
+            doc.addPage();
+            y = marginTop;
+        }
+        doc.text(lines[i], x, y);
+        y += lineHeight;
+    }
+    y += marginBottom;
+    return y;
+}
 
 function t(key){
     return (i18n[lang] && i18n[lang][key]) || i18n.es[key] || key;
@@ -783,6 +882,113 @@ function exportMoodleXml(){
         return;
     }
     openMoodleExportModal(quiz);
+}
+
+function exportPdf(){
+    var quiz = buildQuizPayload();
+    if(!quiz.questions.length){
+        alert(t('playErrorQuestions'));
+        return;
+    }
+
+    var JsPdfCtor = getJsPdf();
+    if(!JsPdfCtor){
+        alert(t('pdfMissingLib'));
+        return;
+    }
+
+    var title = (quiz.name || '').toString().trim() || 'EduHoot quiz';
+    var doc = new JsPdfCtor({ unit: 'pt', format: 'a4' });
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var margin = 40;
+    var maxWidth = pageWidth - (margin * 2);
+    var y = margin;
+
+    y = pdfAddWrapped(doc, title, margin, y, maxWidth, { fontSize: 18, bold: true, marginBottom: 10 });
+
+    if(Array.isArray(quiz.tags) && quiz.tags.length){
+        y = pdfAddWrapped(
+            doc,
+            t('pdfTags') + ': ' + quiz.tags.join(', '),
+            margin,
+            y,
+            maxWidth,
+            { fontSize: 11, bold: false, marginBottom: 12 }
+        );
+    }else{
+        y += 6;
+    }
+
+    quiz.questions.forEach(function(q, idx){
+        var qNum = idx + 1;
+        var qText = (q && q.question) ? String(q.question).trim() : '';
+        var qType = (q && q.type) ? String(q.type) : 'quiz';
+
+        y = pdfAddWrapped(doc, qNum + '. ' + (qText || ''), margin, y, maxWidth, { fontSize: 12, bold: true, marginBottom: 6 });
+
+        if(qType === 'short-answer'){
+            var accepted = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : [];
+            if(accepted.length){
+                y = pdfAddWrapped(doc, t('pdfAcceptedAnswers') + ': ' + accepted.join(' | '), margin, y, maxWidth, { fontSize: 11 });
+                y = pdfAddWrapped(doc, t('pdfCorrect') + ': ' + accepted.join(' | '), margin, y, maxWidth, { fontSize: 10, marginBottom: 8 });
+            }
+        }else if(qType === 'numeric'){
+            var n = (q.numericAnswer === undefined || q.numericAnswer === null) ? '' : String(q.numericAnswer);
+            var tol = (q.tolerance === undefined || q.tolerance === null) ? '0' : String(q.tolerance);
+            y = pdfAddWrapped(doc, t('pdfNumericAnswer') + ': ' + n + ' (± ' + t('pdfTolerance') + ': ' + tol + ')', margin, y, maxWidth, { fontSize: 11 });
+            y = pdfAddWrapped(doc, t('pdfCorrect') + ': ' + n + ' (± ' + tol + ')', margin, y, maxWidth, { fontSize: 10, marginBottom: 8 });
+        }else if(qType === 'true-false'){
+            var tf = getTfLabelsForPdf(q);
+            y = pdfAddWrapped(doc, 'A) ' + tf[0], margin, y, maxWidth, { fontSize: 11 });
+            y = pdfAddWrapped(doc, 'B) ' + tf[1], margin, y, maxWidth, { fontSize: 11, marginBottom: 6 });
+        }else{
+            var answers = Array.isArray(q.answers) ? q.answers : [];
+            var labels = ['A', 'B', 'C', 'D'];
+            for(var i = 0; i < 4; i++){
+                var ans = (answers[i] || '').toString().trim();
+                if(!ans) continue;
+                y = pdfAddWrapped(doc, labels[i] + ') ' + ans, margin, y, maxWidth, { fontSize: 11 });
+            }
+            y += 6;
+        }
+
+        // URLs como texto (no embebemos imágenes/vídeos en PDF para mantenerlo simple y robusto)
+        if(q && q.image){
+            y = pdfAddWrapped(doc, t('pdfImage') + ': ' + String(q.image), margin, y, maxWidth, { fontSize: 10 });
+        }
+        if(q && q.video){
+            y = pdfAddWrapped(doc, t('pdfVideo') + ': ' + String(q.video), margin, y, maxWidth, { fontSize: 10 });
+        }
+
+        // Mostrar solución (índices/letters) para quizzes
+        if(qType === 'quiz' || qType === 'multiple' || qType === 'true-false'){
+            var correct = (Array.isArray(q.correctAnswers) && q.correctAnswers.length) ? q.correctAnswers : [q.correct];
+            var printable = [];
+            correct.forEach(function(v){
+                if(qType === 'true-false'){
+                    var num = parseInt(v, 10);
+                    if(num === 1) printable.push('A');
+                    else if(num === 2) printable.push('B');
+                }else{
+                    var letter = toLetterAnswer(v);
+                    if(letter) printable.push(letter);
+                }
+            });
+            if(printable.length){
+                // unique
+                var seen = {};
+                printable = printable.filter(function(x){ if(seen[x]) return false; seen[x] = true; return true; });
+                y = pdfAddWrapped(doc, t('pdfCorrect') + ': ' + printable.join(', '), margin, y, maxWidth, { fontSize: 10, marginBottom: 10 });
+            }else{
+                y += 6;
+            }
+        }else{
+            y += 10;
+        }
+    });
+
+    var filename = sanitizeFilename(title, 'quiz') + '.pdf';
+    doc.save(filename);
 }
 
 function downloadMoodleXmlFile(quiz){
