@@ -39,6 +39,7 @@ var i18n = {
         btnPlayLocal: 'Jugar sin guardar',
         btnExportCsv: 'Exportar CSV',
         btnExportPdf: 'Exportar PDF',
+        btnExportPdfNoAnswers: 'Exportar PDF (sin respuestas)',
         btnExportMoodleXml: 'Exportar XML (Moodle)',
         btnCancel: 'Cancelar y volver',
         localInfo: 'Sin sesión: “Guardar” o “Jugar sin guardar” crean un quiz anónimo. Si es Solo yo caduca en 24h; Por enlace/Público se guarda globalmente. Con sesión se guarda en tu usuario.',
@@ -108,6 +109,7 @@ var i18n = {
         btnPlayLocal: 'Play without saving',
         btnExportCsv: 'Export CSV',
         btnExportPdf: 'Export PDF',
+        btnExportPdfNoAnswers: 'Export PDF (no answers)',
         btnExportMoodleXml: 'Export Moodle XML',
         btnCancel: 'Cancel and go back',
         localInfo: 'Without session: “Save” or “Play without saving” create an anonymous quiz. "Only me" expires in 24h; "By link/Public" is stored globally. With session, it is saved to your user.',
@@ -177,6 +179,7 @@ var i18n = {
         btnPlayLocal: 'Jugar sense desar',
         btnExportCsv: 'Exportar CSV',
         btnExportPdf: 'Exportar PDF',
+        btnExportPdfNoAnswers: 'Exportar PDF (sense respostes)',
         btnExportMoodleXml: 'Exportar XML (Moodle)',
         btnCancel: 'Cancel·lar i tornar',
         localInfo: 'Sense sessió: “Desar” o “Jugar sense desar” creen un quiz anònim. "Només jo" caduca en 24h; "Per enllaç/Públic" es guarda globalment. Amb sessió, queda al teu usuari.',
@@ -884,7 +887,10 @@ function exportMoodleXml(){
     openMoodleExportModal(quiz);
 }
 
-function exportPdf(){
+function exportPdf(options){
+    options = options || {};
+    var includeAnswers = options.includeAnswers !== false;
+
     var quiz = buildQuizPayload();
     if(!quiz.questions.length){
         alert(t('playErrorQuestions'));
@@ -928,15 +934,21 @@ function exportPdf(){
 
         if(qType === 'short-answer'){
             var accepted = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : [];
-            if(accepted.length){
+            if(includeAnswers && accepted.length){
                 y = pdfAddWrapped(doc, t('pdfAcceptedAnswers') + ': ' + accepted.join(' | '), margin, y, maxWidth, { fontSize: 11 });
                 y = pdfAddWrapped(doc, t('pdfCorrect') + ': ' + accepted.join(' | '), margin, y, maxWidth, { fontSize: 10, marginBottom: 8 });
+            }else{
+                y += 8;
             }
         }else if(qType === 'numeric'){
             var n = (q.numericAnswer === undefined || q.numericAnswer === null) ? '' : String(q.numericAnswer);
             var tol = (q.tolerance === undefined || q.tolerance === null) ? '0' : String(q.tolerance);
-            y = pdfAddWrapped(doc, t('pdfNumericAnswer') + ': ' + n + ' (± ' + t('pdfTolerance') + ': ' + tol + ')', margin, y, maxWidth, { fontSize: 11 });
-            y = pdfAddWrapped(doc, t('pdfCorrect') + ': ' + n + ' (± ' + tol + ')', margin, y, maxWidth, { fontSize: 10, marginBottom: 8 });
+            if(includeAnswers){
+                y = pdfAddWrapped(doc, t('pdfNumericAnswer') + ': ' + n + ' (± ' + t('pdfTolerance') + ': ' + tol + ')', margin, y, maxWidth, { fontSize: 11 });
+                y = pdfAddWrapped(doc, t('pdfCorrect') + ': ' + n + ' (± ' + tol + ')', margin, y, maxWidth, { fontSize: 10, marginBottom: 8 });
+            }else{
+                y += 8;
+            }
         }else if(qType === 'true-false'){
             var tf = getTfLabelsForPdf(q);
             y = pdfAddWrapped(doc, 'A) ' + tf[0], margin, y, maxWidth, { fontSize: 11 });
@@ -961,7 +973,7 @@ function exportPdf(){
         }
 
         // Mostrar solución (índices/letters) para quizzes
-        if(qType === 'quiz' || qType === 'multiple' || qType === 'true-false'){
+        if(includeAnswers && (qType === 'quiz' || qType === 'multiple' || qType === 'true-false')){
             var correct = (Array.isArray(q.correctAnswers) && q.correctAnswers.length) ? q.correctAnswers : [q.correct];
             var printable = [];
             correct.forEach(function(v){
@@ -987,7 +999,8 @@ function exportPdf(){
         }
     });
 
-    var filename = sanitizeFilename(title, 'quiz') + '.pdf';
+    var baseName = sanitizeFilename(title, 'quiz');
+    var filename = baseName + (includeAnswers ? '' : '_sin_respuestas') + '.pdf';
     doc.save(filename);
 }
 
