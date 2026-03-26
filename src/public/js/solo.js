@@ -12,6 +12,7 @@ var state = {
         sortOrder: 'plays',
         filters: {
             tags: [],
+            tagMode: 'any',
             minQuestions: '',
             maxQuestions: '',
             onlyImage: false
@@ -532,6 +533,56 @@ var browserLang = (navigator.language || 'es').slice(0,2);
 
     var tagFilterExpanded = false;
 
+    function parseTagFiltersFromUrl(){
+        try{
+            var params = new URLSearchParams(window.location.search || '');
+            var values = [];
+            var single = params.get('tag');
+            var multi = params.get('tags');
+            var tagMode = params.get('tagMode');
+            if(single) values.push(single);
+            if(multi){
+                multi.split(',').forEach(function(tag){
+                    values.push(tag);
+                });
+            }
+            var seen = {};
+            var normalized = values.map(function(tag){
+                return (tag || '').toString().trim();
+            }).filter(function(tag){
+                if(!tag) return false;
+                var key = tag.toLowerCase();
+                if(seen[key]) return false;
+                seen[key] = true;
+                return true;
+            });
+            if(normalized.length){
+                state.filters.tags = normalized;
+                state.filters.tagMode = tagMode === 'all' ? 'all' : 'any';
+                tagFilterExpanded = true;
+            }
+        }catch(e){}
+    }
+
+    function syncSoloUrl(){
+        try{
+            var url = new URL(window.location.href);
+            if(state.filters.tags.length){
+                url.searchParams.set('tags', state.filters.tags.join(','));
+                if(state.filters.tagMode === 'all' && state.filters.tags.length > 1){
+                    url.searchParams.set('tagMode', 'all');
+                }else{
+                    url.searchParams.delete('tagMode');
+                }
+            }else{
+                url.searchParams.delete('tags');
+                url.searchParams.delete('tagMode');
+            }
+            url.searchParams.delete('tag');
+            window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        }catch(e){}
+    }
+
     function ensureTagToggleButton(total){
         var clearBtn = document.getElementById('tags-clear');
         if(!clearBtn || !clearBtn.parentElement) return;
@@ -569,12 +620,15 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         if(!wrap) return;
         var allItems = getAllTagsFromQuizzes();
         var allKeys = {};
-        allItems.forEach(function(it){ allKeys[it.tag.toLowerCase()] = true; });
+        allItems.forEach(function(it){ allKeys[it.tag.toLowerCase()] = it.tag; });
         wrap.innerHTML = '';
-        state.filters.tags = state.filters.tags.filter(function(tag){
+        state.filters.tags = state.filters.tags.map(function(tag){
             var key = (tag || '').toString().trim().toLowerCase();
-            return !!allKeys[key];
+            return allKeys[key] || '';
+        }).filter(function(tag){
+            return !!tag;
         });
+        syncSoloUrl();
 
         ensureTagToggleButton(allItems.length);
         if(!tagFilterExpanded) return;
@@ -596,6 +650,7 @@ var browserLang = (navigator.language || 'es').slice(0,2);
                 });
                 state.filters.tags = selected;
                 state.page = 0;
+                syncSoloUrl();
                 renderList();
             });
             var span = document.createElement('span');
@@ -977,6 +1032,9 @@ function renderList(){
         if(state.filters.tags.length){
             filtered = filtered.filter(function(q){
                 var tags = Array.isArray(q.tags) ? q.tags : [];
+                if(state.filters.tagMode === 'all'){
+                    return state.filters.tags.every(function(tag){ return tags.indexOf(tag) !== -1; });
+                }
                 return state.filters.tags.some(function(tag){ return tags.indexOf(tag) !== -1; });
             });
         }
@@ -2124,6 +2182,7 @@ function startQuiz(){
     applyStaticText();
     initSoloMusicPlayer();
     bindEvents();
+    parseTagFiltersFromUrl();
     // Asegura que el selector quede consistente al cargar.
     syncQuestionCountControls();
     fetchPublicQuizzes();

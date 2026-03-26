@@ -1,4 +1,20 @@
-var socket = io();
+var socket = io({
+    reconnection: true,
+    reconnectionAttempts: 30,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 3000
+});
+
+function setLobbyStatus(waiting, detail){
+    var title1 = document.getElementById('title1');
+    var title2 = document.getElementById('title2');
+    if(title1){
+        title1.textContent = waiting || title1.textContent;
+    }
+    if(title2 && detail !== undefined){
+        title2.textContent = detail;
+    }
+}
 
 //When player connects to server
 socket.on('connect', function() {
@@ -7,6 +23,7 @@ socket.on('connect', function() {
     
     //Tell server that it is player connection
     socket.emit('player-join', params);
+    setLobbyStatus('Esperando a que empiece la partida', 'Comprueba que tu nombre aparece en la pantalla');
 });
 
 //Boot player back to join screen if game pin has no match
@@ -16,6 +33,14 @@ socket.on('noGameFound', function(){
 //If the host disconnects, then the player is booted to main screen
 socket.on('hostDisconnect', function(){
     window.location.href = '../';
+});
+
+socket.on('hostReconnecting', function(){
+    setLobbyStatus('Reconectando con el profesor...', 'La partida sigue reservada. No cierres esta pantalla.');
+});
+
+socket.on('hostReconnected', function(){
+    setLobbyStatus('Esperando a que empiece la partida', 'Comprueba que tu nombre aparece en la pantalla');
 });
 
 //When the host clicks start game, the player screen changes

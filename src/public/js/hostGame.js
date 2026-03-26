@@ -1,4 +1,9 @@
-var socket = io();
+var socket = io({
+    reconnection: true,
+    reconnectionAttempts: 30,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 3000
+});
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url
 var lastHostKey = 'lastHostId';
@@ -591,6 +596,10 @@ socket.on('noGameFound', function(){
    window.location.href = '../../';//Redirect user to 'join game' page
 });
 
+socket.on('disconnect', function(){
+    document.getElementById('playersAnswered').innerHTML = 'Reconectando con la partida...';
+});
+
 socket.on('gameQuestions', function(data){
     hostQuestionEnded = false;
     hostRankingGongPlayed = false;
@@ -637,10 +646,12 @@ socket.on('gamePin', function(data){
 socket.on('hostSession', function(data){
     if(data && data.hostId){
         try{ localStorage.setItem(lastHostKey, data.hostId); }catch(e){}
+        params.id = data.hostId;
     }
     if(data && data.pin){
         setPinBadge(data.pin);
         try{ localStorage.setItem(lastPinKey, data.pin); }catch(e){}
+        params.pin = data.pin;
     }
 });
 

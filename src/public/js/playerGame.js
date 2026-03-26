@@ -1,6 +1,6 @@
 var socket = io({
     reconnection: true,
-    reconnectionAttempts: 20,
+    reconnectionAttempts: 30,
     reconnectionDelay: 500,
     reconnectionDelayMax: 3000
 });
@@ -109,6 +109,22 @@ socket.on('disconnect', function(){
         msg.style.display = "block";
         var txt = window.i18nPlayer ? window.i18nPlayer.t('reconnecting') : 'Reconectando...';
         msg.textContent = txt;
+    }
+});
+
+socket.on('hostReconnecting', function(){
+    var msg = document.getElementById('message');
+    if(msg){
+        msg.style.display = "block";
+        msg.textContent = 'Esperando reconexion del profesor...';
+    }
+});
+
+socket.on('hostReconnected', function(){
+    var msg = document.getElementById('message');
+    if(msg && !playerAnswered){
+        msg.style.display = "none";
+        msg.textContent = '';
     }
 });
 

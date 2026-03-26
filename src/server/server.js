@@ -20,7 +20,11 @@ const publicPath = path.join(__dirname, '../public');
 const BODY_LIMIT = '1mb';
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
+const io = socketIO(server, {
+  pingInterval: 15000,
+  pingTimeout: 30000,
+  transports: ['websocket', 'polling']
+});
 const games = new LiveGames();
 const players = new Players();
 const sessions = new Map();
@@ -53,6 +57,7 @@ const GLOBAL_OWNER_ID = 'global-anon-owner';
 const GLOBAL_OWNER_EMAIL = 'anon@local';
 const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
 const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
+const HOST_RECONNECT_GRACE_MS = 30 * 1000; // 30 segundos para reanudar partida en aula
 const MONGO_MAX_POOL_SIZE = parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50;
 
 function extractKahootId(raw = '') {
@@ -789,6 +794,38 @@ function scheduleGameCleanup(hostId, delayMs = GAME_CLEANUP_DELAY) {
     }
     io.to(current.pin).emit('hostDisconnect');
   }, delayMs);
+}
+
+function clearHostDisconnectTimer(game) {
+  if (!game || !game.hostDisconnectTimer) return;
+  clearTimeout(game.hostDisconnectTimer);
+  game.hostDisconnectTimer = null;
+}
+
+function markHostConnected(game) {
+  if (!game) return;
+  clearHostDisconnectTimer(game);
+  game.hostDisconnectedAt = null;
+  game.hostReconnectDeadline = null;
+}
+
+function scheduleHostReconnectCleanup(game, disconnectedHostId) {
+  if (!game) return;
+  clearHostDisconnectTimer(game);
+  game.hostDisconnectedAt = Date.now();
+  game.hostReconnectDeadline = game.hostDisconnectedAt + HOST_RECONNECT_GRACE_MS;
+  game.hostDisconnectTimer = setTimeout(() => {
+    const current = games.getGameByPin(game.pin);
+    if (!current) return;
+    if (!current.hostDisconnectedAt) return;
+    if (current.hostId !== disconnectedHostId) return;
+    games.removeGame(current.hostId);
+    const playersToRemove = players.getPlayers(current.hostId);
+    for (let i = 0; i < playersToRemove.length; i++) {
+      players.removePlayer(playersToRemove[i].playerId);
+    }
+    io.to(current.pin).emit('hostDisconnect');
+  }, HOST_RECONNECT_GRACE_MS);
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -1919,6 +1956,7 @@ io.on('connection', (socket) => {
     const game = games.getGame(oldHostId) || (pinParam ? games.getGameByPin(pinParam) : null);
     if (game) {
       const previousHostId = game.hostId;
+      markHostConnected(game);
       game.hostId = socket.id;
       game.gameOver = false;
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
@@ -1959,6 +1997,7 @@ io.on('connection', (socket) => {
         });
         socket.emit('gamePin', { pin: game.pin });
         socket.emit('hostSession', { hostId: game.hostId, pin: game.pin });
+        io.to(game.pin).emit('hostReconnected');
         io.to(game.pin).emit('questionMedia', { image: currentQuestion.image || '', video: currentQuestion.video || '' });
         if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
           io.to(game.pin).emit('playerQuestion', {
@@ -1975,7 +2014,6 @@ io.on('connection', (socket) => {
       }
 
       io.to(game.pin).emit('gameStartedPlayer');
-      game.gameData.questionLive = true;
     } else {
       socket.emit('noGameFound');
     }
@@ -2082,6 +2120,11 @@ io.on('connection', (socket) => {
 
         io.to(game.pin).emit('hostDisconnect');
         socket.leave(game.pin);
+      } else {
+        scheduleHostReconnectCleanup(game, socket.id);
+        io.to(game.pin).emit('hostReconnecting', {
+          reconnectGraceMs: HOST_RECONNECT_GRACE_MS
+        });
       }
     } else {
       const player = players.getPlayer(socket.id);

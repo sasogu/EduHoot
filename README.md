@@ -28,6 +28,12 @@
 - Biblioteca amb ordenació per data i alfabètica, tags rellevants i estadístiques de partides.
 - El mode Solo ara registra partides i mostra estadístiques visibles al ranking i un feedback més clar.
 
+### Enllaços directes al mode Solo
+- Quiz concret: `/solo/?id=<quizId>`
+- Una etiqueta: `/solo/?tag=musica`
+- Diverses etiquetes amb coincidència de qualsevol: `/solo/?tags=musica,primaria`
+- Diverses etiquetes exigint totes: `/solo/?tags=musica,primaria&tagMode=all`
+
 ## Castellano
 **EduHoot** es una aplicación tipo Kahoot para el aula: crea, importa y lanza quizzes con imágenes, vídeos y tiempos configurables. Admite CSV (también generados por IA) e importación de Kahoot público. Se inspira y reutiliza ideas de [llixhoot](https://github.com/llixhoot/llixhoot), [llixhoot en lliurex](https://github.com/lliurex/llixhoot) y [qplay](https://github.com/jjdeharo/qplay).
 
@@ -56,6 +62,12 @@
 - Biblioteca con orden por fecha y alfabético, etiquetas relevantes y estadísticas visibles en cada ficha.
 - Modo Solo registra partidas y mejora el ranking/feedback, además de mostrar estadísticas de partidas jugadas.
 
+### Enlaces directos al modo Solo
+- Quiz concreto: `/solo/?id=<quizId>`
+- Una etiqueta: `/solo/?tag=musica`
+- Varias etiquetas con coincidencia de cualquiera: `/solo/?tags=musica,primaria`
+- Varias etiquetas exigiendo todas: `/solo/?tags=musica,primaria&tagMode=all`
+
 ## English
 **EduHoot** is a Kahoot-like app for classrooms: create, import, and launch quizzes with images, videos, and configurable timers. Supports CSV (including AI-generated) and public Kahoot import. It’s inspired by and reuses ideas from [llixhoot](https://github.com/llixhoot/llixhoot), [llixhoot on lliurex](https://github.com/lliurex/llixhoot), and [qplay](https://github.com/jjdeharo/qplay).
 
@@ -83,3 +95,9 @@
 - Redesigned landing with separate entry points, language selector, and shared footer pointing to EduTicTac.
 - Library now supports ordering by date/alpha, shows only related tags, and surfaces quiz stats.
 - Solo mode logs plays so the ranking/counts include solo sessions, plus brighter feedback and stats.
+
+### Solo Deep Links
+- Specific quiz: `/solo/?id=<quizId>`
+- One tag: `/solo/?tag=music`
+- Multiple tags matching any: `/solo/?tags=music,primary`
+- Multiple tags requiring all: `/solo/?tags=music,primary&tagMode=all`

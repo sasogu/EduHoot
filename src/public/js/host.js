@@ -1,4 +1,9 @@
-var socket = io();
+var socket = io({
+    reconnection: true,
+    reconnectionAttempts: 30,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 3000
+});
 var params = jQuery.deparam(window.location.search);
 var lastHostKey = 'lastHostId';
 var lastPinKey = 'lastGamePin';
