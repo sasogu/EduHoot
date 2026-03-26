@@ -16,6 +16,13 @@
 3. Executa `node server/server.js`.
 4. Obri `http://localhost:3000/create/`.
 
+### Deploy simple al VPS
+- Plantilla segura versionable: `scripts/deploy.example.sh`
+- Recomanat: copia-la a `scripts/deploy.sh`, ompli les teues dades i no la puges al repo.
+- Exemple: `DEPLOY_TARGET=usuari@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
+- Amb reinici remot opcional: `DEPLOY_TARGET=usuari@vps:/var/www/eduhoot DEPLOY_REMOTE_CMD='cd /var/www/eduhoot/src && npm ci --omit=dev && pm2 restart eduhoot' bash scripts/deploy.example.sh`
+- Per previsualitzar canvis sense copiar: `DRY_RUN=1 bash scripts/deploy.example.sh`
+
 ### Funcions clau
 - Importació de CSV i de contingut generat per IA.
 - Importació pública de Kahoot per URL o ID.
@@ -50,6 +57,13 @@
 3. Ejecuta `node server/server.js`.
 4. Abre `http://localhost:3000/create/`.
 
+### Deploy simple al VPS
+- Plantilla segura versionable: `scripts/deploy.example.sh`
+- Recomendado: cópiala a `scripts/deploy.sh`, rellena tus datos y no la subas al repo.
+- Ejemplo: `DEPLOY_TARGET=usuario@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
+- Con reinicio remoto opcional: `DEPLOY_TARGET=usuario@vps:/var/www/eduhoot DEPLOY_REMOTE_CMD='cd /var/www/eduhoot/src && npm ci --omit=dev && pm2 restart eduhoot' bash scripts/deploy.example.sh`
+- Para previsualizar cambios sin copiar: `DRY_RUN=1 bash scripts/deploy.example.sh`
+
 ### Funciones clave
 - Importación de CSV y de contenido generado por IA.
 - Importación pública de Kahoot por URL o ID.
@@ -83,6 +97,13 @@
 2. Start local MongoDB (`sudo systemctl start mongod`) or set `MONGO_URL`.
 3. Run `node server/server.js`.
 4. Open `http://localhost:3000/create/`.
+
+### Simple VPS Deploy
+- Safe versioned template: `scripts/deploy.example.sh`
+- Recommended: copy it to `scripts/deploy.sh`, fill your real values, and keep it out of the repo.
+- Example: `DEPLOY_TARGET=user@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
+- With optional remote restart: `DEPLOY_TARGET=user@vps:/var/www/eduhoot DEPLOY_REMOTE_CMD='cd /var/www/eduhoot/src && npm ci --omit=dev && pm2 restart eduhoot' bash scripts/deploy.example.sh`
+- Preview without copying: `DRY_RUN=1 bash scripts/deploy.example.sh`
 
 ### Key features
 - CSV import and AI-generated content ingestion.
