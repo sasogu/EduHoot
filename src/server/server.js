@@ -517,6 +517,40 @@ function quizToCsv(quiz) {
   return [header].concat(lines).join('\n');
 }
 
+function liveSessionToCsv(game) {
+  const playersInGame = players.getPlayers(game.hostId) || [];
+  const totalQuestions = Math.max(0, Number(game && game.gameData && game.gameData.totalQuestions) || 0);
+  const sorted = playersInGame.slice().sort((a, b) => {
+    const scoreA = Number(a && a.gameData && a.gameData.score) || 0;
+    const scoreB = Number(b && b.gameData && b.gameData.score) || 0;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return String(a && a.name ? a.name : '').localeCompare(String(b && b.name ? b.name : ''), 'es');
+  });
+
+  const header = 'pin;quizId;preguntasTotales;posicion;alumno;puntuacion;aciertos;fallos;sinResponder';
+  const lines = sorted.map((player, index) => {
+    const score = Number(player && player.gameData && player.gameData.score) || 0;
+    const correctCount = Number(player && player.gameData && player.gameData.correctCount) || 0;
+    const wrongCount = Number(player && player.gameData && player.gameData.wrongCount) || 0;
+    const answered = Math.max(0, correctCount + wrongCount);
+    const unanswered = Math.max(0, totalQuestions - answered);
+
+    return [
+      escapeCsvField(game.pin),
+      escapeCsvField(game.gameData && game.gameData.gameid ? game.gameData.gameid : ''),
+      escapeCsvField(totalQuestions),
+      escapeCsvField(index + 1),
+      escapeCsvField(player && player.name ? player.name : ''),
+      escapeCsvField(Math.round(score)),
+      escapeCsvField(correctCount),
+      escapeCsvField(wrongCount),
+      escapeCsvField(unanswered)
+    ].join(';');
+  });
+
+  return [header].concat(lines).join('\n');
+}
+
 function escapeHtmlText(value = '') {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -1648,6 +1682,30 @@ app.get('/api/quizzes/:id/moodle-xml', async (req, res) => {
   }
 });
 
+// Download live session report as CSV (host only).
+app.get('/api/live-games/:pin/report.csv', async (req, res) => {
+  const pin = (req.params.pin || '').toString();
+  const hostId = (req.query.hostId || '').toString();
+  if (!pin || !hostId) {
+    return res.status(400).json({ error: 'Faltan PIN o hostId.' });
+  }
+
+  const game = games.getGameByPin(pin);
+  if (!game) {
+    return res.status(404).json({ error: 'Partida no encontrada o ya finalizada.' });
+  }
+  if (game.hostId !== hostId) {
+    return res.status(403).json({ error: 'No autorizado para descargar este informe.' });
+  }
+
+  const csv = liveSessionToCsv(game);
+  const safePin = String(pin).replace(/[^a-z0-9-_]+/gi, '_');
+  const fileName = `informe-partida-${safePin}.csv`;
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+  return res.send(csv);
+});
+
 // Rename quiz
 app.patch('/api/quizzes/:id', async (req, res) => {
   const quizIdParam = req.params.id;
@@ -2050,7 +2108,7 @@ io.on('connection', (socket) => {
         }
 
         const safeName = normalizePlayerName(params.name);
-        players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0 }, params.icon || '', token);
+        players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0, correctCount: 0, wrongCount: 0 }, params.icon || '', token);
 
         socket.join(params.pin);
 
@@ -2177,31 +2235,36 @@ io.on('connection', (socket) => {
         }
 
         const meta = getQuestionMeta(current);
-        let normalizedSubmission;
-        if (meta.type === 'multiple') {
-          normalizedSubmission = normalizeCorrectAnswers(num, false);
-        } else if (meta.type === 'short-answer') {
-          if (num && typeof num === 'object' && num.text !== undefined) {
-            normalizedSubmission = { text: String(num.text || '') };
+          let normalizedSubmission;
+          if (meta.type === 'multiple') {
+            normalizedSubmission = normalizeCorrectAnswers(num, false);
+          } else if (meta.type === 'short-answer') {
+            if (num && typeof num === 'object' && num.text !== undefined) {
+              normalizedSubmission = { text: String(num.text || '') };
+            } else {
+              normalizedSubmission = { text: String(num || '') };
+            }
+          } else if (meta.type === 'numeric') {
+            if (num && typeof num === 'object' && num.number !== undefined) {
+              normalizedSubmission = { number: num.number };
+            } else {
+              normalizedSubmission = { number: num };
+            }
           } else {
-            normalizedSubmission = { text: String(num || '') };
+            normalizedSubmission = Number(num);
           }
-        } else if (meta.type === 'numeric') {
-          if (num && typeof num === 'object' && num.number !== undefined) {
-            normalizedSubmission = { number: num.number };
-          } else {
-            normalizedSubmission = { number: num };
-          }
-        } else {
-          normalizedSubmission = Number(num);
-        }
-        player.gameData.answer = normalizedSubmission;
+          player.gameData.answer = normalizedSubmission;
 
-        if (isSubmissionCorrect(meta, normalizedSubmission)) {
-          player.gameData.score += 100;
-          io.to(game.pin).emit('getTime', socket.id);
-          socket.emit('answerResult', true);
-        }
+          const isCorrect = isSubmissionCorrect(meta, normalizedSubmission);
+          if (isCorrect) {
+            player.gameData.score += 100;
+            player.gameData.correctCount = (Number(player.gameData.correctCount) || 0) + 1;
+            io.to(game.pin).emit('getTime', socket.id);
+            socket.emit('answerResult', true);
+          } else {
+            player.gameData.wrongCount = (Number(player.gameData.wrongCount) || 0) + 1;
+            socket.emit('answerResult', false);
+          }
 
         if (game.gameData.playersAnswered === playerNum.length) {
           game.gameData.questionLive = false;

@@ -13,6 +13,7 @@ var rankingNextBtn = document.getElementById('rankingNextBtn');
 var resultsChartEl = document.getElementById('resultsChart');
 var resultsStepChartEl = document.getElementById('resultsStepChart');
 var resultsStepRankingEl = document.getElementById('resultsStepRanking');
+var downloadReportBtn = null;
 
 // Fallback: si faltan id o pin en la URL, usa localStorage
 try{
@@ -75,7 +76,9 @@ var i18n = {
         resultsNextToRanking: 'Ver clasificación',
         resultsNextQuestion: 'Siguiente pregunta (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Respuestas recibidas ' + ans + ' / ' + total; },
-        correctAnswerLabel: 'Respuesta correcta:'
+        correctAnswerLabel: 'Respuesta correcta:',
+        downloadReport: 'Descargar informe (CSV)',
+        downloadReportError: 'No se pudo descargar el informe de la sesión.'
     },
     en: {
         questionXofY: function(n, t){ return 'Question ' + n + ' / ' + t; },
@@ -101,7 +104,9 @@ var i18n = {
         resultsNextToRanking: 'Show leaderboard',
         resultsNextQuestion: 'Next question (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Answers received ' + ans + ' / ' + total; },
-        correctAnswerLabel: 'Correct answer:'
+        correctAnswerLabel: 'Correct answer:',
+        downloadReport: 'Download report (CSV)',
+        downloadReportError: 'Could not download the session report.'
     },
     ca: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -127,7 +132,9 @@ var i18n = {
         resultsNextToRanking: 'Veure classificació',
         resultsNextQuestion: 'Següent pregunta (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Respostes rebudes ' + ans + ' / ' + total; },
-        correctAnswerLabel: 'Resposta correcta:'
+        correctAnswerLabel: 'Resposta correcta:',
+        downloadReport: 'Descarregar informe (CSV)',
+        downloadReportError: 'No s\'ha pogut descarregar l\'informe de la sessió.'
     }
 };
 
@@ -169,6 +176,8 @@ function applyStaticText(){
     if(resultsTitle) resultsTitle.textContent = t('resultsTitle');
     var winnerTitle = document.getElementById('winnerTitle');
     if(winnerTitle) winnerTitle.textContent = t('topPlayers');
+    var reportBtn = ensureDownloadReportButton();
+    if(reportBtn) reportBtn.textContent = t('downloadReport');
 
     updateModalNextButtonLabel();
 }
@@ -180,6 +189,49 @@ function updateModalNextButtonLabel(){
         return;
     }
     rankingNextBtn.textContent = t('resultsNextQuestion');
+}
+
+function ensureDownloadReportButton(){
+    if(downloadReportBtn) return downloadReportBtn;
+    var row = document.querySelector('.control-row');
+    if(!row) return null;
+    var btn = document.createElement('button');
+    btn.id = 'downloadReportBtn';
+    btn.style.display = 'none';
+    btn.addEventListener('click', function(){
+        downloadSessionReportCsv();
+    });
+    row.appendChild(btn);
+    downloadReportBtn = btn;
+    return downloadReportBtn;
+}
+
+async function downloadSessionReportCsv(){
+    if(!params.pin || !params.id){
+        alert(t('downloadReportError'));
+        return;
+    }
+    try{
+        var url = '/api/live-games/' + encodeURIComponent(params.pin) + '/report.csv?hostId=' + encodeURIComponent(params.id);
+        var res = await fetch(url, { credentials: 'include' });
+        if(!res.ok){
+            throw new Error('download-failed');
+        }
+        var disposition = res.headers.get('Content-Disposition') || '';
+        var match = disposition.match(/filename="?([^";]+)"?/i);
+        var fileName = (match && match[1]) ? match[1] : ('informe-partida-' + params.pin + '.csv');
+        var blob = await res.blob();
+        var fileUrl = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = fileUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(fileUrl);
+    }catch(err){
+        alert(t('downloadReportError'));
+    }
 }
 
 function setHostModalStep(step){
@@ -955,7 +1007,7 @@ socket.on('GameOver', function(data){
     document.getElementById('answer3').style.display = "none";
     document.getElementById('answer4').style.display = "none";
     document.getElementById('timerText').innerHTML = "";
-    document.getElementById('question').innerHTML = i18n[lang].gameOver;
+    document.getElementById('question').innerHTML = t('gameOver');
     document.getElementById('playersAnswered').innerHTML = "";
     
     
@@ -973,6 +1025,11 @@ socket.on('GameOver', function(data){
     document.getElementById('winner3').innerHTML = "3. " + data.num3;
     document.getElementById('winner4').innerHTML = "4. " + data.num4; 
     document.getElementById('winner5').innerHTML = "5. " + data.num5;
+    var reportBtn = ensureDownloadReportButton();
+    if(reportBtn){
+        reportBtn.textContent = t('downloadReport');
+        reportBtn.style.display = 'inline-block';
+    }
     try{
         localStorage.removeItem(lastHostKey);
         localStorage.removeItem(lastPinKey);
