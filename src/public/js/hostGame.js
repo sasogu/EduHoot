@@ -215,7 +215,12 @@ async function downloadSessionReportCsv(){
         var url = '/api/live-games/' + encodeURIComponent(params.pin) + '/report.csv?hostId=' + encodeURIComponent(params.id);
         var res = await fetch(url, { credentials: 'include' });
         if(!res.ok){
-            throw new Error('download-failed');
+            var errMsg = '';
+            try{
+                var body = await res.json();
+                errMsg = body && body.error ? String(body.error) : '';
+            }catch(e){}
+            throw new Error(errMsg || 'download-failed');
         }
         var disposition = res.headers.get('Content-Disposition') || '';
         var match = disposition.match(/filename="?([^";]+)"?/i);
@@ -230,7 +235,7 @@ async function downloadSessionReportCsv(){
         a.remove();
         window.URL.revokeObjectURL(fileUrl);
     }catch(err){
-        alert(t('downloadReportError'));
+        alert((err && err.message && err.message !== 'download-failed') ? err.message : t('downloadReportError'));
     }
 }
 

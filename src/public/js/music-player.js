@@ -208,6 +208,7 @@
         createTrackOptions(select, selectedTrack);
         select.value = selectedTrack;
         var isPlaying = false;
+        var autoplayBlocked = false;
         function updatePlayButton(){
             if(isPlaying){
                 playBtn.textContent = labels.pause || 'Pause music';
@@ -270,12 +271,24 @@
             goToDelta(1);
         });
 
-        function play(){
+        function play(forceAttempt){
             if(isPlaying) return Promise.resolve();
+            if(autoplayBlocked && !forceAttempt){
+                return Promise.resolve(false);
+            }
             return audio.play().then(function(){
                 isPlaying = true;
+                autoplayBlocked = false;
                 updatePlayButton();
-            }).catch(function(){});
+                return true;
+            }).catch(function(err){
+                isPlaying = false;
+                updatePlayButton();
+                if(err && err.name === 'NotAllowedError'){
+                    autoplayBlocked = true;
+                }
+                return false;
+            });
         }
 
         function pause(){
@@ -290,7 +303,7 @@
                 pause();
                 return;
             }
-            play();
+            play(true);
         });
         select.addEventListener('change', function(){
             var value = select.value;
