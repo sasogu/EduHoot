@@ -25,7 +25,6 @@ const ASSETS = [
   '/create/index.html',
   '/create/quiz-creator/',
   '/create/quiz-creator/index.html',
-  '/create/editor_ia.html',
   '/admin-stats.html',
 
   '/css/index.css',
@@ -127,7 +126,7 @@ self.addEventListener('fetch', (event) => {
         try {
           const response = await fetch(request, { cache: 'no-store' });
           if (response && response.ok) {
-            cache.put(request, response.clone());
+            await cache.put(request, response.clone());
           }
           return response;
         } catch (err) {
@@ -147,7 +146,7 @@ self.addEventListener('fetch', (event) => {
         try {
           const response = await fetch(request, { cache: 'no-store' });
           if (response && response.ok) {
-            cache.put(request, response.clone());
+            await cache.put(request, response.clone());
           }
           return response;
         } catch (err) {
@@ -164,9 +163,9 @@ self.addEventListener('fetch', (event) => {
       const cache = await caches.open(CACHE_NAME);
       const cached = await caches.match(request);
 
-      const fetchPromise = fetch(request).then((response) => {
+      const fetchPromise = fetch(request).then(async (response) => {
         if (response && response.status === 200 && response.type === 'basic') {
-          cache.put(request, response.clone());
+          await cache.put(request, response.clone());
         }
         return response;
       });
