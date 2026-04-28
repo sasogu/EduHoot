@@ -561,18 +561,21 @@ function cacheFinishedSessionReport(game) {
     const pinKey = String(game.pin);
     const pinSafe = pinKey.replace(/[^a-z0-9-_]+/gi, '_');
     const reportPath = path.join(FINISHED_SESSION_REPORT_DIR, `${pinSafe}.csv`);
+    console.log('[cacheFinishedSessionReport] pin=' + pinKey + ', path=' + reportPath);
     const prev = finishedSessionReports.get(pinKey);
     if (prev && prev.cleanupTimer) {
       clearTimeout(prev.cleanupTimer);
     }
 
     const csv = liveSessionToCsv(game);
+    console.log('[cacheFinishedSessionReport] csv length=' + csv.length);
 
     try {
       fs.mkdirSync(FINISHED_SESSION_REPORT_DIR, { recursive: true });
       fs.writeFileSync(reportPath, csv, 'utf8');
+      console.log('[cacheFinishedSessionReport] file written successfully');
     } catch (diskErr) {
-      console.error('cacheFinishedSessionReport write disk error', diskErr);
+      console.error('[cacheFinishedSessionReport] write disk error', diskErr);
     }
 
     const cleanupTimer = setTimeout(() => {
@@ -1735,6 +1738,7 @@ app.get('/api/quizzes/:id/moodle-xml', async (req, res) => {
 app.get('/api/live-games/:pin/report.csv', async (req, res) => {
   const pin = (req.params.pin || '').toString();
   const hostId = (req.query.hostId || '').toString();
+  console.log('[report.csv] pin=' + pin + ', hostId=' + hostId);
   if (!pin || !hostId) {
     return res.status(400).json({ error: 'Faltan PIN o hostId.' });
   }
@@ -1742,21 +1746,27 @@ app.get('/api/live-games/:pin/report.csv', async (req, res) => {
   const game = games.getGameByPin(pin);
   let csv = '';
   if (game) {
+    console.log('[report.csv] game found in memory');
     if (game.hostId !== hostId) {
       return res.status(403).json({ error: 'No autorizado para descargar este informe.' });
     }
     csv = liveSessionToCsv(game);
   } else {
+    console.log('[report.csv] game NOT in memory, checking cache/disk');
     const cached = finishedSessionReports.get(pin);
     if (cached && cached.csv) {
+      console.log('[report.csv] found in memory cache');
       // Tras GameOver permitimos recuperar el informe aunque el hostId haya cambiado por reconexión.
       csv = cached.csv;
     } else {
       const pinSafe = String(pin).replace(/[^a-z0-9-_]+/gi, '_');
       const reportPath = path.join(FINISHED_SESSION_REPORT_DIR, `${pinSafe}.csv`);
+      console.log('[report.csv] trying to read from disk: ' + reportPath);
       try {
         csv = fs.readFileSync(reportPath, 'utf8');
-      } catch (_err) {
+        console.log('[report.csv] file read from disk, length=' + csv.length);
+      } catch (err) {
+        console.log('[report.csv] file not found: ' + err.message);
         return res.status(404).json({ error: 'Partida no encontrada o ya finalizada.' });
       }
     }
