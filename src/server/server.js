@@ -524,6 +524,7 @@ function quizToCsv(quiz) {
 function liveSessionToCsv(game) {
   const playersInGame = players.getPlayers(game.hostId) || [];
   const totalQuestions = Math.max(0, Number(game && game.gameData && game.gameData.totalQuestions) || 0);
+  const quizName = game && game.gameData && game.gameData.quizName ? game.gameData.quizName : '';
   const sorted = playersInGame.slice().sort((a, b) => {
     const scoreA = Number(a && a.gameData && a.gameData.score) || 0;
     const scoreB = Number(b && b.gameData && b.gameData.score) || 0;
@@ -531,7 +532,7 @@ function liveSessionToCsv(game) {
     return String(a && a.name ? a.name : '').localeCompare(String(b && b.name ? b.name : ''), 'es');
   });
 
-  const header = 'pin;quizId;preguntasTotales;posicion;alumno;puntuacion;aciertos;fallos;sinResponder';
+  const header = 'pin;quizId;quizNombre;preguntasTotales;posicion;alumno;puntuacion;aciertos;fallos;sinResponder';
   const lines = sorted.map((player, index) => {
     const score = Number(player && player.gameData && player.gameData.score) || 0;
     const correctCount = Number(player && player.gameData && player.gameData.correctCount) || 0;
@@ -542,6 +543,7 @@ function liveSessionToCsv(game) {
     return [
       escapeCsvField(game.pin),
       escapeCsvField(game.gameData && game.gameData.gameid ? game.gameData.gameid : ''),
+      escapeCsvField(quizName),
       escapeCsvField(totalQuestions),
       escapeCsvField(index + 1),
       escapeCsvField(player && player.name ? player.name : ''),
@@ -2047,6 +2049,7 @@ io.on('connection', (socket) => {
           playersAnswered: 0,
           questionLive: false,
           gameid: data.id,
+          quizName: kahoot.name || '',
           question: 1,
           questions: [],
           originalQuestions: multiplayerQuestions,
