@@ -29,7 +29,7 @@ var i18n = {
         visibilityUnlisted: 'Por enlace/ID',
         visibilityPublic: 'Público en la biblioteca',
         publicWarning: 'Al publicar el quiz se guardará como parte de la biblioteca global y no podrás editarlo después sin sesión.',
-        allowCloneLabel: 'Permitir que otras personas hagan una copia',
+        allowCloneLabel: 'Permitir copia',
         suggestedTags: 'Etiquetas usadas (toca para añadir)',
         questionsEyebrow: 'Preguntas',
         questionsTitle: 'Construye las preguntas',
@@ -99,7 +99,7 @@ var i18n = {
         visibilityUnlisted: 'By link/ID',
         visibilityPublic: 'Public in library',
         publicWarning: 'Public quizzes become part of the global library and cannot be edited later unless you sign in.',
-        allowCloneLabel: 'Allow others to make a copy',
+        allowCloneLabel: 'Allow copy',
         suggestedTags: 'Suggested tags (tap to add)',
         questionsEyebrow: 'Questions',
         questionsTitle: 'Build the questions',
@@ -169,7 +169,7 @@ var i18n = {
         visibilityUnlisted: 'Per enllaç/ID',
         visibilityPublic: 'Públic a la biblioteca',
         publicWarning: 'Els quizzes públics passen a formar part de la biblioteca global i no es poden editar després sense iniciar sessió.',
-        allowCloneLabel: 'Permetre que altres en facin una còpia',
+        allowCloneLabel: 'Permetre còpia',
         suggestedTags: 'Etiquetes usades (toca per afegir)',
         questionsEyebrow: 'Preguntes',
         questionsTitle: 'Construeix les preguntes',
@@ -307,6 +307,60 @@ function getImageFormatFromDataUrl(dataUrl){
     return 'JPEG';
 }
 
+function extractSvgTextFromDataUrl(dataUrl){
+    var comma = dataUrl.indexOf(',');
+    if(comma === -1) return '';
+    var header = dataUrl.slice(0, comma);
+    var payload = dataUrl.slice(comma + 1);
+    try{
+        if(/;base64/i.test(header)){
+            return atob(payload);
+        }
+        return decodeURIComponent(payload);
+    }catch(e){
+        return '';
+    }
+}
+
+function getSvgSizeFromText(svgText){
+    if(!svgText) return { width: 0, height: 0 };
+    var widthMatch = svgText.match(/\bwidth=["']?([\d.]+)/i);
+    var heightMatch = svgText.match(/\bheight=["']?([\d.]+)/i);
+    var width = widthMatch ? parseFloat(widthMatch[1]) : 0;
+    var height = heightMatch ? parseFloat(heightMatch[1]) : 0;
+    if(width > 0 && height > 0) return { width: width, height: height };
+
+    var viewBoxMatch = svgText.match(/\bviewBox=["']?([-\d.\s,]+)["']?/i);
+    if(viewBoxMatch && viewBoxMatch[1]){
+        var parts = viewBoxMatch[1].trim().split(/[,\s]+/).map(function(n){ return parseFloat(n); });
+        if(parts.length === 4 && isFinite(parts[2]) && isFinite(parts[3])){
+            return { width: Math.abs(parts[2]), height: Math.abs(parts[3]) };
+        }
+    }
+    return { width: 0, height: 0 };
+}
+
+function rasterizeSvgDataUrl(dataUrl){
+    return new Promise(function(resolve){
+        var svgText = extractSvgTextFromDataUrl(dataUrl);
+        if(!svgText) return resolve('');
+        var size = getSvgSizeFromText(svgText);
+        var img = new Image();
+        img.onload = function(){
+            var width = size.width || img.naturalWidth || img.width || 800;
+            var height = size.height || img.naturalHeight || img.height || 600;
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(width));
+            canvas.height = Math.max(1, Math.round(height));
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = function(){ resolve(''); };
+        img.src = dataUrl;
+    });
+}
+
 function blobToDataUrl(blob){
     return new Promise(function(resolve){
         var reader = new FileReader();
@@ -322,30 +376,42 @@ function loadImageForPdf(url){
         if(!raw) return resolve(null);
         var normalized = normalizeSvgDataUrlForImg(raw);
         var isDataUrl = normalized.toLowerCase().startsWith('data:image/');
-        var dataUrlPromise = isDataUrl
-            ? Promise.resolve(normalized)
-            : fetch(normalized, { mode: 'cors', cache: 'no-store' })
-                .then(function(res){ return res && res.ok ? res.blob() : null; })
-                .then(function(blob){ return blob ? blobToDataUrl(blob) : ''; })
-                .catch(function(){ return ''; });
+    var dataUrlPromise = isDataUrl
+        ? Promise.resolve(normalized)
+        : fetch(normalized, { mode: 'cors', cache: 'no-store' })
+            .then(function(res){ return res && res.ok ? res.blob() : null; })
+            .then(function(blob){ return blob ? blobToDataUrl(blob) : ''; })
+            .catch(function(){ return ''; });
 
-        dataUrlPromise.then(function(dataUrl){
-            if(!dataUrl) return resolve(null);
-            var format = getImageFormatFromDataUrl(dataUrl);
+    dataUrlPromise.then(function(dataUrl){
+        if(!dataUrl) return resolve(null);
+        var lower = dataUrl.toLowerCase();
+        var finalize = function(finalUrl){
+            var format = getImageFormatFromDataUrl(finalUrl);
             if(!format) return resolve(null);
             var img = new Image();
             img.onload = function(){
                 resolve({
-                    dataUrl: dataUrl,
+                    dataUrl: finalUrl,
                     format: format,
                     width: img.naturalWidth || img.width || 0,
                     height: img.naturalHeight || img.height || 0
                 });
             };
             img.onerror = function(){ resolve(null); };
-            img.src = dataUrl;
-        });
+            img.src = finalUrl;
+        };
+
+        if(lower.startsWith('data:image/svg+xml')){
+            rasterizeSvgDataUrl(dataUrl).then(function(pngUrl){
+                if(!pngUrl) return resolve(null);
+                finalize(pngUrl);
+            });
+        }else{
+            finalize(dataUrl);
+        }
     });
+});
 }
 
 function pdfAddImage(doc, image, x, y, maxWidth, opts){

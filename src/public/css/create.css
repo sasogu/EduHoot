@@ -626,6 +626,14 @@ details.panel[open] > summary{
     object-fit: cover;
     border-radius: 4px;
 }
+.export-select{
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-weight: 600;
+}
 .btn-primary{
     background: linear-gradient(135deg, #ffee70, #ffb347);
     color: #1b1b1b;
