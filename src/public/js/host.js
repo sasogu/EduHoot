@@ -25,6 +25,9 @@ var pinLoaded = false;
 var hostErrorTimeout = null;
 var hostStartClicked = false;
 var hostStartGameEmitted = false;
+var hostStartWatchdog = null;
+var hostStartLastOpts = null;
+var HOST_START_ACK_TIMEOUT_MS = 9000;
 
 var HOST_AUTOPLAY_MUSIC_KEY = 'eduhoot_host_autoplay_music';
 var HOST_MUSIC_SHOULD_PLAY_KEY = 'eduhoot_host_music_should_play';
@@ -93,6 +96,16 @@ function emitStartGameWhenGongEnds(opts){
     function emitNow(){
         if(hostStartGameEmitted) return;
         hostStartGameEmitted = true;
+        hostStartLastOpts = opts || null;
+        if(hostStartWatchdog){
+            clearTimeout(hostStartWatchdog);
+        }
+        hostStartWatchdog = setTimeout(function(){
+            hostStartGameEmitted = false;
+            hostStartWatchdog = null;
+            var msg = (window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a intentarlo.';
+            showHostError(msg);
+        }, HOST_START_ACK_TIMEOUT_MS);
         socket.emit('startGame', opts);
     }
     if(!hostLobbyGongAudio){
@@ -256,6 +269,7 @@ try{
     var savedHost = localStorage.getItem(lastHostKey);
     var storedPin = localStorage.getItem(lastPinKey);
     if(storedPin){
+        params.pin = params.pin || storedPin;
         setDisplayedPin(storedPin);
     }else{
         updateJoinQr();
@@ -282,6 +296,11 @@ initHostLobbyMusicPlayer();
 
 //When host connects to server
 socket.on('connect', function() {
+    hostStartGameEmitted = false;
+    if(hostStartWatchdog){
+        clearTimeout(hostStartWatchdog);
+        hostStartWatchdog = null;
+    }
     document.getElementById('players').value = "";
     if(!params.id){
         showHostError((window.getHostTranslation && window.getHostTranslation('host_error_missing_id')) || 'Falta el quiz para generar la partida. Vuelve a elegirlo.');
@@ -304,6 +323,7 @@ socket.on('connect', function() {
 
 socket.on('showGamePin', function(data){
    setDisplayedPin(data.pin);
+    params.pin = data.pin;
    try{ localStorage.setItem(lastPinKey, data.pin); }catch(e){}
 });
 
@@ -332,6 +352,9 @@ socket.on('updatePlayerLobby', function(data){
 
 //Tell server to start game if button is clicked
 function startGame(){
+    if(hostStartGameEmitted){
+        return;
+    }
     hostStartClicked = true;
     try{
         sessionStorage.setItem(HOST_AUTOPLAY_MUSIC_KEY, '1');
@@ -352,6 +375,13 @@ function startGame(){
         randomAnswers: document.getElementById('opt-rand-a') ? document.getElementById('opt-rand-a').checked : true,
         sendToMobile: document.getElementById('opt-send-mobile') ? document.getElementById('opt-send-mobile').checked : true,
         showScoresBetween: document.getElementById('opt-show-scores') ? document.getElementById('opt-show-scores').checked : true,
+        pin: (function(){
+            try{
+                return (params && params.pin) || localStorage.getItem(lastPinKey) || '';
+            }catch(e){
+                return (params && params.pin) || '';
+            }
+        })(),
         timePerQuestion: (function(){
             var input = document.getElementById('opt-time');
             var val = input ? parseInt(input.value, 10) : 20;
@@ -369,6 +399,11 @@ function endGame(){
 //When server starts the game
 socket.on('gameStarted', function(id){
     console.log('Game Started!');
+    hostStartGameEmitted = false;
+    if(hostStartWatchdog){
+        clearTimeout(hostStartWatchdog);
+        hostStartWatchdog = null;
+    }
     try{ localStorage.setItem(lastHostKey, id); }catch(e){}
     var pin = null;
     try{ pin = localStorage.getItem(lastPinKey); }catch(e){}
@@ -381,11 +416,21 @@ socket.on('gameStarted', function(id){
 initHostLobbyGong();
 
 socket.on('noGameFound', function(){
+   hostStartGameEmitted = false;
+   if(hostStartWatchdog){
+       clearTimeout(hostStartWatchdog);
+       hostStartWatchdog = null;
+   }
    var msg = (window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.';
    showHostError(msg);
 });
 
 socket.on('hostError', function(payload){
+    hostStartGameEmitted = false;
+    if(hostStartWatchdog){
+        clearTimeout(hostStartWatchdog);
+        hostStartWatchdog = null;
+    }
     var msg = payload && payload.error ? payload.error : ((window.getHostTranslation && window.getHostTranslation('host_error')) || 'No se pudo iniciar la partida. Vuelve a elegir el quiz y prueba de nuevo.');
     showHostError(msg);
 });

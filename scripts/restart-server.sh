@@ -18,6 +18,8 @@ ssh -tt -p $REMOTE_PORT $REMOTE_HOST << 'EOF'
 
   if [ -n "$SERVICE_NAME" ]; then
     echo "Using systemd service: $SERVICE_NAME"
+    # Evita bloqueos por start-limit-hit cuando hubo reinicios rápidos fallidos.
+    sudo -n systemctl reset-failed "$SERVICE_NAME" || true
     if ! sudo -n systemctl restart "$SERVICE_NAME"; then
       echo "✗ Cannot restart $SERVICE_NAME without sudo password"
       echo "Run manually on server: sudo systemctl restart $SERVICE_NAME"

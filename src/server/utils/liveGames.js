@@ -19,7 +19,8 @@ class LiveGames {
         return this.games.filter((game) => game.hostId === hostId)[0]
     }
     getGameByPin(pin){
-        return this.games.filter((game) => game.pin.toString() === pin.toString())[0]
+        const matches = this.games.filter((game) => game.pin.toString() === pin.toString());
+        return matches.length ? matches[matches.length - 1] : undefined;
     }
 }
 

@@ -132,6 +132,31 @@ socket.on('noGameFound', function(){
     window.location.href = '../../';//Redirect user to 'join game' page 
 });
 
+function restoreAnswerControlsAfterReject(messageText){
+    playerAnswered = false;
+    for(var i = 1; i <= 4; i++){
+        var el = document.getElementById('answer' + i);
+        if(el){
+            el.style.visibility = 'visible';
+        }
+    }
+    updatePlayerAnswerButtons(lastAnswers || [], currentQuestionType);
+    setAnswerStatus('pending');
+    var msg = document.getElementById('message');
+    if(msg){
+        msg.style.display = 'block';
+        msg.textContent = messageText || 'No se pudo enviar la respuesta. Intenta de nuevo.';
+    }
+}
+
+socket.on('tooManyAnswers', function(){
+    restoreAnswerControlsAfterReject('Se han enviado demasiadas respuestas seguidas. Espera un instante y vuelve a probar.');
+});
+
+socket.on('answerRejected', function(){
+    restoreAnswerControlsAfterReject('La pregunta ya no estaba activa. Vuelve a intentar en cuanto aparezca la siguiente.');
+});
+
 function updateMultiSubmitVisibility(){
     var row = document.getElementById('multiSubmitRow');
     if(!row) return;

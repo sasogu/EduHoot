@@ -5,6 +5,9 @@ var socket = io({
     reconnectionDelayMax: 3000
 });
 
+var joinAck = false;
+var joinRetryTimer = null;
+
 function setLobbyStatus(waiting, detail){
     var title1 = document.getElementById('title1');
     var title2 = document.getElementById('title2');
@@ -24,6 +27,22 @@ socket.on('connect', function() {
     //Tell server that it is player connection
     socket.emit('player-join', params);
     setLobbyStatus('Esperando a que empiece la partida', 'Comprueba que tu nombre aparece en la pantalla');
+    if(joinRetryTimer){
+        clearTimeout(joinRetryTimer);
+    }
+    joinRetryTimer = setTimeout(function(){
+        if(joinAck) return;
+        socket.emit('player-join', params);
+    }, 1200);
+});
+
+socket.on('playerJoinAck', function(){
+    joinAck = true;
+    if(joinRetryTimer){
+        clearTimeout(joinRetryTimer);
+        joinRetryTimer = null;
+    }
+    setLobbyStatus('Conectado a la partida', 'Si no apareces en pantalla del profesor, espera 1-2 segundos.');
 });
 
 //Boot player back to join screen if game pin has no match

@@ -51,6 +51,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 process.on('uncaughtException', (err) => {
   console.error('[uncaughtException]', err);
+  process.exit(1);
 });
 io.on('error', (err) => {
   console.error('[socket-io-error]', err);
@@ -377,8 +378,8 @@ function socketIp(socket) {
 }
 
 function allowAnswer(socket, hostId) {
-  const ip = socketIp(socket);
-  const key = `${hostId || 'nohost'}:${ip}`;
+  const identity = (socket && socket.id) || socketIp(socket);
+  const key = `${hostId || 'nohost'}:${identity}`;
   const now = Date.now();
   const entry = answerRate.get(key) || { count: 0, windowStart: now };
   if (now - entry.windowStart > ANSWER_RATE_WINDOW_MS) {
@@ -2254,10 +2255,46 @@ io.on('connection', (socket) => {
   }
   socket.on('host-join', async (data) => {
     try {
+      const pinParam = data && data.pin ? data.pin.toString() : '';
+      const existingByPin = pinParam ? games.getGameByPin(pinParam) : null;
+      if (existingByPin && existingByPin.gameData && String(existingByPin.gameData.gameid) === String(data.id)) {
+        const previousHostId = existingByPin.hostId;
+        markHostConnected(existingByPin);
+        existingByPin.hostId = socket.id;
+        existingByPin.gameOver = false;
+        scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
+        socket.join(existingByPin.pin);
+
+        for (let i = 0; i < Object.keys(players.players).length; i++) {
+          if (players.players[i].hostId === previousHostId) {
+            players.players[i].hostId = socket.id;
+          }
+        }
+
+        const playersInGame = players.getPlayers(socket.id);
+        socket.emit('showGamePin', { pin: existingByPin.pin });
+        socket.emit('updatePlayerLobby', playersInGame);
+        io.to(existingByPin.pin).emit('hostReconnected');
+        return;
+      }
+
       const kahoot = await findGameById(data.id);
 
       if (kahoot && canUseQuiz(kahoot, socket.user)) {
-        const gamePin = Math.floor(Math.random() * 90000) + 10000; // new pin for game
+        let gamePin = null;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const candidate = Math.floor(Math.random() * 90000) + 10000;
+          if (!games.getGameByPin(candidate)) {
+            gamePin = candidate;
+            break;
+          }
+        }
+        if (!gamePin) {
+          socket.emit('hostError', {
+            error: 'No se pudo generar un PIN único. Inténtalo de nuevo.'
+          });
+          return;
+        }
 
         const originalQuestions = Array.isArray(kahoot.questions) ? kahoot.questions : [];
         const multiplayerQuestions = originalQuestions.filter((q) => !isMultiplayerFreeTypeQuestion(q));
@@ -2380,54 +2417,50 @@ io.on('connection', (socket) => {
   socket.on('player-join', (params) => {
     console.log('[player-join] params:', params);
     logGames('player-join');
-    let gameFound = false;
     const pinParam = params.pin ? params.pin.toString() : '';
     const token = params.token;
 
-    for (let i = 0; i < games.games.length; i++) {
-      if (pinParam === games.games[i].pin.toString()) {
-        console.log('Player connected to game pin', pinParam);
+    const game = pinParam ? games.getGameByPin(pinParam) : null;
+    if (!game) {
+      console.log('[player-join] noGameFound for pin:', params.pin);
+      socket.emit('noGameFound');
+      return;
+    }
 
-        const hostId = games.games[i].hostId;
+    console.log('Player connected to game pin', pinParam);
+    const hostId = game.hostId;
 
-        let existing = null;
-        if (token) {
-          existing = players.getByToken(token);
-          if (existing && existing.hostId === hostId) {
-            existing.playerId = socket.id;
-            socket.join(params.pin);
-            const playersInGame = players.getPlayers(hostId);
-            io.to(params.pin).emit('updatePlayerLobby', playersInGame);
-            socket.emit('playerRejoin', { ok: true });
-            if (games.games[i].gameLive) {
-              socket.emit('gameStartedPlayer');
-            }
-            gameFound = true;
-            break;
-          }
-        }
-
-        const safeName = normalizePlayerName(params.name);
-        players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0, correctCount: 0, wrongCount: 0 }, params.icon || '', token);
-
-        socket.join(params.pin);
-
+    let existing = null;
+    if (token) {
+      existing = players.getByToken(token);
+      if (existing && existing.hostId === hostId) {
+        existing.playerId = socket.id;
+        socket.join(game.pin);
         const playersInGame = players.getPlayers(hostId);
-
-        io.to(params.pin).emit('updatePlayerLobby', playersInGame);
-        if (games.games[i].gameLive) {
+        io.to(game.pin).emit('updatePlayerLobby', playersInGame);
+        io.to(hostId).emit('updatePlayerLobby', playersInGame);
+        socket.emit('playerJoinAck', { ok: true, pin: game.pin, hostId });
+        socket.emit('playerRejoin', { ok: true });
+        if (game.gameLive) {
           socket.emit('gameStartedPlayer');
         }
-        gameFound = true;
+        console.log('[player-join] rejoined pin:', game.pin, 'playerId:', socket.id);
+        return;
       }
     }
 
-    if (gameFound === false) {
-      console.log('[player-join] noGameFound for pin:', params.pin);
-      socket.emit('noGameFound');
-    } else {
-      console.log('[player-join] joined pin:', params.pin, 'playerId:', socket.id);
+    const safeName = normalizePlayerName(params.name);
+    players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0, correctCount: 0, wrongCount: 0 }, params.icon || '', token);
+    socket.join(game.pin);
+
+    const playersInGame = players.getPlayers(hostId);
+    io.to(game.pin).emit('updatePlayerLobby', playersInGame);
+    io.to(hostId).emit('updatePlayerLobby', playersInGame);
+    socket.emit('playerJoinAck', { ok: true, pin: game.pin, hostId });
+    if (game.gameLive) {
+      socket.emit('gameStartedPlayer');
     }
+    console.log('[player-join] joined pin:', game.pin, 'playerId:', socket.id);
   });
 
   socket.on('player-join-game', (data) => {
@@ -2498,6 +2531,7 @@ io.on('connection', (socket) => {
               players.removePlayer(socket.id);
               const playersInGame = players.getPlayers(hostId);
               io.to(pin).emit('updatePlayerLobby', playersInGame);
+              io.to(hostId).emit('updatePlayerLobby', playersInGame);
               io.to(pin).emit('playersUpdated', playersInGame.length);
             }
           }, 15000);
@@ -2521,6 +2555,22 @@ io.on('connection', (socket) => {
     }
     const playerNum = players.getPlayers(hostId);
     const game = games.getGame(hostId);
+    if (!game || !game.gameData) {
+      socket.emit('noGameFound');
+      return;
+    }
+
+    if (game.gameData.questionLive !== true) {
+      const looksLikeFirstQuestionRace = game.gameLive === true
+        && Number(game.gameData.question || 0) === 1
+        && Number(game.gameData.playersAnswered || 0) === 0;
+      if (looksLikeFirstQuestionRace) {
+        game.gameData.questionLive = true;
+      } else {
+        socket.emit('answerRejected', { reason: 'question-not-live' });
+        return;
+      }
+    }
 
     if (game.gameData.questionLive === true) {
       game.gameData.playersAnswered += 1;
@@ -2803,7 +2853,22 @@ io.on('connection', (socket) => {
   });
 
   socket.on('startGame', (opts) => {
-    const game = games.getGame(socket.id);
+    let game = games.getGame(socket.id);
+    if ((!game || !game.gameData) && opts && opts.pin) {
+      const fallbackByPin = games.getGameByPin(opts.pin);
+      if (fallbackByPin && fallbackByPin.gameData) {
+        const previousHostId = fallbackByPin.hostId;
+        markHostConnected(fallbackByPin);
+        fallbackByPin.hostId = socket.id;
+        for (let i = 0; i < Object.keys(players.players).length; i++) {
+          if (players.players[i].hostId === previousHostId) {
+            players.players[i].hostId = socket.id;
+          }
+        }
+        socket.join(fallbackByPin.pin);
+        game = fallbackByPin;
+      }
+    }
     if (!game || !game.gameData) {
       socket.emit('noGameFound');
       return;
@@ -2829,9 +2894,17 @@ io.on('connection', (socket) => {
       return;
     }
     game.gameData.totalQuestions = (game.gameData.questions || []).length;
+    game.gameData.question = 1;
+    game.gameData.playersAnswered = 0;
+    game.gameData.questionLive = true;
+    const gamePlayers = players.getPlayers(socket.id);
+    for (let i = 0; i < gamePlayers.length; i++) {
+      gamePlayers[i].gameData.answer = 0;
+    }
     game.gameLive = true;
     game.gameOver = false;
     scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
+    io.to(game.pin).emit('gameStartedPlayer');
     socket.emit('gameStarted', game.hostId);
   });
 
