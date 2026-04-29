@@ -1411,6 +1411,17 @@ function emitQuestionOverPayload(game) {
   io.to(game.pin).emit('questionOver', playerData, meta);
 }
 
+function emitQuestionOverPayloadDeferred(game, delayMs = 250) {
+  if (!game || !game.gameData) return;
+  if (game.gameData.questionOverEmitTimer) {
+    clearTimeout(game.gameData.questionOverEmitTimer);
+  }
+  game.gameData.questionOverEmitTimer = setTimeout(() => {
+    game.gameData.questionOverEmitTimer = null;
+    emitQuestionOverPayload(game);
+  }, delayMs);
+}
+
 async function incrementQuizStats(gameId, playersInGame) {
   try {
     const collection = await getGamesCollection();
@@ -2509,7 +2520,9 @@ io.on('connection', (socket) => {
           game.gameData.questionLive = false;
           // Agotar tiempo en clientes porque ya contestaron todos
           io.to(game.pin).emit('time', { player: player.hostId, time: 0 });
-          emitQuestionOverPayload(game);
+          // El bonus por tiempo llega por un evento asíncrono; esperamos un margen corto
+          // para evitar desajustes entre la puntuación del jugador y el ranking.
+          emitQuestionOverPayloadDeferred(game);
         } else {
           io.to(game.pin).emit('updatePlayersAnswered', {
             playersInGame: playerNum.length,
@@ -2562,7 +2575,7 @@ io.on('connection', (socket) => {
         socket.emit('noGameFound');
         return;
       }
-      emitQuestionOverPayload(game);
+      emitQuestionOverPayloadDeferred(game);
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {
       console.error('timeUp error', err);
@@ -2586,7 +2599,7 @@ io.on('connection', (socket) => {
         return;
       }
       io.to(game.pin).emit('hostSkipped');
-      emitQuestionOverPayload(game);
+      emitQuestionOverPayloadDeferred(game);
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     } catch (err) {
       console.error('skipQuestion error', err);
