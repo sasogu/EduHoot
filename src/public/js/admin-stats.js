@@ -5,6 +5,7 @@
   var loginForm = document.getElementById('login-form');
   var loginEmail = document.getElementById('login-email');
   var loginPass = document.getElementById('login-pass');
+  var loginGoogle = document.getElementById('login-google');
   var loginStatus = document.getElementById('login-status');
 
   function renderCards(data){
@@ -124,6 +125,11 @@
       .catch(function(){
         if(loginStatus) loginStatus.textContent = 'Error de red';
       });
+    });
+  }
+  if(loginGoogle){
+    loginGoogle.addEventListener('click', function(){
+      window.location.href = '/api/auth/google/start?next=' + encodeURIComponent('/admin/stats');
     });
   }
 })();

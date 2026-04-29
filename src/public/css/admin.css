@@ -63,6 +63,10 @@ body{
   font-weight: 700;
   cursor: pointer;
 }
+.login-inline button.google-login{
+  background: #fff;
+  color: #1f2937;
+}
 .login-inline span{
   min-width: 120px;
   color: var(--muted);

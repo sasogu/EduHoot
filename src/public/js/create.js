@@ -151,6 +151,7 @@ var i18n = {
         labelRole: 'Rol',
         btnSaveNick: 'Guardar nombre visible',
         btnLogin: 'Entrar',
+        btnGoogleLogin: 'Entrar con Google',
         btnAccount: 'Cuenta',
         btnLogout: 'Cerrar sesión',
         forgotPass: '¿Olvidaste la contraseña?',
@@ -313,6 +314,7 @@ var i18n = {
         nickSaved: 'Nombre visible actualizado.',
         nickSaveError: 'No se pudo guardar.',
         loginError: 'Error al iniciar sesión.',
+        googleLoginError: 'No se pudo iniciar sesión con Google.',
         loginWait: 'Iniciando sesión...',
         loginOk: 'Sesión iniciada.',
         resetWaiting: 'Enviando...',
@@ -369,6 +371,7 @@ var i18n = {
         labelRole: 'Role',
         btnSaveNick: 'Save display name',
         btnLogin: 'Log in',
+        btnGoogleLogin: 'Log in with Google',
         btnAccount: 'Account',
         btnLogout: 'Log out',
         forgotPass: 'Forgot your password?',
@@ -531,6 +534,7 @@ var i18n = {
         nickSaved: 'Display name updated.',
         nickSaveError: 'Could not save.',
         loginError: 'Login failed.',
+        googleLoginError: 'Could not sign in with Google.',
         loginWait: 'Signing in...',
         loginOk: 'Session started.',
         resetWaiting: 'Sending...',
@@ -587,6 +591,7 @@ var i18n = {
         labelRole: 'Rol',
         btnSaveNick: 'Desar nom visible',
         btnLogin: 'Entrar',
+        btnGoogleLogin: 'Entrar amb Google',
         btnAccount: 'Compte',
         btnLogout: 'Tancar sessió',
         forgotPass: 'Has oblidat la contrasenya?',
@@ -749,6 +754,7 @@ var i18n = {
         nickSaved: 'Nom visible actualitzat.',
         nickSaveError: 'No s\'ha pogut desar.',
         loginError: 'Error en iniciar sessió.',
+        googleLoginError: 'No s\'ha pogut iniciar sessió amb Google.',
         loginWait: 'Iniciant sessió...',
         loginOk: 'Sessió iniciada.',
         resetWaiting: 'Enviant...',
@@ -2860,6 +2866,7 @@ var authLoginForm = document.getElementById('auth-login-form');
 var authStatus = document.getElementById('auth-status');
 var authMsg = document.getElementById('auth-message');
 var authLoginBtn = document.getElementById('auth-login');
+var authGoogleBtn = document.getElementById('auth-google');
 var authLogoutBtn = document.getElementById('auth-logout');
 var authSaveNickBtn = document.getElementById('auth-save-nick');
 var adminPanel = document.getElementById('user-admin');
@@ -2909,6 +2916,9 @@ function updateAuthUI(){
 
     if(authLoginBtn){
         authLoginBtn.classList.toggle('hidden', !!(authState && authState.user));
+    }
+    if(authGoogleBtn){
+        authGoogleBtn.classList.toggle('hidden', !!(authState && authState.user));
     }
     if(authSaveNickBtn){
         authSaveNickBtn.classList.toggle('hidden', !(authState && authState.user));
@@ -2986,6 +2996,11 @@ function logout(){
             fetchWithFilters();
         })
         .catch(function(){});
+}
+
+function loginWithGoogle(){
+    var next = window.location.pathname + window.location.search;
+    window.location.href = '/api/auth/google/start?next=' + encodeURIComponent(next || '/create/');
 }
 
 async function createUser(){
@@ -3149,6 +3164,9 @@ if(authLoginForm){
 if(authLogoutBtn){
     authLogoutBtn.addEventListener('click', logout);
 }
+if(authGoogleBtn){
+    authGoogleBtn.addEventListener('click', loginWithGoogle);
+}
 if(createUserBtn){
     createUserBtn.addEventListener('click', createUser);
 }
@@ -3223,6 +3241,16 @@ if(resetConfirmBtn){
 }
 
 // Start auth check on load
+try{
+    var authParams = new URLSearchParams(window.location.search);
+    var googleResult = authParams.get('google');
+    if(googleResult && authMsg){
+        authMsg.textContent = googleResult === 'ok' ? t('loginOk') : t('googleLoginError');
+        authParams.delete('google');
+        var cleanUrl = window.location.pathname + (authParams.toString() ? '?' + authParams.toString() : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+    }
+}catch(e){}
 fetchMe();
 fetchTags();
 

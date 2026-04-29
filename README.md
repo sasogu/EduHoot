@@ -16,6 +16,15 @@
 3. Executa `node server/server.js`.
 4. Obri `http://localhost:3000/create/`.
 
+### Accés amb Google
+Configura un client OAuth 2.0 de Google amb la URL de retorn `https://tu-dominio/api/auth/google/callback` (o `http://localhost:3000/api/auth/google/callback` en local) i arranca el servidor amb:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `PUBLIC_BASE_URL` (recomanat en producció, per exemple `https://tu-dominio`)
+
+El primer usuari que entra amb Google es crea com `admin`; els següents entren com `editor`. Si ja existeix un usuari amb el mateix email, se li enllaça Google i conserva el rol.
+
 ### Deploy simple al VPS
 - Plantilla segura versionable: `scripts/deploy.example.sh`
 - Recomanat: copia-la a `scripts/deploy.sh`, ompli les teues dades i no la puges al repo.
@@ -57,6 +66,15 @@
 3. Ejecuta `node server/server.js`.
 4. Abre `http://localhost:3000/create/`.
 
+### Acceso con Google
+Configura un cliente OAuth 2.0 de Google con la URL de retorno `https://tu-dominio/api/auth/google/callback` (o `http://localhost:3000/api/auth/google/callback` en local) y arranca el servidor con:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `PUBLIC_BASE_URL` (recomendado en producción, por ejemplo `https://tu-dominio`)
+
+El primer usuario que entra con Google se crea como `admin`; los siguientes entran como `editor`. Si ya existe un usuario con el mismo email, se le enlaza Google y conserva su rol.
+
 ### Deploy simple al VPS
 - Plantilla segura versionable: `scripts/deploy.example.sh`
 - Recomendado: cópiala a `scripts/deploy.sh`, rellena tus datos y no la subas al repo.
@@ -97,6 +115,15 @@
 2. Start local MongoDB (`sudo systemctl start mongod`) or set `MONGO_URL`.
 3. Run `node server/server.js`.
 4. Open `http://localhost:3000/create/`.
+
+### Google Sign-In
+Create a Google OAuth 2.0 client with the redirect URL `https://your-domain/api/auth/google/callback` (or `http://localhost:3000/api/auth/google/callback` locally) and start the server with:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `PUBLIC_BASE_URL` (recommended in production, for example `https://your-domain`)
+
+The first Google user becomes `admin`; later users become `editor`. If a user with the same email already exists, Google is linked to that account and the current role is preserved.
 
 ### Simple VPS Deploy
 - Safe versioned template: `scripts/deploy.example.sh`

@@ -29,6 +29,7 @@ const io = socketIO(server, {
 const games = new LiveGames();
 const players = new Players();
 const sessions = new Map();
+const oauthStates = new Map();
 const soloScoreBuffer = [];
 const SOLO_SCORE_BUFFER_DELAY = 150;
 const SOLO_SCORE_BUFFER_MAX = 50;
@@ -63,6 +64,11 @@ const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
 const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
 const HOST_RECONNECT_GRACE_MS = 30 * 1000; // 30 segundos para reanudar partida en aula
 const MONGO_MAX_POOL_SIZE = parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50;
+const GOOGLE_OAUTH_SCOPE = 'openid email profile';
+const GOOGLE_OAUTH_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_OAUTH_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
+const GOOGLE_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
 function extractKahootId(raw = '') {
   if (!raw) return '';
@@ -932,6 +938,17 @@ function setPasswordFields(password) {
   return { passwordSalt: salt, passwordHash: hash };
 }
 
+function getCookieOptions(req, extra = {}) {
+  const forwardedProto = (req.headers['x-forwarded-proto'] || '').toString().split(',')[0].trim();
+  const secure = req.secure || forwardedProto === 'https';
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure,
+    ...extra
+  };
+}
+
 function createSession(user) {
   const sessionId = crypto.randomBytes(24).toString('hex');
   sessions.set(sessionId, {
@@ -941,6 +958,134 @@ function createSession(user) {
     nickname: user.nickname || ''
   });
   return sessionId;
+}
+
+function publicBaseUrl(req) {
+  const configured = (process.env.PUBLIC_BASE_URL || process.env.BASE_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').toString().split(',')[0].trim();
+  const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+  return `${proto}://${host}`;
+}
+
+function googleCallbackUrl(req) {
+  const configured = (process.env.GOOGLE_CALLBACK_URL || '').trim();
+  if (configured) return configured;
+  return `${publicBaseUrl(req)}/api/auth/google/callback`;
+}
+
+function googleOAuthConfig(req) {
+  return {
+    clientId: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+    redirectUri: googleCallbackUrl(req)
+  };
+}
+
+function sanitizeRedirectTarget(raw) {
+  const target = (raw || '').toString().trim();
+  if (!target || !target.startsWith('/') || target.startsWith('//')) return '/create/';
+  return target;
+}
+
+function cleanupOauthStates() {
+  const now = Date.now();
+  for (const [state, data] of oauthStates.entries()) {
+    if (!data || data.expiresAt <= now) oauthStates.delete(state);
+  }
+}
+
+function httpsJsonRequest(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const body = options.body || '';
+    const req = require('https').request({
+      method: options.method || 'GET',
+      hostname: target.hostname,
+      path: `${target.pathname}${target.search}`,
+      headers: {
+        Accept: 'application/json',
+        ...(body ? {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(body)
+        } : {}),
+        ...(options.headers || {})
+      }
+    }, (res) => {
+      let raw = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { raw += chunk; });
+      res.on('end', () => {
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (err) {
+          return reject(new Error('Respuesta OAuth no válida.'));
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const msg = data.error_description || data.error || `HTTP ${res.statusCode}`;
+          return reject(new Error(msg));
+        }
+        return resolve(data);
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function exchangeGoogleCode(code, config) {
+  const body = new URLSearchParams({
+    code,
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    redirect_uri: config.redirectUri,
+    grant_type: 'authorization_code'
+  }).toString();
+  return httpsJsonRequest(GOOGLE_OAUTH_TOKEN_URL, { method: 'POST', body });
+}
+
+async function fetchGoogleProfile(accessToken) {
+  return httpsJsonRequest(GOOGLE_OAUTH_USERINFO_URL, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+}
+
+async function findOrCreateGoogleUser(profile) {
+  const email = (profile.email || '').toLowerCase().trim();
+  if (!email) throw new Error('Google no devolvió email.');
+  const users = await getUsersCollection();
+  const now = new Date();
+  const existing = await users.findOne({ email });
+  if (existing) {
+    const providers = Array.isArray(existing.authProviders) ? existing.authProviders : [];
+    const update = {
+      googleId: profile.sub,
+      googlePicture: profile.picture || '',
+      googleVerifiedEmail: !!profile.email_verified,
+      lastLoginAt: now,
+      updatedAt: now
+    };
+    if (!existing.nickname && profile.name) update.nickname = profile.name;
+    if (!providers.includes('google')) update.authProviders = [...providers, 'google'];
+    await users.updateOne({ _id: existing._id }, { $set: update });
+    return { ...existing, ...update };
+  }
+  const count = await users.countDocuments();
+  const user = {
+    email,
+    googleId: profile.sub,
+    googlePicture: profile.picture || '',
+    googleVerifiedEmail: !!profile.email_verified,
+    authProviders: ['google'],
+    role: count === 0 ? 'admin' : 'editor',
+    nickname: profile.name || '',
+    createdAt: now,
+    lastLoginAt: now
+  };
+  const result = await users.insertOne(user);
+  return { ...user, _id: result.insertedId };
 }
 
 function parseCookies(header) {
@@ -3049,7 +3194,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciales no válidas.' });
     }
     const sid = createSession(user);
-    res.cookie('sessionId', sid, { httpOnly: true, sameSite: 'lax' });
+    res.cookie('sessionId', sid, getCookieOptions(req));
     return res.json({
       ok: true,
       id: (user._id || user.id || '').toString(),
@@ -3060,6 +3205,64 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     console.error('login error', err);
     return res.status(500).json({ error: 'No se pudo iniciar sesión.' });
+  }
+});
+
+app.get('/api/auth/google/start', (req, res) => {
+  const config = googleOAuthConfig(req);
+  if (!config.clientId || !config.clientSecret) {
+    return res.status(503).json({ error: 'Google OAuth no está configurado.' });
+  }
+  cleanupOauthStates();
+  const state = crypto.randomBytes(24).toString('hex');
+  const next = sanitizeRedirectTarget(req.query.next);
+  oauthStates.set(state, { next, expiresAt: Date.now() + GOOGLE_OAUTH_STATE_TTL_MS });
+  res.cookie('googleOAuthState', state, getCookieOptions(req, {
+    maxAge: GOOGLE_OAUTH_STATE_TTL_MS
+  }));
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: 'code',
+    scope: GOOGLE_OAUTH_SCOPE,
+    state,
+    prompt: 'select_account'
+  });
+  return res.redirect(`${GOOGLE_OAUTH_AUTH_URL}?${params.toString()}`);
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  const failTarget = '/create/?google=error';
+  try {
+    const code = (req.query.code || '').toString();
+    const state = (req.query.state || '').toString();
+    const cookies = parseCookies(req.headers.cookie || '');
+    const stored = oauthStates.get(state);
+    oauthStates.delete(state);
+    res.cookie('googleOAuthState', '', getCookieOptions(req, { expires: new Date(0) }));
+    if (!code || !state || !stored || stored.expiresAt <= Date.now() || cookies.googleOAuthState !== state) {
+      return res.redirect(failTarget);
+    }
+    const config = googleOAuthConfig(req);
+    if (!config.clientId || !config.clientSecret) {
+      return res.redirect(failTarget);
+    }
+    const tokenData = await exchangeGoogleCode(code, config);
+    if (!tokenData.access_token) {
+      throw new Error('Google no devolvió access_token.');
+    }
+    const profile = await fetchGoogleProfile(tokenData.access_token);
+    if (!profile.email_verified) {
+      throw new Error('Email de Google no verificado.');
+    }
+    const user = await findOrCreateGoogleUser(profile);
+    const sid = createSession(user);
+    res.cookie('sessionId', sid, getCookieOptions(req));
+    const separator = stored.next.includes('?') ? '&' : '?';
+    return res.redirect(`${stored.next}${separator}google=ok`);
+  } catch (err) {
+    console.error('google-auth error', err);
+    return res.redirect(failTarget);
   }
 });
 
@@ -3106,7 +3309,7 @@ app.post('/api/auth/logout', (req, res) => {
   const cookies = parseCookies(req.headers.cookie || '');
   const sid = cookies.sessionId;
   if (sid) sessions.delete(sid);
-  res.cookie('sessionId', '', { httpOnly: true, sameSite: 'lax', expires: new Date(0) });
+  res.cookie('sessionId', '', getCookieOptions(req, { expires: new Date(0) }));
   return res.json({ ok: true });
 });
 

@@ -644,6 +644,27 @@ details.panel[open] > summary{
     color: #fff;
     border: 1px solid rgba(255,255,255,0.16);
 }
+.btn-google{
+    display: inline-flex;
+    align-items: center;
+    background: #fff;
+    color: #1f2937;
+    border: 1px solid rgba(255,255,255,0.75);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+.btn-google::before{
+    content: "G";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: #4285f4;
+    color: #fff;
+    font-weight: 900;
+}
 .btn-ghost#tag-mode-toggle{
     letter-spacing: 0.04em;
     text-transform: none;
