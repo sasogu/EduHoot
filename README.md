@@ -25,6 +25,8 @@ Configura un client OAuth 2.0 de Google amb la URL de retorn `https://tu-dominio
 
 El primer usuari que entra amb Google es crea com `admin`; els següents entren com `editor`. Si ja existeix un usuari amb el mateix email, se li enllaça Google i conserva el rol.
 
+En la pantalla de create, el bloc d'alta ràpida mostra només el botó de Google. El botó `Entrar/Compte` continua obrint el modal d'accés amb email per a usuaris antics.
+
 ### Deploy simple al VPS
 - Plantilla segura versionable: `scripts/deploy.example.sh`
 - Recomanat: copia-la a `scripts/deploy.sh`, ompli les teues dades i no la puges al repo.
@@ -74,6 +76,8 @@ Configura un cliente OAuth 2.0 de Google con la URL de retorno `https://tu-domin
 - `PUBLIC_BASE_URL` (recomendado en producción, por ejemplo `https://tu-dominio`)
 
 El primer usuario que entra con Google se crea como `admin`; los siguientes entran como `editor`. Si ya existe un usuario con el mismo email, se le enlaza Google y conserva su rol.
+
+En la pantalla de create, el bloque de alta rápida muestra solo el botón de Google. El botón `Entrar/Cuenta` sigue abriendo el modal de acceso con email para usuarios antiguos.
 
 ### Deploy simple al VPS
 - Plantilla segura versionable: `scripts/deploy.example.sh`

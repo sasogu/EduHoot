@@ -2885,7 +2885,6 @@ var authModal = document.getElementById('auth-modal');
 var openAuthBtn = document.getElementById('open-auth');
 var newUserSignin = document.getElementById('new-user-signin');
 var authGoogleHeroBtn = document.getElementById('auth-google-hero');
-var authEmailHeroBtn = document.getElementById('auth-email-hero');
 
 function openAuthModal(){
     if(!authModal) return;
@@ -3317,11 +3316,6 @@ if(authLogoutBtn){
 }
 if(authGoogleHeroBtn){
     authGoogleHeroBtn.addEventListener('click', loginWithGoogle);
-}
-if(authEmailHeroBtn){
-    authEmailHeroBtn.addEventListener('click', function(){
-        openAuthModal();
-    });
 }
 if(createUserBtn){
     createUserBtn.addEventListener('click', createUser);

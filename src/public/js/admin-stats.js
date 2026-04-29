@@ -8,6 +8,14 @@
   var loginGoogle = document.getElementById('login-google');
   var loginStatus = document.getElementById('login-status');
 
+  function safeJson(res){
+    return res.json().catch(function(){ return {}; });
+  }
+
+  function setLoginStatus(msg){
+    if(loginStatus) loginStatus.textContent = msg || '';
+  }
+
   function renderCards(data){
     if(!cardsEl) return;
     cardsEl.innerHTML = '';
@@ -82,8 +90,14 @@
   function loadStats(){
     fetch('/api/admin/stats', { credentials: 'include' })
       .then(function(res){
-        if(!res.ok) throw new Error('Error HTTP '+res.status);
-        return res.json();
+        if(!res.ok){
+          return safeJson(res).then(function(body){
+            var err = new Error((body && body.error) || ('Error HTTP ' + res.status));
+            err.status = res.status;
+            throw err;
+          });
+        }
+        return safeJson(res);
       })
       .then(function(payload){
         if(!payload || !payload.data) throw new Error('Respuesta incompleta');
@@ -93,9 +107,33 @@
       })
       .catch(function(err){
         console.error(err);
+        if(err && err.status === 403){
+          showError('Tu cuenta está autenticada, pero no tiene rol admin.');
+          return;
+        }
+        if(err && err.status === 401){
+          showError('Necesitas iniciar sesión para ver estadísticas.');
+          return;
+        }
         showError('No se pudieron cargar las estadísticas. ¿Tienes sesión de admin iniciada?');
       });
   }
+
+  (function handleGoogleReturn(){
+    try{
+      var url = new URL(window.location.href);
+      var result = url.searchParams.get('google');
+      if(result === 'ok'){
+        setLoginStatus('Google: sesión iniciada');
+      }else if(result === 'error'){
+        setLoginStatus('Google: no se pudo iniciar sesión');
+      }
+      if(result){
+        url.searchParams.delete('google');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      }
+    }catch(e){}
+  })();
 
   loadStats();
 
@@ -103,7 +141,7 @@
     loginForm.addEventListener('submit', function(e){
       e.preventDefault();
       if(!loginEmail || !loginPass) return;
-      if(loginStatus) loginStatus.textContent = '...';
+      setLoginStatus('...');
       fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,18 +150,18 @@
           email: (loginEmail.value || '').trim(),
           password: loginPass.value
         })
-      }).then(function(res){ return res.json().then(function(body){ return { ok: res.ok, body: body }; }); })
+      }).then(function(res){ return safeJson(res).then(function(body){ return { ok: res.ok, body: body }; }); })
       .then(function(result){
         if(!result.ok){
-          if(loginStatus) loginStatus.textContent = result.body.error || 'Login fallido';
+          setLoginStatus(result.body.error || 'Login fallido');
           return;
         }
-        if(loginStatus) loginStatus.textContent = 'Ok';
+        setLoginStatus('Ok');
         loginPass.value = '';
         loadStats();
       })
       .catch(function(){
-        if(loginStatus) loginStatus.textContent = 'Error de red';
+        setLoginStatus('Error de red');
       });
     });
   }

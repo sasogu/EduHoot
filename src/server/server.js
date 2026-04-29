@@ -1002,6 +1002,9 @@ function googleOAuthConfig(req) {
 function sanitizeRedirectTarget(raw) {
   const target = (raw || '').toString().trim();
   if (!target || !target.startsWith('/') || target.startsWith('//')) return '/create/';
+  if (target === '/admin' || target === '/admin/' || target === '/admin-stats.html') {
+    return '/admin/stats';
+  }
   return target;
 }
 
@@ -1074,6 +1077,8 @@ async function findOrCreateGoogleUser(profile) {
   if (!email) throw new Error('Google no devolvió email.');
   const users = await getUsersCollection();
   const now = new Date();
+  const adminCount = await users.countDocuments({ role: 'admin' });
+  const noAdminExists = adminCount === 0;
   const existing = await users.findOne({ email });
   if (existing) {
     const providers = Array.isArray(existing.authProviders) ? existing.authProviders : [];
@@ -1086,17 +1091,17 @@ async function findOrCreateGoogleUser(profile) {
     };
     if (!existing.nickname && profile.name) update.nickname = profile.name;
     if (!providers.includes('google')) update.authProviders = [...providers, 'google'];
+    if (noAdminExists && existing.role !== 'admin') update.role = 'admin';
     await users.updateOne({ _id: existing._id }, { $set: update });
     return { ...existing, ...update };
   }
-  const count = await users.countDocuments();
   const user = {
     email,
     googleId: profile.sub,
     googlePicture: profile.picture || '',
     googleVerifiedEmail: !!profile.email_verified,
     authProviders: ['google'],
-    role: count === 0 ? 'admin' : 'editor',
+    role: noAdminExists ? 'admin' : 'editor',
     nickname: profile.name || '',
     createdAt: now,
     lastLoginAt: now
@@ -3346,7 +3351,7 @@ app.get('/api/auth/google/start', (req, res) => {
 });
 
 app.get('/api/auth/google/callback', async (req, res) => {
-  const failTarget = '/create/?google=error';
+  let nextTarget = '/create/';
   try {
     const code = (req.query.code || '').toString();
     const state = (req.query.state || '').toString();
@@ -3354,12 +3359,17 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const stored = oauthStates.get(state);
     oauthStates.delete(state);
     res.cookie('googleOAuthState', '', getCookieOptions(req, { expires: new Date(0) }));
+    if (stored && stored.next) {
+      nextTarget = sanitizeRedirectTarget(stored.next);
+    }
     if (!code || !state || !stored || stored.expiresAt <= Date.now() || cookies.googleOAuthState !== state) {
-      return res.redirect(failTarget);
+      const separator = nextTarget.includes('?') ? '&' : '?';
+      return res.redirect(`${nextTarget}${separator}google=error`);
     }
     const config = googleOAuthConfig(req);
     if (!config.clientId || !config.clientSecret) {
-      return res.redirect(failTarget);
+      const separator = nextTarget.includes('?') ? '&' : '?';
+      return res.redirect(`${nextTarget}${separator}google=error`);
     }
     const tokenData = await exchangeGoogleCode(code, config);
     if (!tokenData.access_token) {
@@ -3372,11 +3382,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const user = await findOrCreateGoogleUser(profile);
     const sid = createSession(user);
     res.cookie('sessionId', sid, getCookieOptions(req));
-    const separator = stored.next.includes('?') ? '&' : '?';
-    return res.redirect(`${stored.next}${separator}google=ok`);
+    const separator = nextTarget.includes('?') ? '&' : '?';
+    return res.redirect(`${nextTarget}${separator}google=ok`);
   } catch (err) {
     console.error('google-auth error', err);
-    return res.redirect(failTarget);
+    const separator = nextTarget.includes('?') ? '&' : '?';
+    return res.redirect(`${nextTarget}${separator}google=error`);
   }
 });
 
@@ -3501,8 +3512,12 @@ app.get('/api/admin/stats', requireRole('admin'), async (req, res) => {
   }
 });
 
-app.get('/admin/stats', requireRole('admin'), (req, res) => {
+app.get('/admin/stats', (req, res) => {
   res.sendFile(path.join(publicPath, 'admin-stats.html'));
+});
+
+app.get(['/admin', '/admin/', '/admin-stats.html'], (req, res) => {
+  res.redirect('/admin/stats');
 });
 
 // Solicitar token de reseteo (se guarda en BD y se muestra en logs)
