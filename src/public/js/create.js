@@ -113,6 +113,7 @@ var LIBRARY_PAGE_SIZE = 12;
 var libraryCurrentPage = 1;
 var libraryTotalPages = 1;
 var libraryLatestData = [];
+var PENDING_ACCOUNT_SAVE_KEY = 'eduhoot-pending-account-save';
 function getAnonOwnerToken(){
     var key = 'anonOwnerToken';
     var existing = localStorage.getItem(key);
@@ -124,10 +125,10 @@ function getAnonOwnerToken(){
     return token;
 }
 function ownsLocal(id){
-    if(!id || typeof id !== 'string') return false;
+    if(id === undefined || id === null) return false;
     try{
         var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
-        return stored.indexOf(id) !== -1;
+        return stored.map(function(x){ return String(x); }).indexOf(String(id)) !== -1;
     }catch(e){
         return false;
     }
@@ -327,6 +328,11 @@ var i18n = {
         notLogged: 'Inicia sesión para clonar un quiz.',
         cloneOk: 'Copia creada en tu biblioteca.',
         cloneError: 'No se pudo clonar.',
+        saveToAccount: 'Guardar en mi cuenta',
+        loginToSave: 'Inicia sesión con Google para guardar este cuestionario en tu cuenta.',
+        savingToAccount: 'Guardando en tu cuenta...',
+        saveToAccountOk: 'Cuestionario guardado en tu cuenta.',
+        saveToAccountError: 'No se pudo guardar en tu cuenta.',
         namePlaceholder: 'Nombre del quiz (opcional)',
         selectCsv: 'Selecciona un archivo CSV.',
         downloadCsvError: 'No se pudo descargar el CSV.',
@@ -547,6 +553,11 @@ var i18n = {
         notLogged: 'Sign in to clone a quiz.',
         cloneOk: 'Copy created in your library.',
         cloneError: 'Could not clone.',
+        saveToAccount: 'Save to my account',
+        loginToSave: 'Sign in with Google to save this quiz to your account.',
+        savingToAccount: 'Saving to your account...',
+        saveToAccountOk: 'Quiz saved to your account.',
+        saveToAccountError: 'Could not save to your account.',
         namePlaceholder: 'Quiz name (optional)',
         selectCsv: 'Select a CSV file.',
         downloadCsvError: 'Could not download the CSV.',
@@ -767,6 +778,11 @@ var i18n = {
         notLogged: 'Inicia sessió per clonar un quiz.',
         cloneOk: 'Còpia creada a la teva biblioteca.',
         cloneError: 'No s\'ha pogut clonar.',
+        saveToAccount: 'Desar al meu compte',
+        loginToSave: 'Inicia sessió amb Google per desar aquest qüestionari al teu compte.',
+        savingToAccount: 'Desant al teu compte...',
+        saveToAccountOk: 'Qüestionari desat al teu compte.',
+        saveToAccountError: 'No s\'ha pogut desar al teu compte.',
         namePlaceholder: 'Nom del quiz (opcional)',
         selectCsv: 'Selecciona un fitxer CSV.',
         downloadCsvError: 'No s\'ha pogut descarregar el CSV.',
@@ -1238,7 +1254,7 @@ function fetchWithFilters(){
     if(anonToken){
         headers['X-Owner-Token'] = anonToken;
     }
-    fetch('/api/quizzes' + query, { headers: headers })
+    fetch('/api/quizzes' + query, { headers: headers, credentials: 'include' })
         .then(function(res){ return res.json(); })
         .then(function(data){
             libraryLatestData = data || [];
@@ -1593,6 +1609,7 @@ function renderGames(data){
         }
         var canStart = quiz.visibility !== 'private' || canEdit;
         var canClone = authState.user && (quiz.allowClone || canEdit);
+        var canSaveToAccount = !authState.user && canEdit;
 
         function normalizeInlineTags(list){
             var out = [];
@@ -1728,6 +1745,16 @@ function renderGames(data){
 
         var actions = document.createElement('div');
         actions.className = 'game-actions';
+
+        if(canSaveToAccount){
+            var saveAccountBtn = document.createElement('button');
+            saveAccountBtn.className = 'btn btn-primary';
+            saveAccountBtn.textContent = t('saveToAccount');
+            saveAccountBtn.onclick = function(){
+                claimQuizToAccount(quiz.id);
+            };
+            actions.appendChild(saveAccountBtn);
+        }
 
         var playBtn = document.createElement('button');
         playBtn.className = 'btn btn-primary';
@@ -2064,11 +2091,12 @@ async function updateSharing(id, visibility, allowClone){
         if(result.migrated && result.id){
             try{
                 var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
-                var idx = stored.indexOf(id);
+                var idx = stored.map(function(x){ return String(x); }).indexOf(String(id));
                 if(idx !== -1){
                     stored.splice(idx, 1);
                 }
-                if(stored.indexOf(result.id) === -1){
+                var resultExists = stored.some(function(x){ return String(x) === String(result.id); });
+                if(!resultExists){
                     stored.push(result.id);
                 }
                 localStorage.setItem('localQuizzes', JSON.stringify(stored));
@@ -2652,15 +2680,7 @@ if (csvForm) {
             startBtn.onclick = function() { startGame(result.id); };
             status.appendChild(startBtn);
             csvForm.reset();
-            try{
-                var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
-                if(result.local){
-                    if(stored.indexOf(result.id) === -1){
-                        stored.push(result.id);
-                        localStorage.setItem('localQuizzes', JSON.stringify(stored));
-                    }
-                }
-            }catch(e){}
+            rememberClaimableQuizId(result.id);
             socket.emit('requestDbNames');
             fetchWithFilters();
         } catch (err) {
@@ -2949,6 +2969,7 @@ function fetchMe(){
             authState.user = user;
             updateAuthUI();
             fetchWithFilters();
+            claimPendingQuizAfterLogin();
         })
         .catch(function(){
             authState.user = null;
@@ -3001,6 +3022,73 @@ function logout(){
 function loginWithGoogle(){
     var next = window.location.pathname + window.location.search;
     window.location.href = '/api/auth/google/start?next=' + encodeURIComponent(next || '/create/');
+}
+
+function removeLocalQuizId(id){
+    if(!id) return;
+    try{
+        var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+        stored = stored.filter(function(x){ return String(x) !== String(id); });
+        localStorage.setItem('localQuizzes', JSON.stringify(stored));
+    }catch(e){}
+}
+
+function rememberClaimableQuizId(id){
+    if(id === undefined || id === null || authState.user) return;
+    try{
+        var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+        var idText = String(id);
+        var exists = stored.some(function(x){ return String(x) === idText; });
+        if(!exists){
+            stored.push(id);
+            localStorage.setItem('localQuizzes', JSON.stringify(stored));
+        }
+    }catch(e){}
+}
+
+async function claimQuizToAccount(id, options){
+    var silent = options && options.silent;
+    if(!id) return false;
+    if(!authState.user){
+        try{ localStorage.setItem(PENDING_ACCOUNT_SAVE_KEY, String(id)); }catch(e){}
+        if(authMsg) authMsg.textContent = t('loginToSave');
+        openAuthModal();
+        return false;
+    }
+    if(authMsg && !silent) authMsg.textContent = t('savingToAccount');
+    try{
+        var res = await fetch('/api/quizzes/' + encodeURIComponent(id) + '/claim', {
+            method: 'POST',
+            headers: { 'X-Owner-Token': getAnonOwnerToken() },
+            credentials: 'include'
+        });
+        var body = {};
+        try{ body = await res.json(); }catch(e){}
+        if(!res.ok){
+            if(authMsg && !silent) authMsg.textContent = body.error || t('saveToAccountError');
+            if(!silent) alert(body.error || t('saveToAccountError'));
+            return false;
+        }
+        removeLocalQuizId(body.previousId || id);
+        try{ localStorage.removeItem(PENDING_ACCOUNT_SAVE_KEY); }catch(e){}
+        if(authMsg) authMsg.textContent = t('saveToAccountOk');
+        socket.emit('requestDbNames');
+        fetchWithFilters();
+        fetchTags();
+        return true;
+    }catch(err){
+        if(authMsg && !silent) authMsg.textContent = t('saveToAccountError');
+        if(!silent) alert(t('saveToAccountError'));
+        return false;
+    }
+}
+
+async function claimPendingQuizAfterLogin(){
+    if(!authState.user) return;
+    var pending = '';
+    try{ pending = localStorage.getItem(PENDING_ACCOUNT_SAVE_KEY) || ''; }catch(e){}
+    if(!pending) return;
+    await claimQuizToAccount(pending, { silent: true });
 }
 
 async function createUser(){
@@ -3643,15 +3731,7 @@ if (iaUpload) {
                 startBtn.style.marginLeft = '8px';
                 startBtn.onclick = function(){ startGame(result.id); };
                 status.appendChild(startBtn);
-                try{
-                    var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
-                    if(result.local){
-                        if(stored.indexOf(result.id) === -1){
-                            stored.push(result.id);
-                            localStorage.setItem('localQuizzes', JSON.stringify(stored));
-                        }
-                    }
-                }catch(e){}
+                rememberClaimableQuizId(result.id);
             }
             currentFilters.tags = [];
             socket.emit('requestDbNames');
@@ -3738,15 +3818,7 @@ if(kahootForm){
                 }
             }
             if(submitBtn) submitBtn.disabled = false;
-            if(body.id){
-                try{
-                    var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
-                    if(stored.indexOf(body.id) === -1){
-                        stored.push(body.id);
-                        localStorage.setItem('localQuizzes', JSON.stringify(stored));
-                    }
-                }catch(e){}
-            }
+            if(body.id) rememberClaimableQuizId(body.id);
             socket.emit('requestDbNames');
         }catch(err){
             if(kahootStatus) kahootStatus.textContent = t('importError');

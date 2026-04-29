@@ -13,6 +13,30 @@ var lang = localStorage.getItem('lang') || (['es','en','ca'].includes(browserLan
 var knownTags = [];
 var isUserAuthenticated = false;
 var moodleExportPendingQuiz = null;
+function getAnonOwnerToken(){
+    var key = 'anonOwnerToken';
+    var existing = localStorage.getItem(key);
+    if(existing) return existing;
+    var arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    var token = Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    localStorage.setItem(key, token);
+    return token;
+}
+
+function rememberClaimableQuizId(id){
+    if(id === undefined || id === null || isUserAuthenticated) return;
+    try{
+        var stored = JSON.parse(localStorage.getItem('localQuizzes') || '[]');
+        var idText = String(id);
+        var exists = stored.some(function(x){ return String(x) === idText; });
+        if(!exists){
+            stored.push(id);
+            localStorage.setItem('localQuizzes', JSON.stringify(stored));
+        }
+    }catch(e){}
+}
+
 var i18n = {
     es: {
         back: 'Volver',
@@ -657,7 +681,8 @@ async function saveLocal(){
                 questions: quiz.questions,
                 tags: quiz.tags,
                 visibility: quiz.visibility,
-                allowClone: quiz.allowClone
+                allowClone: quiz.allowClone,
+                ownerToken: getAnonOwnerToken()
             })
         });
         var body = await res.json();
@@ -665,6 +690,7 @@ async function saveLocal(){
             alert(body.error || t('saveError'));
             return;
         }
+        rememberClaimableQuizId(body.id);
         window.location.href = '../../host/?id=' + body.id;
     }catch(err){
         alert(t('saveError'));

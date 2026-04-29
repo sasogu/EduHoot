@@ -1729,6 +1729,7 @@ async function buildQuizDoc({ name, tags, questions, visibility, allowClone, use
     playersCount: 0,
     ownerId: user && user.id ? user.id : GLOBAL_OWNER_ID,
     ownerEmail: user && user.email ? user.email : GLOBAL_OWNER_EMAIL,
+    ownerNickname: user && user.nickname ? user.nickname : '',
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -2820,12 +2821,16 @@ app.get('/api/quizzes', async (req, res) => {
       ? { tags: tagMode === 'all' ? { $all: normalized } : { $in: normalized } }
       : {};
     let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
-    if (mineOnly && req.user) {
-      quizzesRaw = quizzesRaw.filter((q) => {
-        if (q.ownerId && req.user.id && q.ownerId.toString() === req.user.id.toString()) return true;
-        if (req.user.ownerToken && q.ownerToken && q.ownerToken === req.user.ownerToken) return true;
-        return false;
-      });
+    if (mineOnly) {
+      if (!req.user) {
+        quizzesRaw = [];
+      } else {
+        quizzesRaw = quizzesRaw.filter((q) => {
+          if (q.ownerId && req.user.id && q.ownerId.toString() === req.user.id.toString()) return true;
+          if (req.user.ownerToken && q.ownerToken && q.ownerToken === req.user.ownerToken) return true;
+          return false;
+        });
+      }
     }
     const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
       id: quiz.id,
@@ -3122,6 +3127,71 @@ app.post('/api/quizzes/:id/clone', async (req, res) => {
   }
 });
 
+app.post('/api/quizzes/:id/claim', async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Debes iniciar sesión para guardar este quiz en tu cuenta.' });
+  }
+  const quizIdParam = req.params.id;
+  const ownerToken = ownerTokenFromReq(req);
+  if (!ownerToken) {
+    return res.status(403).json({ error: 'No se pudo verificar la propiedad local.' });
+  }
+  try {
+    const collection = await getGamesCollection();
+    if (isLocalQuizId(quizIdParam)) {
+      const localQuiz = await getEphemeralQuiz(quizIdParam);
+      if (!localQuiz) return res.status(404).json({ error: 'Quiz no encontrado.' });
+      if (!localQuiz.ownerToken || localQuiz.ownerToken !== ownerToken) {
+        return res.status(403).json({ error: 'No autorizado.' });
+      }
+      const newId = await nextGameId(collection);
+      const doc = {
+        id: newId,
+        name: localQuiz.name || 'Quiz local',
+        questions: normalizeQuestions(localQuiz.questions || []),
+        tags: normalizeTags(localQuiz.tags || []),
+        playsCount: localQuiz.playsCount || 0,
+        playersCount: localQuiz.playersCount || 0,
+        visibility: currentVisibility(localQuiz),
+        allowClone: normalizeAllowClone(localQuiz.allowClone),
+        ownerId: req.user.id,
+        ownerEmail: req.user.email,
+        ownerNickname: req.user.nickname || '',
+        sourceQuizId: localQuiz.sourceQuizId,
+        createdAt: localQuiz.createdAt || new Date(),
+        updatedAt: new Date()
+      };
+      await collection.insertOne(doc);
+      await deleteEphemeralQuiz(quizIdParam);
+      return res.json({ ok: true, id: newId, previousId: quizIdParam, migrated: true });
+    }
+
+    const quiz = await findGameById(quizIdParam);
+    if (!quiz || typeof quiz.id === 'string') {
+      return res.status(404).json({ error: 'Quiz no encontrado.' });
+    }
+    if (!quiz.ownerToken || quiz.ownerToken !== ownerToken) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+    await collection.updateOne(
+      { id: quiz.id },
+      {
+        $set: {
+          ownerId: req.user.id,
+          ownerEmail: req.user.email,
+          ownerNickname: req.user.nickname || '',
+          updatedAt: new Date()
+        },
+        $unset: { ownerToken: '' }
+      }
+    );
+    return res.json({ ok: true, id: quiz.id, claimed: true });
+  } catch (err) {
+    console.error('claim-quiz error', err);
+    return res.status(500).json({ error: 'No se pudo guardar en tu cuenta.' });
+  }
+});
+
 // Crear quiz en memoria (sin login)
 app.post('/api/quizzes/local', async (req, res) => {
   try {
@@ -3133,8 +3203,13 @@ app.post('/api/quizzes/local', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'Falta nombre.' });
     if (!tags.length) return res.status(400).json({ error: 'Añade al menos una etiqueta.' });
     if (!questions.length) return res.status(400).json({ error: 'Añade preguntas.' });
+    const ownerToken = (req.body.ownerToken || req.headers['x-owner-token'] || '').toString().trim();
+    if (req.user) {
+      const { quiz } = await buildQuizDoc({ name, tags, questions, visibility, allowClone, user: req.user, ownerToken });
+      return res.json({ ok: true, id: quiz.id, count: questions.length });
+    }
     if (visibility === 'private') {
-      const saved = await saveEphemeralQuiz({ name, questions, tags, visibility, allowClone });
+      const saved = await saveEphemeralQuiz({ name, questions, tags, visibility, allowClone, ownerToken });
       return res.json({ ok: true, id: saved.id, count: questions.length });
     }
     const collection = await getGamesCollection();
@@ -3154,6 +3229,7 @@ app.post('/api/quizzes/local', async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    if (ownerToken) quiz.ownerToken = ownerToken;
     await collection.insertOne(quiz);
     return res.json({ ok: true, id: newId, count: questions.length });
   } catch (err) {
