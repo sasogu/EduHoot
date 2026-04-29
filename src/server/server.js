@@ -865,10 +865,23 @@ function normalizeQuestions(list = []) {
 
 function normalizeTags(list = []) {
   if (!Array.isArray(list)) return [];
-  return list
-    .map((t) => (t || '').toString().trim())
-    .filter((t) => t.length > 0)
-    .map((t) => t.slice(0, 40).toLowerCase());
+  const out = [];
+  for (const raw of list) {
+    let clean = (raw || '').toString().trim().toLowerCase();
+    if (!clean) continue;
+    try {
+      clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (err) {}
+    clean = clean
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40)
+      .replace(/^-|-$/g, '');
+    if (!clean || out.includes(clean)) continue;
+    out.push(clean);
+  }
+  return out;
 }
 
 function scheduleGameCleanup(hostId, delayMs = GAME_CLEANUP_DELAY) {
@@ -1823,7 +1836,7 @@ app.get('/api/quizzes/:id', async (req, res) => {
     return res.json({
       id: quiz.id,
       name: quiz.name,
-      tags: quiz.tags || [],
+      tags: normalizeTags(quiz.tags || []),
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
       questions,
@@ -2816,11 +2829,19 @@ app.get('/api/quizzes', async (req, res) => {
     const normalized = normalizeTags(tags);
     const mineOnly = req.query.mine === '1';
     const tagMode = req.query.tagMode === 'any' ? 'any' : 'all';
+    const matchesTagFilter = (quiz) => {
+      if (!normalized.length) return true;
+      const quizTags = normalizeTags(quiz.tags || []);
+      if (tagMode === 'all') {
+        return normalized.every((tag) => quizTags.includes(tag));
+      }
+      return normalized.some((tag) => quizTags.includes(tag));
+    };
     const collection = await getGamesCollection();
-    const baseQuery = normalized.length
-      ? { tags: tagMode === 'all' ? { $all: normalized } : { $in: normalized } }
-      : {};
-    let quizzesRaw = await collection.find(baseQuery).project({ questions: 0 }).toArray();
+    let quizzesRaw = await collection.find({}).project({ questions: 0 }).toArray();
+    if (normalized.length) {
+      quizzesRaw = quizzesRaw.filter(matchesTagFilter);
+    }
     if (mineOnly) {
       if (!req.user) {
         quizzesRaw = [];
@@ -2854,11 +2875,11 @@ app.get('/api/quizzes', async (req, res) => {
     const validLocal = [];
     for (const id of localIds) {
       const q = await getEphemeralQuiz(id);
-      if (q && !isEphemeralExpired(q)) {
+      if (q && !isEphemeralExpired(q) && matchesTagFilter(q)) {
         validLocal.push({
           id: q.id,
           name: q.name,
-          tags: q.tags || [],
+          tags: normalizeTags(q.tags || []),
           playsCount: 0,
           playersCount: 0,
           visibility: currentVisibility(q),

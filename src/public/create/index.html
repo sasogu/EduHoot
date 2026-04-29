@@ -26,6 +26,18 @@
             </div>
             <h4 id = "subtitle" data-i18n="subtitle">Genera con IA, importa (CSV o Kahoot) o <a id = "link" href = "quiz-creator/">crea un cuestionario desde cero</a>.</h4>
 
+            <section id="new-user-signin" class="signin-callout" aria-labelledby="new-user-signin-title">
+                <div>
+                    <p class="eyebrow" data-i18n="signinEyebrow">Nuevo en EduHoot</p>
+                    <h2 id="new-user-signin-title" data-i18n="signinTitle">Guarda tus cuestionarios desde el primer minuto</h2>
+                    <p class="subtext" data-i18n="signinDesc">Entra con Google para tener biblioteca propia, editar después y lanzar tus juegos desde cualquier equipo.</p>
+                </div>
+                <div class="signin-callout__actions">
+                    <button id="auth-google-hero" type="button" class="btn btn-google btn-google-prominent" data-i18n="btnGoogleLogin">Entrar con Google</button>
+                    <button id="auth-email-hero" type="button" class="btn btn-ghost" data-i18n="btnUseEmail">Usar email</button>
+                </div>
+            </section>
+
             <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true">
                 <div class="modal__backdrop" data-modal-close></div>
                 <div class="modal__content" role="document">
@@ -39,6 +51,7 @@
                     </div>
                 </div>
                 <form id="auth-login-form" autocomplete="on">
+                    <p id="auth-status" class="pill pill-muted" data-i18n="authStatus">No has iniciado sesión</p>
                     <div class="auth-grid">
                         <label data-i18n="labelEmail">Email
                             <input id="auth-email" name="email" type="email" autocomplete="username" placeholder="tupro@centro.es">
@@ -52,7 +65,6 @@
                     </div>
                     <div class="actions-row">
                         <button id="auth-login" type="submit" class="btn btn-primary" data-i18n="btnLogin">Entrar</button>
-                        <button id="auth-google" type="button" class="btn btn-google" data-i18n="btnGoogleLogin">Entrar con Google</button>
                         <button id="auth-save-nick" type="button" class="btn btn-ghost" data-i18n="btnSaveNick">Guardar nombre visible</button>
                         <button id="auth-logout" type="button" class="btn btn-ghost hidden" data-i18n="btnLogout">Cerrar sesión</button>
                     </div>
@@ -156,6 +168,11 @@
                             <h3 data-i18n="aiTitle">Generador IA (CSV)</h3>
                             <p class="subtext" data-i18n="aiDesc">Rellena los campos y copia el prompt para generar tu cuestionario por IA.</p>
                         </div>
+                        <span class="panel-toggle">
+                            <span class="panel-toggle__label panel-toggle__label--closed" data-i18n="panelExpand">Desplegar</span>
+                            <span class="panel-toggle__label panel-toggle__label--open" data-i18n="panelCollapse">Ocultar</span>
+                            <span class="panel-toggle__chevron" aria-hidden="true"></span>
+                        </span>
                     </div>
                 </summary>
 
@@ -263,6 +280,11 @@
                             <h3 data-i18n="importTitle">Importar cuestionario (CSV o Kahoot público)</h3>
                             <p class="subtext" data-i18n="importDesc">Sube un archivo CSV con tus preguntas para guardarlo en tu biblioteca.</p>
                         </div>
+                        <span class="panel-toggle">
+                            <span class="panel-toggle__label panel-toggle__label--closed" data-i18n="panelExpand">Desplegar</span>
+                            <span class="panel-toggle__label panel-toggle__label--open" data-i18n="panelCollapse">Ocultar</span>
+                            <span class="panel-toggle__chevron" aria-hidden="true"></span>
+                        </span>
                     </div>
                 </summary>
             <form id="csv-form">

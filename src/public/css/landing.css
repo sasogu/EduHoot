@@ -58,22 +58,6 @@ body {
     gap: 12px;
 }
 
-.landing-professor {
-    margin-top: 16px;
-    font-size: 0.85rem;
-}
-
-.landing-professor__link {
-    color: rgba(255,255,255,0.78);
-    text-decoration: underline;
-    opacity: 0.75;
-    transition: opacity 0.2s ease;
-}
-
-.landing-professor__link:hover {
-    opacity: 1;
-}
-
 .install-button {
     margin-top: 14px;
     background: transparent;
@@ -130,10 +114,6 @@ body {
     color: rgba(255,255,255,0.65);
 }
 
-.landing-professor__link:hover {
-    opacity: 1;
-}
-
 .btn {
     padding: 14px 18px;
     border-radius: 999px;
@@ -156,6 +136,13 @@ body {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.35);
     color: #fefefe;
+}
+
+.btn.teacher {
+    background: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    color: #1f2937;
+    box-shadow: 0 12px 24px rgba(255, 255, 255, 0.18);
 }
 
 .btn:hover {

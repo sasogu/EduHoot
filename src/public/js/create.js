@@ -32,7 +32,7 @@ function getTagsFromLibraryData(data){
         var tgs = Array.isArray(q.tags) ? q.tags : [];
         if(!tgs.length) continue;
         tgs.forEach(function(t){
-            var clean = (t || '').toString().trim();
+            var clean = normalizeTagSlug(t);
             if(!clean) return;
             tags.add(clean);
         });
@@ -47,7 +47,7 @@ function getTagFrequencies(data){
         if(!quiz) return;
         var tagList = Array.isArray(quiz.tags) ? quiz.tags : [];
         tagList.forEach(function(raw){
-            var clean = (raw || '').toString().trim();
+            var clean = normalizeTagSlug(raw);
             if(!clean) return;
             frequencies[clean] = (frequencies[clean] || 0) + 1;
         });
@@ -114,6 +114,68 @@ var libraryCurrentPage = 1;
 var libraryTotalPages = 1;
 var libraryLatestData = [];
 var PENDING_ACCOUNT_SAVE_KEY = 'eduhoot-pending-account-save';
+
+function normalizeTagSlug(raw){
+    var clean = (raw || '').toString().trim().toLowerCase();
+    if(!clean) return '';
+    try{ clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }catch(e){}
+    clean = clean
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40)
+        .replace(/^-|-$/g, '');
+    return clean;
+}
+
+function normalizeInlineTags(list){
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function(raw){
+        var clean = normalizeTagSlug(raw);
+        if(!clean) return;
+        if(out.indexOf(clean) === -1) out.push(clean);
+    });
+    return out;
+}
+
+function parseTagInput(raw){
+    if(!raw) return [];
+    return normalizeInlineTags((raw || '').toString().split(/[,;]+/));
+}
+
+function readFiltersFromUrl(){
+    try{
+        var params = new URLSearchParams(window.location.search || '');
+        var tagValues = params.getAll('tags');
+        var singleTag = params.get('tag');
+        if(singleTag) tagValues.push(singleTag);
+        var exploded = [];
+        tagValues.forEach(function(value){
+            (value || '').split(',').forEach(function(part){ exploded.push(part); });
+        });
+        currentFilters.tags = normalizeInlineTags(exploded);
+        currentFilters.tagMode = params.get('tagMode') === 'any' ? 'any' : 'all';
+    }catch(e){}
+}
+
+function syncFiltersToUrl(){
+    try{
+        var url = new URL(window.location.href);
+        url.searchParams.delete('tags');
+        url.searchParams.delete('tag');
+        url.searchParams.delete('tagMode');
+        currentFilters.tags.forEach(function(tag){
+            url.searchParams.append('tags', tag);
+        });
+        if(currentFilters.tags.length){
+            url.searchParams.set('tagMode', currentFilters.tagMode || 'all');
+        }
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    }catch(e){}
+}
+
+readFiltersFromUrl();
+
 function getAnonOwnerToken(){
     var key = 'anonOwnerToken';
     var existing = localStorage.getItem(key);
@@ -143,6 +205,9 @@ var i18n = {
         subtitle: 'Genera con IA, importa (CSV o Kahoot) o <a id="link" href="quiz-creator/">crea un cuestionario desde cero</a>.',
         langLabel: 'Idioma',
         modalClose: 'Cerrar',
+        signinEyebrow: 'Nuevo en EduHoot',
+        signinTitle: 'Guarda tus cuestionarios desde el primer minuto',
+        signinDesc: 'Entra con Google para tener biblioteca propia, editar después y lanzar tus juegos desde cualquier equipo.',
         accessEyebrow: 'Acceso',
         accessTitle: 'Usuarios',
         accessDesc: 'Inicia sesión para crear, editar o borrar quizzes.',
@@ -153,6 +218,9 @@ var i18n = {
         btnSaveNick: 'Guardar nombre visible',
         btnLogin: 'Entrar',
         btnGoogleLogin: 'Entrar con Google',
+        btnUseEmail: 'Usar email',
+        panelExpand: 'Desplegar',
+        panelCollapse: 'Ocultar',
         btnAccount: 'Cuenta',
         btnLogout: 'Cerrar sesión',
         forgotPass: '¿Olvidaste la contraseña?',
@@ -252,7 +320,7 @@ var i18n = {
         libraryDesc: 'Selecciona un cuestionario para hostearlo o gestiona su nombre y estado.',
         searchPlaceholder: 'Buscar por nombre o etiqueta',
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
-        editTagsPlaceholder: 'Añadir etiqueta (coma o enter)',
+        editTagsPlaceholder: 'Añadir etiqueta (se guardará sin tildes ni símbolos)',
         editTagsAdd: 'Añadir',
         editTagsNeedOne: 'Debe quedar al menos una etiqueta.',
         editTagsSaveError: 'No se pudieron guardar las etiquetas.',
@@ -368,6 +436,9 @@ var i18n = {
         subtitle: 'Generate with AI, import (CSV or Kahoot), or <a id="link" href="quiz-creator/">create a quiz from scratch</a>.',
         langLabel: 'Language',
         modalClose: 'Close',
+        signinEyebrow: 'New to EduHoot',
+        signinTitle: 'Save your quizzes from the first minute',
+        signinDesc: 'Sign in with Google to get your own library, keep editing later and launch games from any device.',
         accessEyebrow: 'Access',
         accessTitle: 'Users',
         accessDesc: 'Sign in to create, edit or delete quizzes.',
@@ -378,6 +449,9 @@ var i18n = {
         btnSaveNick: 'Save display name',
         btnLogin: 'Log in',
         btnGoogleLogin: 'Log in with Google',
+        btnUseEmail: 'Use email',
+        panelExpand: 'Expand',
+        panelCollapse: 'Hide',
         btnAccount: 'Account',
         btnLogout: 'Log out',
         forgotPass: 'Forgot your password?',
@@ -477,7 +551,7 @@ var i18n = {
         libraryDesc: 'Pick a quiz to host or manage its name and status.',
         searchPlaceholder: 'Search by name or tag',
         suggestedTags: 'Suggested tags (tap to filter)',
-        editTagsPlaceholder: 'Add tag (comma or enter)',
+        editTagsPlaceholder: 'Add tag (saved without accents or symbols)',
         editTagsAdd: 'Add',
         editTagsNeedOne: 'At least one tag is required.',
         editTagsSaveError: 'Could not save tags.',
@@ -593,6 +667,9 @@ var i18n = {
         subtitle: 'Genera amb IA, importa (CSV o Kahoot) o <a id="link" href="quiz-creator/">crea un qüestionari de zero</a>.',
         langLabel: 'Idioma',
         modalClose: 'Tancar',
+        signinEyebrow: 'Nou a EduHoot',
+        signinTitle: 'Desa els teus qüestionaris des del primer minut',
+        signinDesc: 'Entra amb Google per tindre biblioteca pròpia, editar després i llançar els jocs des de qualsevol equip.',
         accessEyebrow: 'Accés',
         accessTitle: 'Usuaris',
         accessDesc: 'Inicia sessió per crear, editar o esborrar qüestionaris.',
@@ -603,6 +680,9 @@ var i18n = {
         btnSaveNick: 'Desar nom visible',
         btnLogin: 'Entrar',
         btnGoogleLogin: 'Entrar amb Google',
+        btnUseEmail: 'Usar email',
+        panelExpand: 'Desplegar',
+        panelCollapse: 'Amagar',
         btnAccount: 'Compte',
         btnLogout: 'Tancar sessió',
         forgotPass: 'Has oblidat la contrasenya?',
@@ -702,7 +782,7 @@ var i18n = {
         libraryDesc: 'Selecciona un qüestionari per hostatjar-lo o gestiona el seu nom i estat.',
         searchPlaceholder: 'Cerca per nom o etiqueta',
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
-        editTagsPlaceholder: 'Afegeix etiqueta (coma o enter)',
+        editTagsPlaceholder: 'Afegeix etiqueta (es desa sense accents ni símbols)',
         editTagsAdd: 'Afegir',
         editTagsNeedOne: 'Ha de quedar com a mínim una etiqueta.',
         editTagsSaveError: 'No s\'han pogut desar les etiquetes.',
@@ -1235,6 +1315,8 @@ function setLang(newLang){
 function fetchWithFilters(){
     var query = '';
     libraryCurrentPage = 1;
+    currentFilters.tags = normalizeInlineTags(currentFilters.tags);
+    syncFiltersToUrl();
     if(currentFilters.tags.length){
         var parts = currentFilters.tags.map(function(t){ return 'tags=' + encodeURIComponent(t); });
         query = '?' + parts.join('&');
@@ -1269,6 +1351,8 @@ function fetchWithFilters(){
 }
 
 function toggleTagFilter(tag){
+    tag = normalizeTagSlug(tag);
+    if(!tag) return;
     var idx = currentFilters.tags.indexOf(tag);
     if(idx === -1){
         currentFilters.tags.push(tag);
@@ -1503,11 +1587,12 @@ function renderGames(data){
 
     if(currentFilters.search && currentFilters.search.trim()){
         var ql = currentFilters.search.trim().toLowerCase();
+        var qlTag = normalizeTagSlug(ql);
         quizzes = quizzes.filter(function(q){
             var name = (q.name || '').toLowerCase();
-            var tags = Array.isArray(q.tags) ? q.tags.map(function(t){ return (t || '').toLowerCase(); }) : [];
+            var tags = Array.isArray(q.tags) ? q.tags.map(function(t){ return normalizeTagSlug(t); }) : [];
             var matchName = name.includes(ql);
-            var matchTag = tags.some(function(t){ return t.includes(ql); });
+            var matchTag = tags.some(function(t){ return t.includes(qlTag || ql); });
             return matchName || matchTag;
         });
     }
@@ -1610,25 +1695,6 @@ function renderGames(data){
         var canStart = quiz.visibility !== 'private' || canEdit;
         var canClone = authState.user && (quiz.allowClone || canEdit);
         var canSaveToAccount = !authState.user && canEdit;
-
-        function normalizeInlineTags(list){
-            var out = [];
-            (Array.isArray(list) ? list : []).forEach(function(raw){
-                var clean = (raw || '').toString().trim().toLowerCase();
-                if(!clean) return;
-                clean = clean.slice(0, 40);
-                if(out.indexOf(clean) === -1) out.push(clean);
-            });
-            return out;
-        }
-
-        function parseTagInput(raw){
-            if(!raw) return [];
-            return raw
-                .split(/[,;]+/)
-                .map(function(t){ return (t || '').toString().trim().toLowerCase().slice(0, 40); })
-                .filter(function(t){ return t.length; });
-        }
 
         async function updateQuizTags(id, nextTags){
             try{
@@ -2747,23 +2813,13 @@ function buildIaTags(){
     var tags = [];
     var seen = new Set();
 
-    function normalizeTag(text){
-        var clean = (text || '').toString().trim().toLowerCase();
-        if(!clean) return '';
-        // quitar acentos
-        try{ clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }catch(e){}
-        clean = clean.replace(/\s+/g, ' ').trim();
-        clean = clean.slice(0, 40);
-        // filtros anti-ruido
-        if(clean === 'generado-ia') return '';
-        if(clean.indexOf('ia-') === 0) return '';
-        if(clean.indexOf('ai-') === 0) return '';
-        return clean;
-    }
-
     function addTag(text){
-        var clean = normalizeTag(text);
+        var clean = normalizeTagSlug(text);
         if(!clean) return;
+        // filtros anti-ruido
+        if(clean === 'generado-ia') return;
+        if(clean.indexOf('ia-') === 0) return;
+        if(clean.indexOf('ai-') === 0) return;
         if(seen.has(clean)) return;
         seen.add(clean);
         tags.push(clean);
@@ -2823,6 +2879,9 @@ var iaTema = document.getElementById('ia-tema');
 // --- Auth modal ---
 var authModal = document.getElementById('auth-modal');
 var openAuthBtn = document.getElementById('open-auth');
+var newUserSignin = document.getElementById('new-user-signin');
+var authGoogleHeroBtn = document.getElementById('auth-google-hero');
+var authEmailHeroBtn = document.getElementById('auth-email-hero');
 
 function openAuthModal(){
     if(!authModal) return;
@@ -2886,7 +2945,6 @@ var authLoginForm = document.getElementById('auth-login-form');
 var authStatus = document.getElementById('auth-status');
 var authMsg = document.getElementById('auth-message');
 var authLoginBtn = document.getElementById('auth-login');
-var authGoogleBtn = document.getElementById('auth-google');
 var authLogoutBtn = document.getElementById('auth-logout');
 var authSaveNickBtn = document.getElementById('auth-save-nick');
 var adminPanel = document.getElementById('user-admin');
@@ -2916,6 +2974,10 @@ var resetStatus = document.getElementById('reset-status');
 var authState = { user: null };
 
 function updateAuthUI(){
+    if(newUserSignin){
+        newUserSignin.classList.toggle('hidden', !!(authState && authState.user));
+    }
+
     if(authStatus){
         if(authState.user){
             var nickPart = authState.user.nickname ? ' · ' + authState.user.nickname : '';
@@ -2936,9 +2998,6 @@ function updateAuthUI(){
 
     if(authLoginBtn){
         authLoginBtn.classList.toggle('hidden', !!(authState && authState.user));
-    }
-    if(authGoogleBtn){
-        authGoogleBtn.classList.toggle('hidden', !!(authState && authState.user));
     }
     if(authSaveNickBtn){
         authSaveNickBtn.classList.toggle('hidden', !(authState && authState.user));
@@ -3252,8 +3311,13 @@ if(authLoginForm){
 if(authLogoutBtn){
     authLogoutBtn.addEventListener('click', logout);
 }
-if(authGoogleBtn){
-    authGoogleBtn.addEventListener('click', loginWithGoogle);
+if(authGoogleHeroBtn){
+    authGoogleHeroBtn.addEventListener('click', loginWithGoogle);
+}
+if(authEmailHeroBtn){
+    authEmailHeroBtn.addEventListener('click', function(){
+        openAuthModal();
+    });
 }
 if(createUserBtn){
     createUserBtn.addEventListener('click', createUser);
