@@ -1,0 +1,21 @@
+[Unit]
+Description=EduHoot Stage Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/llixhoot-stage/src
+EnvironmentFile=-/etc/eduhoot/stage.env
+ExecStart=/usr/bin/env node /opt/llixhoot-stage/src/server/server.js
+Restart=always
+RestartSec=2
+RestartPreventExitStatus=0
+StartLimitIntervalSec=200
+StartLimitBurst=9
+StandardOutput=append:/var/log/eduhoot-stage/server.log
+StandardError=append:/var/log/eduhoot-stage/server.err.log
+
+[Install]
+WantedBy=multi-user.target
+Alias=eduhoot-stage.service

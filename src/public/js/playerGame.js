@@ -208,7 +208,7 @@ function hidePlayerOptionsAfterSubmit(){
     if(msgEl){
         msgEl.style.display = "block";
         var submitted = window.i18nPlayer ? window.i18nPlayer.t('submitted') : "Answer Submitted! Waiting on other players...";
-        msgEl.innerHTML = submitted;
+        msgEl.textContent = submitted;
     }
     setAnswerStatus('submitted');
     var multiRow = document.getElementById('multiSubmitRow');
@@ -318,7 +318,7 @@ socket.on('questionOver', function(playerData, payload){
     if(correct == true){
         document.body.style.backgroundColor = "#4CAF50";
         document.getElementById('message').style.display = "block";
-        document.getElementById('message').innerHTML = window.i18nPlayer ? window.i18nPlayer.t('correct') : "Correct!";
+        document.getElementById('message').textContent = window.i18nPlayer ? window.i18nPlayer.t('correct') : "Correct!";
     }else{
         document.body.style.backgroundColor = "#f94a1e";
         document.getElementById('message').style.display = "block";
@@ -350,7 +350,14 @@ socket.on('questionOver', function(playerData, payload){
             });
             answerTxt = answerList.join(', ');
         }
-        document.getElementById('message').innerHTML = incorrectMsg + (answerTxt ? '<span class="player-correct-answer">' + correctLabel + ' ' + answerTxt + '</span>' : '');
+        var messageEl = document.getElementById('message');
+        messageEl.textContent = incorrectMsg;
+        if(answerTxt){
+            var detailEl = document.createElement('span');
+            detailEl.className = 'player-correct-answer';
+            detailEl.textContent = correctLabel + ' ' + answerTxt;
+            messageEl.appendChild(detailEl);
+        }
     }
     setAnswerStatus('over');
     document.getElementById('answer1').style.visibility = "hidden";
@@ -370,7 +377,7 @@ socket.on('questionOver', function(playerData, payload){
 
 socket.on('newScore', function(data){
     var label = window.i18nPlayer ? window.i18nPlayer.t('score') : 'Score:';
-    document.getElementById('scoreText').innerHTML = label + " " + data;
+    document.getElementById('scoreText').textContent = label + " " + data;
 });
 
 socket.on('nextQuestionPlayer', function(){
@@ -411,8 +418,8 @@ socket.on('playerGameData', function(data){
            var nameLabel = window.i18nPlayer ? window.i18nPlayer.t('name') : 'Name:';
            var scoreLabel = window.i18nPlayer ? window.i18nPlayer.t('score') : 'Score:';
            var icon = data[i].icon ? data[i].icon + " " : "";
-           document.getElementById('nameText').innerHTML = nameLabel + " " + icon + data[i].name;
-           document.getElementById('scoreText').innerHTML = scoreLabel + " " + data[i].gameData.score;
+           document.getElementById('nameText').textContent = nameLabel + " " + icon + data[i].name;
+           document.getElementById('scoreText').textContent = scoreLabel + " " + data[i].gameData.score;
        }
    }
 });
@@ -454,7 +461,7 @@ socket.on('GameOver', function(){
     var freeRow = document.getElementById('freeSubmitRow');
     if(freeRow) freeRow.style.display = 'none';
     document.getElementById('message').style.display = "block";
-    document.getElementById('message').innerHTML = window.i18nPlayer ? window.i18nPlayer.t('game_over') : "GAME OVER";
+    document.getElementById('message').textContent = window.i18nPlayer ? window.i18nPlayer.t('game_over') : "GAME OVER";
 });
 
 function normalizeSvgDataUrlForImg(url){

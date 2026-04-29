@@ -4,7 +4,7 @@ class Players {
         this.tokens = new Map(); // token -> { hostId, playerId }
     }
     addPlayer(hostId, playerId, name, gameData, icon, token){
-        var player = {hostId, playerId, name, icon: icon || '', gameData};
+        var player = {hostId, playerId, name, icon: icon || '', gameData, token: token || ''};
         this.players.push(player);
         if(token){
             this.tokens.set(token, { hostId, playerId });
@@ -15,6 +15,9 @@ class Players {
         var player = this.getPlayer(playerId);
         
         if(player){
+            if(player.token){
+                this.tokens.delete(player.token);
+            }
             this.players = this.players.filter((player) => player.playerId !== playerId);
         }
         return player;

@@ -97,6 +97,21 @@ En la pantalla de create, el bloque de alta rápida muestra solo el botón de Go
 - Con reinicio remoto opcional: `DEPLOY_TARGET=usuario@vps:/var/www/eduhoot DEPLOY_REMOTE_CMD='cd /var/www/eduhoot/src && npm ci --omit=dev && pm2 restart eduhoot' bash scripts/deploy.example.sh`
 - Para previsualizar cambios sin copiar: `DRY_RUN=1 bash scripts/deploy.example.sh`
 
+### Entorno stage (preproducción)
+
+- Guía completa: `STAGE_SETUP.md`
+- Plantilla de deploy stage: `scripts/deploy-stage.example.sh`
+- Servicio systemd stage: `install-files/service/llixhoot-stage-server.service`
+- Config Nginx stage: `install-files/nginx/llixhoot-stage.conf`
+- Variables de entorno stage: `install-files/stage.env.example`
+
+Flujo recomendado:
+
+1. Monta stage una vez siguiendo `STAGE_SETUP.md`.
+2. Despliega cambios a `/opt/llixhoot-stage/src` con `scripts/deploy-stage.sh`.
+3. Valida en `stage.tu-dominio` (flujos host/player, login y CSV).
+4. Solo después promueve a producción.
+
 ### Funciones clave
 
 - Importación de CSV y de contenido generado por IA.
@@ -153,6 +168,21 @@ The first Google user becomes `admin`; later users become `editor`. If a user wi
 - Example: `DEPLOY_TARGET=user@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
 - With optional remote restart: `DEPLOY_TARGET=user@vps:/var/www/eduhoot DEPLOY_REMOTE_CMD='cd /var/www/eduhoot/src && npm ci --omit=dev && pm2 restart eduhoot' bash scripts/deploy.example.sh`
 - Preview without copying: `DRY_RUN=1 bash scripts/deploy.example.sh`
+
+### Stage Environment (pre-production)
+
+- Full guide: `STAGE_SETUP.md`
+- Stage deploy template: `scripts/deploy-stage.example.sh`
+- Stage systemd service: `install-files/service/llixhoot-stage-server.service`
+- Stage Nginx config: `install-files/nginx/llixhoot-stage.conf`
+- Stage environment variables: `install-files/stage.env.example`
+
+Recommended flow:
+
+1. Set up stage once using `STAGE_SETUP.md`.
+2. Deploy changes to `/opt/llixhoot-stage/src` via `scripts/deploy-stage.sh`.
+3. Validate on `stage.your-domain` (host/player flows, login, CSV import).
+4. Promote to production only after stage is green.
 
 ### Key features
 

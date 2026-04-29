@@ -2752,7 +2752,7 @@ if (csvForm) {
                 status.textContent = result.error || t('uploadCsvError');
                 return;
             }
-            status.innerHTML = t('importSuccess') + ': ' + result.name + ' (' + result.count + ') ';
+            status.textContent = t('importSuccess') + ': ' + result.name + ' (' + result.count + ') ';
             var startBtn = document.createElement('button');
             startBtn.textContent = t('startNow') || t('play');
             startBtn.onclick = function() { startGame(result.id); };

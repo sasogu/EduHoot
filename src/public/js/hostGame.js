@@ -282,7 +282,7 @@ function renderResultsChart(answerCounts, totalPlayers){
 
         var stats = document.createElement('div');
         stats.className = 'results-bar-stats';
-        stats.innerHTML = pct + '% <span>(' + count + ')</span>';
+        stats.textContent = pct + '% (' + count + ')';
 
         var text = document.createElement('div');
         text.className = 'results-bar-text';
@@ -326,7 +326,7 @@ function setCurrentAnswerTexts(answers){
         var el = document.getElementById('answer' + j);
         if(!el) continue;
         var text = currentAnswerTexts[j - 1];
-        el.innerHTML = text;
+        el.textContent = text;
         if(currentQuestionType === 'short-answer' || currentQuestionType === 'numeric'){
             el.style.display = 'none';
         }else if(currentQuestionType === 'true-false' && j > 2){
@@ -380,7 +380,7 @@ function highlightCorrectAnswers(correctAnswers){
             continue;
         }
         if(correctSet.has(idx)){
-            el.innerHTML = '&#10004; ' + (currentAnswerTexts[idx - 1] || '');
+            el.textContent = '✓ ' + (currentAnswerTexts[idx - 1] || '');
             el.style.filter = '';
         }else{
             el.style.filter = "grayscale(50%)";
@@ -654,7 +654,7 @@ socket.on('noGameFound', function(){
 });
 
 socket.on('disconnect', function(){
-    document.getElementById('playersAnswered').innerHTML = 'Reconectando con la partida...';
+    document.getElementById('playersAnswered').textContent = 'Reconectando con la partida...';
 });
 
 socket.on('gameQuestions', function(data){
@@ -676,21 +676,21 @@ socket.on('gameQuestions', function(data){
     }
 
     currentQuestionType = data.type || 'quiz';
-    document.getElementById('question').innerHTML = data.q1;
+    document.getElementById('question').textContent = data.q1 || '';
     setCurrentAnswerTexts([data.a1, data.a2, data.a3, data.a4]);
     hideAnswerSquares();
     defaultTime = data.time || defaultTime || 20;
     window.hostShowScores = data.showScores !== false;
     setMedia(data.image, data.video);
-    document.getElementById('playersAnswered').innerHTML = i18n[lang].playersAnswered(0, data.playersInGame);
+    document.getElementById('playersAnswered').textContent = i18n[lang].playersAnswered(0, data.playersInGame);
     if (data.questionNumber && data.totalQuestions) {
-        document.getElementById('questionNum').innerHTML = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
+        document.getElementById('questionNum').textContent = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
     }
     updateTimer();
 });
 
 socket.on('updatePlayersAnswered', function(data){
-   document.getElementById('playersAnswered').innerHTML = i18n[lang].playersAnswered(data.playersAnswered, data.playersInGame);
+    document.getElementById('playersAnswered').textContent = i18n[lang].playersAnswered(data.playersAnswered, data.playersInGame);
 });
 
 socket.on('gamePin', function(data){
@@ -970,7 +970,7 @@ function nextQuestion(){
     
     document.getElementById('playersAnswered').style.display = "block";
     document.getElementById('timerText').style.display = "block";
-    document.getElementById('num').innerHTML = " " + defaultTime;
+    document.getElementById('num').textContent = " " + defaultTime;
     setMedia(null, null);
 
     // Gesto del usuario: si la música debe sonar, este es el momento más fiable para (re)arrancarla.
@@ -1011,9 +1011,9 @@ socket.on('GameOver', function(data){
     document.getElementById('answer2').style.display = "none";
     document.getElementById('answer3').style.display = "none";
     document.getElementById('answer4').style.display = "none";
-    document.getElementById('timerText').innerHTML = "";
-    document.getElementById('question').innerHTML = t('gameOver');
-    document.getElementById('playersAnswered').innerHTML = "";
+    document.getElementById('timerText').textContent = "";
+    document.getElementById('question').textContent = t('gameOver');
+    document.getElementById('playersAnswered').textContent = "";
     
     
     
@@ -1025,11 +1025,11 @@ socket.on('GameOver', function(data){
     document.getElementById('winnerTitle').style.display = "block";
     document.getElementById('winnerTitle').textContent = t('topPlayers');
     
-    document.getElementById('winner1').innerHTML = "1. " + data.num1;
-    document.getElementById('winner2').innerHTML = "2. " + data.num2;
-    document.getElementById('winner3').innerHTML = "3. " + data.num3;
-    document.getElementById('winner4').innerHTML = "4. " + data.num4; 
-    document.getElementById('winner5').innerHTML = "5. " + data.num5;
+    document.getElementById('winner1').textContent = "1. " + data.num1;
+    document.getElementById('winner2').textContent = "2. " + data.num2;
+    document.getElementById('winner3').textContent = "3. " + data.num3;
+    document.getElementById('winner4').textContent = "4. " + data.num4; 
+    document.getElementById('winner5').textContent = "5. " + data.num5;
     var reportBtn = ensureDownloadReportButton();
     if(reportBtn){
         reportBtn.textContent = t('downloadReport');

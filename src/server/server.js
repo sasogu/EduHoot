@@ -3,6 +3,7 @@ const fs = require('fs');
 const http = require('http');
 const express = require('express');
 const socketIO = require('socket.io');
+const helmet = require('helmet');
 const { MongoClient, ObjectId } = require('mongodb');
 const multer = require('multer');
 const crypto = require('crypto');
@@ -199,6 +200,7 @@ let indexesReadyPromise = null;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 const bulkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const uploadRate = new Map(); // clave: ip -> { count, windowStart }
+const authRate = new Map(); // clave: ip:endpoint -> { count, windowStart }
 
 function uploadRateLimiter(req, res, next) {
   const windowMs = 10 * 60 * 1000; // 10 minutos
@@ -219,6 +221,32 @@ function uploadRateLimiter(req, res, next) {
   if (uploadRate.size > 1000) {
     for (const [k, v] of uploadRate.entries()) {
       if (now - v.windowStart > windowMs) uploadRate.delete(k);
+    }
+  }
+  return next();
+}
+
+function authRateLimiter(req, res, next) {
+  const windowMs = 10 * 60 * 1000; // 10 minutos
+  const max = 20; // máximo intentos por endpoint en la ventana
+  const now = Date.now();
+  const endpoint = (req.path || req.originalUrl || 'auth').toString();
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const key = `${ip}:${endpoint}`;
+  const entry = authRate.get(key) || { count: 0, windowStart: now };
+  if (now - entry.windowStart > windowMs) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count += 1;
+  authRate.set(key, entry);
+  if (entry.count > max) {
+    return res.status(429).json({ error: 'Demasiados intentos. Intenta más tarde.' });
+  }
+  // limpieza ocasional
+  if (authRate.size > 3000) {
+    for (const [k, v] of authRate.entries()) {
+      if (now - v.windowStart > windowMs) authRate.delete(k);
     }
   }
   return next();
@@ -278,7 +306,7 @@ async function ensureIndexes(dbInstance) {
     games.createIndex({ ownerId: 1 }),
     soloScores.createIndex({ quizId: 1, score: -1, createdAt: 1 }),
     users.createIndex({ email: 1 }, { unique: true, sparse: true }),
-    users.createIndex({ resetToken: 1 }, { sparse: true }),
+    users.createIndex({ resetTokenHash: 1 }, { sparse: true }),
     ephemerals.createIndex({ id: 1 }, { unique: true, sparse: true }),
     ephemerals.createIndex({ expires: 1 }, { expireAfterSeconds: 0 }),
     ratings.createIndex({ quizId: 1 }, { unique: true, sparse: true }),
@@ -944,6 +972,10 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   return { salt, hash };
 }
 
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
 function verifyPassword(password, user) {
   if (!user || !user.passwordHash || !user.passwordSalt) return false;
   const hash = crypto.pbkdf2Sync(password, user.passwordSalt, 10000, 64, 'sha512').toString('hex');
@@ -1443,6 +1475,10 @@ async function incrementQuizStats(gameId, playersInGame) {
 }
 
 // Body parsers (bump limit to allow quizzes con recursos más pesados)
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 app.get('/manifest.webmanifest', (req, res) => {
@@ -3316,7 +3352,7 @@ app.post('/api/auth/bootstrap', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authRateLimiter, async (req, res) => {
   try {
     const email = (req.body.email || '').toLowerCase().trim();
     const password = req.body.password || '';
@@ -3534,7 +3570,7 @@ app.get(['/admin', '/admin/', '/admin-stats.html'], (req, res) => {
 });
 
 // Solicitar token de reseteo (se guarda en BD y se muestra en logs)
-app.post('/api/auth/request-reset', async (req, res) => {
+app.post('/api/auth/request-reset', authRateLimiter, async (req, res) => {
   try {
     const email = (req.body.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'Falta email.' });
@@ -3542,9 +3578,17 @@ app.post('/api/auth/request-reset', async (req, res) => {
     const user = await users.findOne({ email });
     if (user) {
       const token = crypto.randomBytes(24).toString('hex');
+      const tokenHash = hashResetToken(token);
       const expires = new Date(Date.now() + 60 * 60 * 1000); // 1h
-      await users.updateOne({ _id: user._id }, { $set: { resetToken: token, resetExpires: expires } });
-      console.log(`[password-reset] Para ${email} usa el token: ${token} (caduca ${expires.toISOString()})`);
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { resetTokenHash: tokenHash, resetExpires: expires }, $unset: { resetToken: '' } }
+      );
+      if (process.env.NODE_ENV === 'production') {
+        console.log(`[password-reset] Token generado para ${email} (caduca ${expires.toISOString()})`);
+      } else {
+        console.log(`[password-reset] Para ${email} usa el token: ${token} (caduca ${expires.toISOString()})`);
+      }
     }
     // responder genérico para no filtrar emails
     return res.json({ ok: true });
@@ -3555,14 +3599,15 @@ app.post('/api/auth/request-reset', async (req, res) => {
 });
 
 // Resetear contraseña usando token
-app.post('/api/auth/reset', async (req, res) => {
+app.post('/api/auth/reset', authRateLimiter, async (req, res) => {
   try {
     const token = (req.body.token || '').trim();
+    const tokenHash = hashResetToken(token);
     const password = req.body.password || '';
     if (!token || !password) return res.status(400).json({ error: 'Faltan token o contraseña.' });
     const users = await getUsersCollection();
     const user = await users.findOne({
-      resetToken: token,
+      resetTokenHash: tokenHash,
       resetExpires: { $gt: new Date() }
     });
     if (!user) {
@@ -3571,7 +3616,7 @@ app.post('/api/auth/reset', async (req, res) => {
     const newFields = setPasswordFields(password);
     await users.updateOne(
       { _id: user._id },
-      { $set: { ...newFields }, $unset: { resetToken: '', resetExpires: '' } }
+      { $set: { ...newFields }, $unset: { resetTokenHash: '', resetToken: '', resetExpires: '' } }
     );
     return res.json({ ok: true });
   } catch (err) {
