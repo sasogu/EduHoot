@@ -1673,7 +1673,15 @@ function renderGames(data){
         var creatorText = quiz.ownerNickname ? quiz.ownerNickname : t('creatorUnknown');
         meta.textContent = creatorText + ' · ' + visibilityLabel;
         if(quiz.sourceQuizId){
-            meta.textContent += ' · ' + (lang === 'en' ? 'Based on ' : (lang === 'ca' ? 'Basat en ' : 'Basado en ')) + 'ID ' + quiz.sourceQuizId;
+            var basedOnLabel = (lang === 'en' ? 'Based on ' : (lang === 'ca' ? 'Basat en ' : 'Basado en '));
+            var fromName = (quiz.sourceQuizName || '').trim();
+            var sourceText = fromName ? ('"' + fromName + '"') : ('ID ' + quiz.sourceQuizId);
+            if(fromName && quiz.sourceQuizId){
+                sourceText += ' (ID ' + quiz.sourceQuizId + ')';
+            }
+            var sourceAuthor = (quiz.sourceOwnerNickname || '').trim();
+            var sourceByLabel = (lang === 'en' ? 'by ' : (lang === 'ca' ? 'de ' : 'de '));
+            meta.textContent += ' · ' + basedOnLabel + sourceText + (sourceAuthor ? (' · ' + sourceByLabel + sourceAuthor) : '');
         }
         var stats = document.createElement('div');
         stats.className = 'game-stats';

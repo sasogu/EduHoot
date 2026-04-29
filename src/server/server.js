@@ -1613,6 +1613,11 @@ function sanitizeImportedQuiz(raw = {}) {
   const ownerId = (raw.ownerId || raw.owner_id || raw.owner || GLOBAL_OWNER_ID).toString();
   const ownerEmail = (raw.ownerEmail || GLOBAL_OWNER_EMAIL).toString();
   const ownerNickname = (raw.ownerNickname || '').toString();
+  const sourceQuizId = raw.sourceQuizId !== undefined && raw.sourceQuizId !== null
+    ? String(raw.sourceQuizId)
+    : '';
+  const sourceQuizName = (raw.sourceQuizName || '').toString();
+  const sourceOwnerNickname = (raw.sourceOwnerNickname || '').toString();
 
   const quiz = {
     id,
@@ -1631,7 +1636,9 @@ function sanitizeImportedQuiz(raw = {}) {
 
   if (ownerNickname) quiz.ownerNickname = ownerNickname;
   if (ownerToken) quiz.ownerToken = ownerToken;
-  if (raw.sourceQuizId) quiz.sourceQuizId = String(raw.sourceQuizId);
+  if (sourceQuizId) quiz.sourceQuizId = sourceQuizId;
+  if (sourceQuizName) quiz.sourceQuizName = sourceQuizName;
+  if (sourceOwnerNickname) quiz.sourceOwnerNickname = sourceOwnerNickname;
   return { ok: true, quiz };
 }
 
@@ -1864,6 +1871,8 @@ app.get('/api/quizzes/:id', async (req, res) => {
       allowClone: normalizeAllowClone(quiz.allowClone),
       ownerId: quiz.ownerId,
       ownerEmail: quiz.ownerEmail || '',
+      sourceQuizName: quiz.sourceQuizName || '',
+      sourceOwnerNickname: quiz.sourceOwnerNickname || '',
       sourceQuizId: quiz.sourceQuizId
     });
   } catch (err) {
@@ -2886,6 +2895,8 @@ app.get('/api/quizzes', async (req, res) => {
       ownerId: quiz.ownerId,
       ownerEmail: quiz.ownerEmail || '',
       ownerNickname: quiz.ownerNickname || '',
+      sourceQuizName: quiz.sourceQuizName || '',
+      sourceOwnerNickname: quiz.sourceOwnerNickname || '',
       sourceQuizId: quiz.sourceQuizId,
       createdAt: quiz.createdAt || quiz.updatedAt || new Date(0)
     }));
@@ -3159,6 +3170,8 @@ app.post('/api/quizzes/:id/clone', async (req, res) => {
       ownerId: req.user.id,
       ownerEmail: req.user.email,
       sourceQuizId: original.id,
+      sourceQuizName: (original.name || '').toString(),
+      sourceOwnerNickname: (original.ownerNickname || '').toString(),
       createdAt: new Date(),
       updatedAt: new Date()
     };

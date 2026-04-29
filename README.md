@@ -1,6 +1,7 @@
 # EduHoot
 
 ## Valencià
+
 **EduHoot** és una aplicació tipus Kahoot per a l’aula: pots crear, importar i llançar qüestionaris amb imatges, vídeos i temps configurables. Admet CSV (inclosos els generats per IA) i importació de Kahoot públic. Està inspirada i reutilitza idees de [llixhoot](https://github.com/llixhoot/llixhoot), [llixhoot en lliurex](https://github.com/lliurex/llixhoot) i [qplay](https://github.com/jjdeharo/qplay).
 
 - Modes: **Només jo** (efímer sense login), **Per enllaç/Públic** (persistents encara que no hi haja sessió) i control de permisos per a clonar.
@@ -11,12 +12,14 @@
 **Llicència:** Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
 
 ### Inici ràpid
+
 1. `cd src && npm install`
 2. Inicia MongoDB local (`sudo systemctl start mongod`) o defineix `MONGO_URL`.
 3. Executa `node server/server.js`.
 4. Obri `http://localhost:3000/create/`.
 
 ### Accés amb Google
+
 Configura un client OAuth 2.0 de Google amb la URL de retorn `https://tu-dominio/api/auth/google/callback` (o `http://localhost:3000/api/auth/google/callback` en local) i arranca el servidor amb:
 
 - `GOOGLE_CLIENT_ID`
@@ -28,6 +31,7 @@ El primer usuari que entra amb Google es crea com `admin`; els següents entren 
 En la pantalla de create, el bloc d'alta ràpida mostra només el botó de Google. El botó `Entrar/Compte` continua obrint el modal d'accés amb email per a usuaris antics.
 
 ### Deploy simple al VPS
+
 - Plantilla segura versionable: `scripts/deploy.example.sh`
 - Recomanat: copia-la a `scripts/deploy.sh`, ompli les teues dades i no la puges al repo.
 - Exemple: `DEPLOY_TARGET=usuari@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
@@ -35,6 +39,7 @@ En la pantalla de create, el bloc d'alta ràpida mostra només el botó de Googl
 - Per previsualitzar canvis sense copiar: `DRY_RUN=1 bash scripts/deploy.example.sh`
 
 ### Funcions clau
+
 - Importació de CSV i de contingut generat per IA.
 - Importació pública de Kahoot per URL o ID.
 - Control de visibilitat (privat, per enllaç, públic) i permisos de clonació.
@@ -42,17 +47,20 @@ En la pantalla de create, el bloc d'alta ràpida mostra només el botó de Googl
 - Recuperació ràpida de jugadors quan la connexió cau.
 
 ### Actualitzacions recents
+
 - Landing principal redissenyada amb accessos separats, selector d’idioma i footer comú amb el logo d’EduTicTac.
 - Biblioteca amb ordenació per data i alfabètica, tags rellevants i estadístiques de partides.
 - El mode Solo ara registra partides i mostra estadístiques visibles al ranking i un feedback més clar.
 
 ### Enllaços directes al mode Solo
+
 - Quiz concret: `/solo/?id=<quizId>`
 - Una etiqueta: `/solo/?tag=musica`
 - Diverses etiquetes amb coincidència de qualsevol: `/solo/?tags=musica,primaria`
 - Diverses etiquetes exigint totes: `/solo/?tags=musica,primaria&tagMode=all`
 
 ## Castellano
+
 **EduHoot** es una aplicación tipo Kahoot para el aula: crea, importa y lanza quizzes con imágenes, vídeos y tiempos configurables. Admite CSV (también generados por IA) e importación de Kahoot público. Se inspira y reutiliza ideas de [llixhoot](https://github.com/llixhoot/llixhoot), [llixhoot en lliurex](https://github.com/lliurex/llixhoot) y [qplay](https://github.com/jjdeharo/qplay).
 
 - Modos: **Solo yo** (efímero sin login), **Por enlace/Público** (persisten aunque no haya sesión) y control de permisos para clonar.
@@ -63,12 +71,14 @@ En la pantalla de create, el bloc d'alta ràpida mostra només el botó de Googl
 **Licencia:** Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
 
 ### Inicio rápido
+
 1. `cd src && npm install`
 2. Inicia MongoDB local (`sudo systemctl start mongod`) o configura `MONGO_URL`.
 3. Ejecuta `node server/server.js`.
 4. Abre `http://localhost:3000/create/`.
 
 ### Acceso con Google
+
 Configura un cliente OAuth 2.0 de Google con la URL de retorno `https://tu-dominio/api/auth/google/callback` (o `http://localhost:3000/api/auth/google/callback` en local) y arranca el servidor con:
 
 - `GOOGLE_CLIENT_ID`
@@ -80,6 +90,7 @@ El primer usuario que entra con Google se crea como `admin`; los siguientes entr
 En la pantalla de create, el bloque de alta rápida muestra solo el botón de Google. El botón `Entrar/Cuenta` sigue abriendo el modal de acceso con email para usuarios antiguos.
 
 ### Deploy simple al VPS
+
 - Plantilla segura versionable: `scripts/deploy.example.sh`
 - Recomendado: cópiala a `scripts/deploy.sh`, rellena tus datos y no la subas al repo.
 - Ejemplo: `DEPLOY_TARGET=usuario@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
@@ -87,6 +98,7 @@ En la pantalla de create, el bloque de alta rápida muestra solo el botón de Go
 - Para previsualizar cambios sin copiar: `DRY_RUN=1 bash scripts/deploy.example.sh`
 
 ### Funciones clave
+
 - Importación de CSV y de contenido generado por IA.
 - Importación pública de Kahoot por URL o ID.
 - Control de visibilidad (privado, por enlace, público) y permisos para clonar.
@@ -94,17 +106,20 @@ En la pantalla de create, el bloque de alta rápida muestra solo el botón de Go
 - Reincorporación ágil de jugadores si se cae la conexión.
 
 ### Actualizaciones recientes
+
 - Landing principal renovada con accesos diferenciados, selector de idioma y footer compartido con el logo de EduTicTac.
 - Biblioteca con orden por fecha y alfabético, etiquetas relevantes y estadísticas visibles en cada ficha.
 - Modo Solo registra partidas y mejora el ranking/feedback, además de mostrar estadísticas de partidas jugadas.
 
 ### Enlaces directos al modo Solo
+
 - Quiz concreto: `/solo/?id=<quizId>`
 - Una etiqueta: `/solo/?tag=musica`
 - Varias etiquetas con coincidencia de cualquiera: `/solo/?tags=musica,primaria`
 - Varias etiquetas exigiendo todas: `/solo/?tags=musica,primaria&tagMode=all`
 
 ## English
+
 **EduHoot** is a Kahoot-like app for classrooms: create, import, and launch quizzes with images, videos, and configurable timers. Supports CSV (including AI-generated) and public Kahoot import. It’s inspired by and reuses ideas from [llixhoot](https://github.com/llixhoot/llixhoot), [llixhoot on lliurex](https://github.com/lliurex/llixhoot), and [qplay](https://github.com/jjdeharo/qplay).
 
 - Modes: **Only me** (ephemeral without login), **By link/Public** (persist even without login), with clone-permission control.
@@ -115,12 +130,14 @@ En la pantalla de create, el bloque de alta rápida muestra solo el botón de Go
 **License:** Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
 
 ### Quick start
+
 1. `cd src && npm install`
 2. Start local MongoDB (`sudo systemctl start mongod`) or set `MONGO_URL`.
 3. Run `node server/server.js`.
 4. Open `http://localhost:3000/create/`.
 
 ### Google Sign-In
+
 Create a Google OAuth 2.0 client with the redirect URL `https://your-domain/api/auth/google/callback` (or `http://localhost:3000/api/auth/google/callback` locally) and start the server with:
 
 - `GOOGLE_CLIENT_ID`
@@ -130,6 +147,7 @@ Create a Google OAuth 2.0 client with the redirect URL `https://your-domain/api/
 The first Google user becomes `admin`; later users become `editor`. If a user with the same email already exists, Google is linked to that account and the current role is preserved.
 
 ### Simple VPS Deploy
+
 - Safe versioned template: `scripts/deploy.example.sh`
 - Recommended: copy it to `scripts/deploy.sh`, fill your real values, and keep it out of the repo.
 - Example: `DEPLOY_TARGET=user@vps:/var/www/eduhoot bash scripts/deploy.example.sh`
@@ -137,6 +155,7 @@ The first Google user becomes `admin`; later users become `editor`. If a user wi
 - Preview without copying: `DRY_RUN=1 bash scripts/deploy.example.sh`
 
 ### Key features
+
 - CSV import and AI-generated content ingestion.
 - Public Kahoot import via URL or ID.
 - Visibility controls (private, by link, public) with clone permissions.
@@ -144,11 +163,13 @@ The first Google user becomes `admin`; later users become `editor`. If a user wi
 - Fast player rejoin if the connection drops.
 
 ### Recent updates
+
 - Redesigned landing with separate entry points, language selector, and shared footer pointing to EduTicTac.
 - Library now supports ordering by date/alpha, shows only related tags, and surfaces quiz stats.
 - Solo mode logs plays so the ranking/counts include solo sessions, plus brighter feedback and stats.
 
 ### Solo Deep Links
+
 - Specific quiz: `/solo/?id=<quizId>`
 - One tag: `/solo/?tag=music`
 - Multiple tags matching any: `/solo/?tags=music,primary`
