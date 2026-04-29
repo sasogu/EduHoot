@@ -872,6 +872,10 @@ function normalizeTags(list = []) {
     try {
       clean = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     } catch (err) {}
+    clean = clean.replace(
+      /(^|[^a-z0-9])(\d+)\s*[\.\-]?\s*(º|ª|°|o|a|er|ero|era|ro|ra|do|da|to|ta|mo|ma|vo|va)(?=$|[^a-z0-9])/g,
+      '$1$2'
+    );
     clean = clean
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/-+/g, '-')
