@@ -19,6 +19,8 @@ const {
 } = require('./questionUtils');
 
 const publicPath = path.join(__dirname, '../public');
+const uploadsPath = path.join(publicPath, 'uploads', 'quiz-images');
+fs.mkdirSync(uploadsPath, { recursive: true });
 const BODY_LIMIT = '1mb';
 const app = express();
 const server = http.createServer(app);
@@ -1819,6 +1821,36 @@ async function buildQuizDoc({ name, tags, questions, visibility, allowClone, use
   return { quiz, collection };
 }
 
+const KAHOOT_IMG_DOMAIN = 'media.kahoot.it';
+const KAHOOT_IMG_MAX_BYTES = 5 * 1024 * 1024; // 5 MB por imagen
+const KAHOOT_IMG_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']);
+const KAHOOT_IMG_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/svg+xml': '.svg' };
+
+async function mirrorKahootImage(imageUrl) {
+  if (!imageUrl) return '';
+  try {
+    const parsed = new URL(imageUrl);
+    if (parsed.hostname !== KAHOOT_IMG_DOMAIN) return imageUrl; // solo mirrorizar imágenes de Kahoot
+    const hash = crypto.createHash('sha256').update(imageUrl).digest('hex');
+    // Buscar si ya existe en disco (cualquier extensión)
+    const existing = fs.readdirSync(uploadsPath).find(f => f.startsWith(hash));
+    if (existing) return `/uploads/quiz-images/${existing}`;
+    const response = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) return imageUrl;
+    const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!KAHOOT_IMG_ALLOWED_TYPES.has(contentType)) return imageUrl;
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > KAHOOT_IMG_MAX_BYTES) return imageUrl;
+    const ext = KAHOOT_IMG_EXT[contentType] || '.bin';
+    const filename = hash + ext;
+    fs.writeFileSync(path.join(uploadsPath, filename), Buffer.from(buffer));
+    return `/uploads/quiz-images/${filename}`;
+  } catch (err) {
+    console.warn('mirrorKahootImage failed for', imageUrl, err.message);
+    return imageUrl; // fallback a URL original
+  }
+}
+
 function mapKahootQuestions(kQuestions = []) {
   return normalizeQuestions(
     (kQuestions || []).map((q) => {
@@ -1864,6 +1896,11 @@ app.post('/api/import/kahoot', async (req, res) => {
     );
     const questions = mapKahootQuestions(k.questions || []);
     if (!questions.length) return res.status(400).json({ error: 'No se encontraron preguntas en el Kahoot.' });
+
+    // Descargar imágenes de Kahoot al servidor local para evitar dependencia de su CDN
+    await Promise.all(questions.map(async (q) => {
+      if (q.image) q.image = await mirrorKahootImage(q.image);
+    }));
 
     // Si no hay usuario y es privado, se guarda en memoria; si es público/unlisted se persiste con owner global
     if (!req.user && visibility === 'private') {
