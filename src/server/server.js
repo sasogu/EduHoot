@@ -1498,6 +1498,9 @@ app.use(express.static(publicPath, {
     const lower = (filePath || '').toLowerCase();
     const isHtml = lower.endsWith('.html');
 
+    // Permitir carga de recursos desde el mismo origen y contextos embebidos
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
     // HTML: evitar caché para que los cambios se reflejen al recargar.
     if (isHtml) {
       res.setHeader('Cache-Control', 'no-store');
