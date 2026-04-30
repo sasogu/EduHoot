@@ -25,8 +25,8 @@ const BODY_LIMIT = '1mb';
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
-  pingInterval: 15000,
-  pingTimeout: 30000,
+  pingInterval: 10000,
+  pingTimeout: 15000,
   transports: ['websocket', 'polling']
 });
 const games = new LiveGames();
@@ -2513,6 +2513,10 @@ io.on('connection', (socket) => {
     }
     if (player) {
       const game = games.getGame(player.hostId);
+      if (!game) {
+        socket.emit('noGameFound');
+        return;
+      }
       socket.join(game.pin);
       player.playerId = socket.id;
 
@@ -2521,14 +2525,27 @@ io.on('connection', (socket) => {
       const questions = game.gameData.questions || [];
       const current = questions[game.gameData.question - 1];
       if (current) {
+        const questionTimeSecs = (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20;
+        let timeLeft = questionTimeSecs;
+        if (game.gameData.questionLive && game.gameData.questionStartedAt) {
+          const elapsed = Math.floor((Date.now() - game.gameData.questionStartedAt) / 1000);
+          timeLeft = Math.max(0, questionTimeSecs - elapsed);
+        }
         socket.emit('playerQuestion', {
           question: current.question,
           answers: current.answers,
           type: current.type || 'quiz',
           image: current.image || '',
-          video: current.video || ''
+          video: current.video || '',
+          time: timeLeft
         });
         socket.emit('questionMedia', { image: current.image || '', video: current.video || '' });
+        // Si la pregunta ya cerró, informar al jugador reconectado
+        if (game.gameData.questionLive === false) {
+          const meta = getQuestionMeta(current);
+          const allPlayers = players.getPlayers(game.hostId);
+          socket.emit('questionOver', allPlayers, meta);
+        }
       }
     } else {
       socket.emit('noGameFound');
@@ -2539,18 +2556,10 @@ io.on('connection', (socket) => {
     const game = games.getGame(socket.id);
     if (game) {
       if (game.gameLive === false) {
-        games.removeGame(socket.id);
-        console.log('Game ended with pin:', game.pin);
-        logGames('host-disconnect');
-
-        const playersToRemove = players.getPlayers(game.hostId);
-
-        for (let i = 0; i < playersToRemove.length; i++) {
-          players.removePlayer(playersToRemove[i].playerId);
-        }
-
-        io.to(game.pin).emit('hostDisconnect');
-        socket.leave(game.pin);
+        scheduleHostReconnectCleanup(game, socket.id);
+        io.to(game.pin).emit('hostReconnecting', {
+          reconnectGraceMs: HOST_RECONNECT_GRACE_MS
+        });
       } else {
         scheduleHostReconnectCleanup(game, socket.id);
         io.to(game.pin).emit('hostReconnecting', {
@@ -2573,6 +2582,15 @@ io.on('connection', (socket) => {
               io.to(pin).emit('updatePlayerLobby', playersInGame);
               io.to(hostId).emit('updatePlayerLobby', playersInGame);
               io.to(pin).emit('playersUpdated', playersInGame.length);
+              // Si la pregunta sigue activa y ya respondieron todos los restantes, avanzar
+              const hostGame = games.getGame(hostId);
+              if (hostGame && hostGame.gameData && hostGame.gameData.questionLive === true) {
+                if (hostGame.gameData.playersAnswered >= playersInGame.length && playersInGame.length > 0) {
+                  hostGame.gameData.questionLive = false;
+                  io.to(pin).emit('time', { player: hostId, time: 0 });
+                  emitQuestionOverPayloadDeferred(hostGame);
+                }
+              }
             }
           }, 15000);
           socket.leave(pin);
@@ -2610,6 +2628,12 @@ io.on('connection', (socket) => {
         socket.emit('answerRejected', { reason: 'question-not-live' });
         return;
       }
+    }
+
+    // Evitar doble respuesta: si el jugador ya respondió (tras reconexión), rechazar
+    if (player.gameData.answer !== undefined && player.gameData.answer !== 0) {
+      socket.emit('answerRejected', { reason: 'already-answered' });
+      return;
     }
 
     if (game.gameData.questionLive === true) {
@@ -2759,6 +2783,7 @@ io.on('connection', (socket) => {
     game.gameData.playersAnswered = 0;
     game.gameData.questionLive = true;
     game.gameData.question += 1;
+    game.gameData.questionStartedAt = Date.now();
 
     try {
       const questions = game.gameData.questions || [];

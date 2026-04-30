@@ -1,8 +1,8 @@
 var socket = io({
     reconnection: true,
-    reconnectionAttempts: 30,
+    reconnectionAttempts: 15,
     reconnectionDelay: 500,
-    reconnectionDelayMax: 3000
+    reconnectionDelayMax: 2000
 });
 
 var params = jQuery.deparam(window.location.search); //Gets the id from url

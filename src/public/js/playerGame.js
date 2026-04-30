@@ -1,8 +1,8 @@
 var socket = io({
     reconnection: true,
-    reconnectionAttempts: 30,
+    reconnectionAttempts: 15,
     reconnectionDelay: 500,
-    reconnectionDelayMax: 3000
+    reconnectionDelayMax: 2000
 });
 var playerAnswered = false;
 var correct = false;
@@ -97,10 +97,8 @@ socket.on('connect', function() {
     }
 });
 
-socket.on('reconnect', function(){
-    // Reenganchar automáticamente tras cortes cortos
-    emitJoin();
-});
+// NOTA: no registrar 'reconnect' — Socket.io ya dispara 'connect' al reconectar,
+// registrar ambos causaría doble player-join-game al servidor.
 
 socket.on('disconnect', function(){
     // Mantener la vista y confiar en el reintento automático
