@@ -380,6 +380,18 @@ details.panel[open] .panel-toggle__chevron{
     max-height: 200px;
     overflow: auto;
 }
+.ia-steps{
+    margin: 10px 0 14px 0;
+    padding-left: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ia-steps li{
+    font-size: 14px;
+    opacity: 0.9;
+    line-height: 1.5;
+}
 #ia-status{
     color: white;
     font-weight: bold;
