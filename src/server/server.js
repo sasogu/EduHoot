@@ -3621,6 +3621,54 @@ app.patch('/api/auth/profile', async (req, res) => {
   }
 });
 
+// Migrar imágenes externas de Kahoot a almacenamiento local
+let kahootMirrorJobRunning = false;
+app.post('/api/admin/mirror-kahoot-images', requireRole('admin'), async (req, res) => {
+  if (kahootMirrorJobRunning) {
+    return res.status(409).json({ error: 'Ya hay una migración en curso.' });
+  }
+  kahootMirrorJobRunning = true;
+  res.json({ message: 'Migración iniciada en background. Consulta los logs del servidor para el progreso.' });
+
+  // Ejecutar en background sin bloquear la respuesta
+  (async () => {
+    try {
+      const collection = await getGamesCollection();
+      const quizzes = await collection.find(
+        { 'questions.image': { $regex: 'media\\.kahoot\\.it', $options: 'i' } },
+        { projection: { id: 1, questions: 1 } }
+      ).toArray();
+
+      console.log(`[mirror-kahoot-images] ${quizzes.length} quizzes con imágenes de Kahoot encontrados.`);
+      let updatedQuizzes = 0;
+      let updatedImages = 0;
+
+      for (const quiz of quizzes) {
+        let changed = false;
+        const newQuestions = await Promise.all((quiz.questions || []).map(async (q) => {
+          if (!q.image || !q.image.includes('media.kahoot.it')) return q;
+          const localUrl = await mirrorKahootImage(q.image);
+          if (localUrl !== q.image) {
+            changed = true;
+            updatedImages++;
+            return { ...q, image: localUrl };
+          }
+          return q;
+        }));
+        if (changed) {
+          await collection.updateOne({ id: quiz.id }, { $set: { questions: newQuestions, updatedAt: new Date() } });
+          updatedQuizzes++;
+        }
+      }
+      console.log(`[mirror-kahoot-images] Completado: ${updatedImages} imágenes migradas en ${updatedQuizzes} quizzes.`);
+    } catch (err) {
+      console.error('[mirror-kahoot-images] Error:', err);
+    } finally {
+      kahootMirrorJobRunning = false;
+    }
+  })();
+});
+
 app.get('/api/admin/stats', requireRole('admin'), async (req, res) => {
   try {
     const collection = await getGamesCollection();

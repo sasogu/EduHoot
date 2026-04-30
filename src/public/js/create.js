@@ -246,6 +246,12 @@ var i18n = {
         adminImportOk: 'Importación completada.',
         adminImportError: 'No se pudo importar.',
         adminReplaceConfirm: 'Esto eliminará TODOS los quizzes existentes antes de importar. ¿Continuar?',
+        adminMirrorKahootTitle: 'Migrar imágenes de Kahoot',
+        adminMirrorKahootDesc: 'Descarga al servidor las imágenes de quizzes importados desde Kahoot para evitar dependencia de su CDN.',
+        btnMirrorKahootImages: 'Migrar imágenes',
+        mirrorKahootWorking: 'Migrando imágenes... (puede tardar varios minutos)',
+        mirrorKahootOk: 'Migración iniciada. Revisa los logs del servidor.',
+        mirrorKahootError: 'No se pudo iniciar la migración.',
         createUser: 'Crea un usuario nuevo',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -478,6 +484,12 @@ var i18n = {
         adminImportOk: 'Import completed.',
         adminImportError: 'Could not import.',
         adminReplaceConfirm: 'This will DELETE ALL existing quizzes before importing. Continue?',
+        adminMirrorKahootTitle: 'Migrate Kahoot images',
+        adminMirrorKahootDesc: 'Download to the server the images from Kahoot-imported quizzes to avoid dependency on their CDN.',
+        btnMirrorKahootImages: 'Migrate images',
+        mirrorKahootWorking: 'Migrating images... (may take several minutes)',
+        mirrorKahootOk: 'Migration started. Check server logs.',
+        mirrorKahootError: 'Could not start the migration.',
         createUser: 'Create a new user',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -710,6 +722,12 @@ var i18n = {
         adminImportOk: 'Importació completada.',
         adminImportError: 'No s\'ha pogut importar.',
         adminReplaceConfirm: 'Això eliminarà TOTS els qüestionaris existents abans d\'importar. Continuar?',
+        adminMirrorKahootTitle: 'Migrar imatges de Kahoot',
+        adminMirrorKahootDesc: 'Descarrega al servidor les imatges dels qüestionaris importats des de Kahoot per evitar dependència del seu CDN.',
+        btnMirrorKahootImages: 'Migrar imatges',
+        mirrorKahootWorking: 'Migrant imatges... (pot trigar uns minuts)',
+        mirrorKahootOk: 'Migració iniciada. Comprova els logs del servidor.',
+        mirrorKahootError: 'No s\'ha pogut iniciar la migració.',
         createUser: 'Crea un usuari nou',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -2977,6 +2995,8 @@ var adminImportFile = document.getElementById('admin-import-quizzes-file');
 var adminImportReplace = document.getElementById('admin-import-quizzes-replace');
 var adminImportBtn = document.getElementById('admin-import-quizzes');
 var adminImportStatus = document.getElementById('admin-import-quizzes-status');
+var adminMirrorKahootBtn = document.getElementById('admin-mirror-kahoot-images');
+var adminMirrorKahootStatus = document.getElementById('admin-mirror-kahoot-status');
 var toggleResetBtn = document.getElementById('toggle-reset');
 var resetPanel = document.getElementById('reset-panel');
 var resetEmail = document.getElementById('reset-email');
@@ -3342,6 +3362,22 @@ if(adminExportAllBtn){
 }
 if(adminImportBtn){
     adminImportBtn.addEventListener('click', importAllQuizzesAsAdmin);
+}
+if(adminMirrorKahootBtn){
+    adminMirrorKahootBtn.addEventListener('click', async function(){
+        if(adminMirrorKahootStatus) adminMirrorKahootStatus.textContent = t('mirrorKahootWorking');
+        adminMirrorKahootBtn.disabled = true;
+        try{
+            var res = await fetch('/api/admin/mirror-kahoot-images', { method: 'POST', credentials: 'include' });
+            var data = await res.json();
+            if(!res.ok) throw new Error(data.error || '');
+            if(adminMirrorKahootStatus) adminMirrorKahootStatus.textContent = t('mirrorKahootOk');
+        }catch(e){
+            if(adminMirrorKahootStatus) adminMirrorKahootStatus.textContent = t('mirrorKahootError') + (e.message ? ' ' + e.message : '');
+        }finally{
+            adminMirrorKahootBtn.disabled = false;
+        }
+    });
 }
 if(toggleResetBtn && resetPanel){
     toggleResetBtn.addEventListener('click', function(){
