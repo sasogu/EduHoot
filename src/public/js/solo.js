@@ -615,15 +615,20 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         return tagFilterExpanded ? allItems : [];
     }
 
+    // Normaliza tildes y mayúsculas para comparar etiquetas
+    function normalizeTag(str) {
+        return (str || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
     function updateTagFilterOptions(){
         var wrap = document.getElementById('tag-filter');
         if(!wrap) return;
         var allItems = getAllTagsFromQuizzes();
         var allKeys = {};
-        allItems.forEach(function(it){ allKeys[it.tag.toLowerCase()] = it.tag; });
+        allItems.forEach(function(it){ allKeys[normalizeTag(it.tag)] = it.tag; });
         wrap.innerHTML = '';
         state.filters.tags = state.filters.tags.map(function(tag){
-            var key = (tag || '').toString().trim().toLowerCase();
+            var key = normalizeTag(tag);
             // Normalizar al caso exacto que usan los quizzes; si no se encuentra,
             // conservar el valor original para no perder filtros cargados desde URL.
             return allKeys[key] || tag;
@@ -1032,13 +1037,13 @@ function renderList(){
             return haystack.toLowerCase().includes(searchVal);
         });
         if(state.filters.tags.length){
-            var filterTagsLower = state.filters.tags.map(function(t){ return (t||'').toLowerCase(); });
+            var filterTagsNorm = state.filters.tags.map(normalizeTag);
             filtered = filtered.filter(function(q){
-                var tags = (Array.isArray(q.tags) ? q.tags : []).map(function(t){ return (t||'').toLowerCase(); });
+                var tags = (Array.isArray(q.tags) ? q.tags : []).map(normalizeTag);
                 if(state.filters.tagMode === 'all'){
-                    return filterTagsLower.every(function(tag){ return tags.indexOf(tag) !== -1; });
+                    return filterTagsNorm.every(function(tag){ return tags.indexOf(tag) !== -1; });
                 }
-                return filterTagsLower.some(function(tag){ return tags.indexOf(tag) !== -1; });
+                return filterTagsNorm.some(function(tag){ return tags.indexOf(tag) !== -1; });
             });
         }
         if(minQ !== null){
