@@ -222,6 +222,15 @@ body {
     font-size: 14px;
 }
 
+.warning-legal{
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 180, 0, 0.12);
+    border-left: 3px solid rgba(255, 180, 0, 0.6);
+    border-radius: 4px;
+    opacity: 1;
+}
+
 .signin-callout{
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
