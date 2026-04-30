@@ -624,9 +624,11 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         wrap.innerHTML = '';
         state.filters.tags = state.filters.tags.map(function(tag){
             var key = (tag || '').toString().trim().toLowerCase();
-            return allKeys[key] || '';
+            // Normalizar al caso exacto que usan los quizzes; si no se encuentra,
+            // conservar el valor original para no perder filtros cargados desde URL.
+            return allKeys[key] || tag;
         }).filter(function(tag){
-            return !!tag;
+            return !!(tag && tag.toString().trim());
         });
         syncSoloUrl();
 
@@ -1030,12 +1032,13 @@ function renderList(){
             return haystack.toLowerCase().includes(searchVal);
         });
         if(state.filters.tags.length){
+            var filterTagsLower = state.filters.tags.map(function(t){ return (t||'').toLowerCase(); });
             filtered = filtered.filter(function(q){
-                var tags = Array.isArray(q.tags) ? q.tags : [];
+                var tags = (Array.isArray(q.tags) ? q.tags : []).map(function(t){ return (t||'').toLowerCase(); });
                 if(state.filters.tagMode === 'all'){
-                    return state.filters.tags.every(function(tag){ return tags.indexOf(tag) !== -1; });
+                    return filterTagsLower.every(function(tag){ return tags.indexOf(tag) !== -1; });
                 }
-                return state.filters.tags.some(function(tag){ return tags.indexOf(tag) !== -1; });
+                return filterTagsLower.some(function(tag){ return tags.indexOf(tag) !== -1; });
             });
         }
         if(minQ !== null){
