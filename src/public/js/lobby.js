@@ -8,6 +8,30 @@ var socket = io({
 var joinAck = false;
 var joinRetryTimer = null;
 
+function resolveLobbyToken(params){
+    if(params && params.token){
+        return params.token;
+    }
+    try{
+        var pin = params && params.pin ? String(params.pin) : '';
+        var name = params && params.name ? String(params.name) : '';
+        if(pin && name){
+            var map = JSON.parse(localStorage.getItem('playerTokens') || '{}');
+            var key = pin + ':' + name;
+            if(map[key]) return map[key];
+        }
+    }catch(e){}
+    try{
+        var last = JSON.parse(localStorage.getItem('playerLastJoin') || '{}');
+        var samePin = params && params.pin && last && String(last.pin) === String(params.pin);
+        var sameName = params && params.name && last && String(last.name) === String(params.name);
+        if(samePin && sameName && last.token){
+            return last.token;
+        }
+    }catch(e){}
+    return '';
+}
+
 function setLobbyStatus(waiting, detail){
     var title1 = document.getElementById('title1');
     var title2 = document.getElementById('title2');
@@ -23,6 +47,10 @@ function setLobbyStatus(waiting, detail){
 socket.on('connect', function() {
     
     var params = jQuery.deparam(window.location.search); //Gets data from url
+    var resolvedToken = resolveLobbyToken(params);
+    if(resolvedToken){
+        params.token = resolvedToken;
+    }
     
     //Tell server that it is player connection
     socket.emit('player-join', params);
