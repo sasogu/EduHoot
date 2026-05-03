@@ -17,6 +17,7 @@ var timerInterval = null;
 var currentQuestionType = 'quiz';
 var multiSelections = [];
 var freeControlsReady = false;
+var questionCountdownTimer = null;
 
 function tPlayer(key, fallback){
     return window.i18nPlayer ? window.i18nPlayer.t(key) : (fallback || key);
@@ -451,7 +452,65 @@ socket.on('questionMedia', function(data){
     setMedia(data && data.image, data && data.video);
 });
 
+function clearQuestionCountdown(){
+    if(questionCountdownTimer){
+        clearInterval(questionCountdownTimer);
+        questionCountdownTimer = null;
+    }
+}
+
+function showQuestionCountdown(data){
+    clearQuestionCountdown();
+    stopTimer();
+    setMedia(null, null);
+    playerAnswered = true;
+    correct = false;
+    currentQuestionType = 'quiz';
+    multiSelections = [];
+    updateMultiSelectionStyles();
+    for(var i = 1; i <= 4; i++){
+        var btn = document.getElementById('answer' + i);
+        if(btn){
+            btn.style.visibility = 'hidden';
+            btn.style.display = 'none';
+        }
+    }
+    var multiRow = document.getElementById('multiSubmitRow');
+    if(multiRow) multiRow.style.display = 'none';
+    var freeRow = document.getElementById('freeSubmitRow');
+    if(freeRow) freeRow.style.display = 'none';
+
+    var seconds = Math.max(0, Math.ceil(Number(data && data.seconds) || 0));
+    var questionEl = document.getElementById('questionText');
+    var msg = document.getElementById('message');
+    if(msg){
+        msg.style.display = 'block';
+        msg.textContent = '';
+    }
+    setAnswerStatus('pending');
+    function render(){
+        if(questionEl) questionEl.textContent = seconds > 0 ? String(seconds) : '';
+        seconds -= 1;
+        if(seconds < 0){
+            clearQuestionCountdown();
+        }
+    }
+    render();
+    questionCountdownTimer = setInterval(render, 1000);
+}
+
+socket.on('questionCountdown', showQuestionCountdown);
+
 socket.on('playerQuestion', function(data){
+    clearQuestionCountdown();
+    playerAnswered = false;
+    correct = false;
+    document.body.style.backgroundColor = "#FFFFFF";
+    var msg = document.getElementById('message');
+    if(msg){
+        msg.style.display = "none";
+        msg.textContent = '';
+    }
     if(data.question){
         document.getElementById('questionText').textContent = data.question;
     }

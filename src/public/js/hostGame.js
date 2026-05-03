@@ -46,6 +46,7 @@ var hostMusicActivationOverlayEl = null;
 var hostMusicActivationKeydownHandler = null;
 var currentQuestionType = 'quiz';
 var currentAnswerTexts = ['', '', '', ''];
+var questionCountdownTimer = null;
 var gongAudio = null;
 var gongUrl = '/effects/gong.mp3';
 var GONG_VOLUME_BOOST = 1.25;
@@ -77,6 +78,7 @@ var i18n = {
         resultsNextQuestion: 'Siguiente pregunta (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Respuestas recibidas ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Respuesta correcta:',
+        questionCountdown: 'Prepara la siguiente pregunta...',
         downloadReport: 'Descargar informe (CSV)',
         downloadReportError: 'No se pudo descargar el informe de la sesión.'
     },
@@ -105,6 +107,7 @@ var i18n = {
         resultsNextQuestion: 'Next question (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Answers received ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Correct answer:',
+        questionCountdown: 'Get ready for the next question...',
         downloadReport: 'Download report (CSV)',
         downloadReportError: 'Could not download the session report.'
     },
@@ -133,6 +136,7 @@ var i18n = {
         resultsNextQuestion: 'Següent pregunta (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Respostes rebudes ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Resposta correcta:',
+        questionCountdown: 'Prepara la pregunta següent...',
         downloadReport: 'Descarregar informe (CSV)',
         downloadReportError: 'No s\'ha pogut descarregar l\'informe de la sessió.'
     }
@@ -657,7 +661,45 @@ socket.on('disconnect', function(){
     document.getElementById('playersAnswered').textContent = 'Reconectando con la partida...';
 });
 
+function clearQuestionCountdown(){
+    if(questionCountdownTimer){
+        clearInterval(questionCountdownTimer);
+        questionCountdownTimer = null;
+    }
+}
+
+function showQuestionCountdown(data){
+    clearQuestionCountdown();
+    clearInterval(timer);
+    closeRankingModal();
+    hideAnswerSquares();
+    setMedia(null, null);
+    currentQuestionType = 'quiz';
+    currentAnswerTexts = ['', '', '', ''];
+    var seconds = Math.max(0, Math.ceil(Number(data && data.seconds) || 0));
+    var questionEl = document.getElementById('question');
+    var playersEl = document.getElementById('playersAnswered');
+    var timerEl = document.getElementById('timerText');
+    if(playersEl) playersEl.textContent = t('questionCountdown');
+    if(timerEl) timerEl.style.display = 'none';
+    if(data && data.questionNumber && data.totalQuestions){
+        document.getElementById('questionNum').textContent = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
+    }
+    function render(){
+        if(questionEl) questionEl.textContent = seconds > 0 ? String(seconds) : '';
+        seconds -= 1;
+        if(seconds < 0){
+            clearQuestionCountdown();
+        }
+    }
+    render();
+    questionCountdownTimer = setInterval(render, 1000);
+}
+
+socket.on('questionCountdown', showQuestionCountdown);
+
 socket.on('gameQuestions', function(data){
+    clearQuestionCountdown();
     hostQuestionEnded = false;
     hostRankingGongPlayed = false;
     closeRankingModal();
@@ -683,6 +725,7 @@ socket.on('gameQuestions', function(data){
     window.hostShowScores = data.showScores !== false;
     setMedia(data.image, data.video);
     document.getElementById('playersAnswered').textContent = i18n[lang].playersAnswered(0, data.playersInGame);
+    document.getElementById('timerText').style.display = "block";
     if (data.questionNumber && data.totalQuestions) {
         document.getElementById('questionNum').textContent = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
     }
@@ -991,6 +1034,7 @@ function skipQuestion(){
 }
 
 function updateTimer(){
+    clearInterval(timer);
     time = defaultTime;
     timer = setInterval(function(){
         time -= 1;

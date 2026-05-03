@@ -68,6 +68,7 @@ const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
 const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
 const HOST_RECONNECT_GRACE_MS = 30 * 1000; // 30 segundos para reanudar partida en aula
 const MAX_POINTS_PER_QUESTION = 1000;
+const QUESTION_COUNTDOWN_SECONDS = 3;
 const MONGO_MAX_POOL_SIZE = parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50;
 const GOOGLE_OAUTH_SCOPE = 'openid email profile';
 const GOOGLE_OAUTH_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -1518,6 +1519,93 @@ function buildQuestions(questions = [], opts = {}) {
   });
 }
 
+function clearQuestionStartTimer(game) {
+  if (game && game.gameData && game.gameData.questionStartTimer) {
+    clearTimeout(game.gameData.questionStartTimer);
+    game.gameData.questionStartTimer = null;
+  }
+}
+
+function getCurrentQuestionPayload(game) {
+  if (!game || !game.gameData) return null;
+  const questions = game.gameData.questions || [];
+  const questionNum = (Number(game.gameData.question) || 1) - 1;
+  const current = questions[questionNum];
+  if (!current) return null;
+  const meta = getQuestionMeta(current);
+  const answer1 = current.answers[0];
+  const answer2 = current.answers[1];
+  const answer3 = current.answers[2];
+  const answer4 = current.answers[3];
+  const image = current.image || '';
+  const video = current.video || '';
+  const time = (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20;
+  return {
+    current,
+    meta,
+    image,
+    video,
+    time,
+    hostPayload: {
+      q1: current.question,
+      a1: answer1,
+      a2: answer2,
+      a3: answer3,
+      a4: answer4,
+      correct: current.correct,
+      correctAnswers: meta.correctAnswers,
+      type: meta.type,
+      image,
+      video,
+      playersInGame: players.getPlayers(game.hostId).length,
+      showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
+      questionNumber: game.gameData.question,
+      totalQuestions: game.gameData.totalQuestions || questions.length,
+      time
+    },
+    playerPayload: {
+      question: current.question,
+      answers: [answer1, answer2, answer3, answer4],
+      type: meta.type,
+      image,
+      video,
+      time
+    }
+  };
+}
+
+function startCurrentQuestion(game) {
+  if (!game || !game.gameData || game.gameOver) return;
+  clearQuestionStartTimer(game);
+  const payload = getCurrentQuestionPayload(game);
+  if (!payload) return;
+  game.gameData.questionPending = false;
+  game.gameData.questionLive = true;
+  game.gameData.questionStartedAt = Date.now();
+  io.to(game.hostId).emit('gameQuestions', payload.hostPayload);
+  io.to(game.pin).emit('questionMedia', { image: payload.image, video: payload.video });
+  if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
+    io.to(game.pin).emit('playerQuestion', payload.playerPayload);
+  }
+}
+
+function scheduleQuestionCountdown(game, delaySeconds = QUESTION_COUNTDOWN_SECONDS) {
+  if (!game || !game.gameData) return;
+  clearQuestionStartTimer(game);
+  const seconds = Math.max(0, Math.round(Number(delaySeconds) || 0));
+  game.gameData.questionLive = false;
+  game.gameData.questionPending = true;
+  game.gameData.questionCountdownEndsAt = Date.now() + (seconds * 1000);
+  io.to(game.pin).emit('questionCountdown', {
+    seconds,
+    questionNumber: game.gameData.question,
+    totalQuestions: game.gameData.totalQuestions || (game.gameData.questions || []).length
+  });
+  game.gameData.questionStartTimer = setTimeout(() => {
+    startCurrentQuestion(game);
+  }, seconds * 1000);
+}
+
 function getQuestionMeta(question) {
   if (!question) {
     return { correctAnswers: [1], type: 'quiz' };
@@ -2547,29 +2635,32 @@ io.on('connection', (socket) => {
 
         const currentIdx = Math.max(0, Math.min((game.gameData.question || 1) - 1, kahootQuestions.length - 1));
         const currentQuestion = kahootQuestions[currentIdx];
+        const countdownRemaining = game.gameData.questionPending
+          ? Math.max(0, Math.ceil(((game.gameData.questionCountdownEndsAt || Date.now()) - Date.now()) / 1000))
+          : 0;
 
-        socket.emit('gameQuestions', {
-          q1: currentQuestion.question,
-          a1: currentQuestion.answers[0],
-          a2: currentQuestion.answers[1],
-          a3: currentQuestion.answers[2],
-          a4: currentQuestion.answers[3],
-          correct: currentQuestion.correct,
-          correctAnswers: getQuestionMeta(currentQuestion).correctAnswers,
-          type: currentQuestion.type || 'quiz',
-          image: currentQuestion.image || '',
-          video: currentQuestion.video || '',
-          playersInGame: playerData.length,
-          showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
-          questionNumber: game.gameData.question,
-          totalQuestions: game.gameData.totalQuestions || kahootQuestions.length || 0,
-          time: (game.gameData.options && game.gameData.options.timePerQuestion) || currentQuestion.time || 20
-        });
+        if (game.gameData.questionPending) {
+          socket.emit('questionCountdown', {
+            seconds: countdownRemaining,
+            questionNumber: game.gameData.question,
+            totalQuestions: game.gameData.totalQuestions || kahootQuestions.length || 0
+          });
+        } else {
+          const payload = getCurrentQuestionPayload(game);
+          if (payload) {
+            socket.emit('gameQuestions', {
+              ...payload.hostPayload,
+              playersInGame: playerData.length
+            });
+          }
+        }
         socket.emit('gamePin', { pin: game.pin });
         socket.emit('hostSession', { hostId: game.hostId, pin: game.pin });
         io.to(game.pin).emit('hostReconnected');
-        io.to(game.pin).emit('questionMedia', { image: currentQuestion.image || '', video: currentQuestion.video || '' });
-        if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
+        if (!game.gameData.questionPending) {
+          io.to(game.pin).emit('questionMedia', { image: currentQuestion.image || '', video: currentQuestion.video || '' });
+        }
+        if (!game.gameData.questionPending && (!game.gameData.options || game.gameData.options.sendToMobile !== false)) {
           io.to(game.pin).emit('playerQuestion', {
             question: currentQuestion.question,
             answers: currentQuestion.answers,
@@ -2660,6 +2751,14 @@ io.on('connection', (socket) => {
       const questions = game.gameData.questions || [];
       const current = questions[game.gameData.question - 1];
       if (current) {
+        if (game.gameData.questionPending) {
+          socket.emit('questionCountdown', {
+            seconds: Math.max(0, Math.ceil(((game.gameData.questionCountdownEndsAt || Date.now()) - Date.now()) / 1000)),
+            questionNumber: game.gameData.question,
+            totalQuestions: game.gameData.totalQuestions || questions.length
+          });
+          return;
+        }
         const questionTimeSecs = (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20;
         let timeLeft = questionTimeSecs;
         if (game.gameData.questionLive && game.gameData.questionStartedAt) {
@@ -2754,6 +2853,10 @@ io.on('connection', (socket) => {
     }
 
     if (game.gameData.questionLive !== true) {
+      if (game.gameData.questionPending) {
+        socket.emit('answerRejected', { reason: 'countdown' });
+        return;
+      }
       const looksLikeFirstQuestionRace = game.gameLive === true
         && Number(game.gameData.question || 0) === 1
         && Number(game.gameData.playersAnswered || 0) === 0;
@@ -2896,7 +2999,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('nextQuestion', async () => {
-    const playerData = players.getPlayers(socket.id);
     for (let i = 0; i < Object.keys(players.players).length; i++) {
       if (players.players[i].hostId === socket.id) {
         players.players[i].gameData.answer = 0;
@@ -2905,55 +3007,18 @@ io.on('connection', (socket) => {
 
     const game = games.getGame(socket.id);
     game.gameData.playersAnswered = 0;
-    game.gameData.questionLive = true;
+    game.gameData.questionLive = false;
     game.gameData.question += 1;
-    game.gameData.questionStartedAt = Date.now();
+    game.gameData.questionStartedAt = null;
 
     try {
       const questions = game.gameData.questions || [];
 
       if (questions.length >= game.gameData.question) {
-        const questionNum = game.gameData.question - 1;
-        const current = questions[questionNum];
-        const question = current.question;
-        const answer1 = current.answers[0];
-        const answer2 = current.answers[1];
-        const answer3 = current.answers[2];
-        const answer4 = current.answers[3];
-        const correctAnswer = current.correct;
-        const image = current.image || '';
-        const video = current.video || '';
-        const meta = getQuestionMeta(current);
-
-        socket.emit('gameQuestions', {
-          q1: question,
-          a1: answer1,
-          a2: answer2,
-          a3: answer3,
-          a4: answer4,
-          correct: correctAnswer,
-          correctAnswers: meta.correctAnswers,
-          type: meta.type,
-          image,
-          video,
-          playersInGame: playerData.length,
-          showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
-          questionNumber: game.gameData.question,
-          totalQuestions: game.gameData.totalQuestions || questions.length,
-          time: (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20
-        });
-      io.to(game.pin).emit('questionMedia', { image, video });
-      if (!game.gameData.options || game.gameData.options.sendToMobile !== false) {
-        io.to(game.pin).emit('playerQuestion', {
-          question,
-          answers: [answer1, answer2, answer3, answer4],
-          type: meta.type,
-          image,
-          video,
-          time: (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20
-        });
-      }
+      io.to(game.pin).emit('nextQuestionPlayer');
+      scheduleQuestionCountdown(game);
       scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
+      return;
     } else {
         const playersInGame = players.getPlayers(game.hostId);
         const first = { name: '', score: 0 };
@@ -3037,8 +3102,6 @@ io.on('connection', (socket) => {
       console.error('nextQuestion error', err);
       socket.emit('noGameFound');
     }
-
-    io.to(game.pin).emit('nextQuestionPlayer');
   });
 
   socket.on('startGame', (opts) => {
@@ -3085,8 +3148,8 @@ io.on('connection', (socket) => {
     game.gameData.totalQuestions = (game.gameData.questions || []).length;
     game.gameData.question = 1;
     game.gameData.playersAnswered = 0;
-    game.gameData.questionLive = true;
-    game.gameData.questionStartedAt = Date.now();
+    game.gameData.questionLive = false;
+    game.gameData.questionStartedAt = null;
     const gamePlayers = players.getPlayers(socket.id);
     for (let i = 0; i < gamePlayers.length; i++) {
       gamePlayers[i].gameData.answer = 0;
@@ -3096,6 +3159,7 @@ io.on('connection', (socket) => {
     scheduleGameCleanup(socket.id, GAME_INACTIVITY_TIMEOUT);
     io.to(game.pin).emit('gameStartedPlayer');
     socket.emit('gameStarted', game.hostId);
+    scheduleQuestionCountdown(game);
   });
 
   socket.on('requestDbNames', async () => {
