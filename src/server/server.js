@@ -113,7 +113,9 @@ function calculateQuestionScore(game) {
   const startedAt = Number(gameData.questionStartedAt) || Date.now();
   const elapsedMs = Math.max(0, Date.now() - startedAt);
   const remainingRatio = Math.max(0, Math.min(1, (limitMs - elapsedMs) / limitMs));
-  return Math.round(MAX_POINTS_PER_QUESTION * remainingRatio);
+  const multiplierRaw = Number(current.pointsMultiplier);
+  const multiplier = Number.isFinite(multiplierRaw) && multiplierRaw > 0 ? multiplierRaw : 1;
+  return Math.round(MAX_POINTS_PER_QUESTION * remainingRatio * multiplier);
 }
 
 async function persistEphemeralQuiz(quiz) {
@@ -1105,6 +1107,7 @@ function normalizeQuestions(list = []) {
         correctAnswers: meta.correctAnswers,
         type: meta.type,
         time: Number(item.time) || 20,
+        pointsMultiplier: Number(item.pointsMultiplier) > 1 ? 2 : 1,
         image: item.image || '',
         video: item.video || ''
       };
@@ -1599,6 +1602,7 @@ function buildQuestions(questions = [], opts = {}) {
         correctAnswers: [1],
         type,
         time: useOverrideTime ? overrideTime : (q.time || 0),
+        pointsMultiplier: Number(q.pointsMultiplier) > 1 ? 2 : 1,
         image: q.image || '',
         video: q.video || '',
         acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers.map(cleanImportedText) : [],
@@ -1638,6 +1642,7 @@ function buildQuestions(questions = [], opts = {}) {
       correctAnswers: shuffledCorrects,
       type,
       time: useOverrideTime ? overrideTime : (q.time || 0),
+      pointsMultiplier: Number(q.pointsMultiplier) > 1 ? 2 : 1,
       image: q.image || '',
       video: q.video || ''
     };
@@ -1665,6 +1670,7 @@ function getCurrentQuestionPayload(game) {
   const image = current.image || '';
   const video = current.video || '';
   const time = (game.gameData.options && game.gameData.options.timePerQuestion) || current.time || 20;
+  const pointsMultiplier = Number(current.pointsMultiplier) > 1 ? 2 : 1;
   return {
     current,
     meta,
@@ -1682,6 +1688,7 @@ function getCurrentQuestionPayload(game) {
       type: meta.type,
       image,
       video,
+      pointsMultiplier,
       playersInGame: players.getPlayers(game.hostId).length,
       showScores: game.gameData.options ? game.gameData.options.showScoresBetween !== false : true,
       questionNumber: game.gameData.question,
@@ -1694,6 +1701,7 @@ function getCurrentQuestionPayload(game) {
       type: meta.type,
       image,
       video,
+      pointsMultiplier,
       time
     }
   };
@@ -2203,6 +2211,25 @@ async function mirrorKahootImage(imageUrl) {
 }
 
 function mapKahootQuestions(kQuestions = []) {
+  function detectPointsMultiplier(kQuestion) {
+    if (!kQuestion || typeof kQuestion !== 'object') return 1;
+    if (kQuestion.doublePoints === true) return 2;
+    const rawCandidates = [
+      kQuestion.pointsMultiplier,
+      kQuestion.points_multiplier,
+      kQuestion.scoreMultiplier,
+      kQuestion.multiplier
+    ];
+    for (let i = 0; i < rawCandidates.length; i += 1) {
+      const n = Number(rawCandidates[i]);
+      if (Number.isFinite(n) && n > 1) return 2;
+    }
+    const textCandidates = [kQuestion.pointsType, kQuestion.pointType, kQuestion.points, kQuestion.scoringType]
+      .map((v) => String(v || '').toLowerCase());
+    const hasDouble = textCandidates.some((value) => value.includes('double') || value.includes('2x'));
+    return hasDouble ? 2 : 1;
+  }
+
   return normalizeQuestions(
     (kQuestions || []).map((q) => {
       const answers = Array.isArray(q.choices) ? q.choices : [];
@@ -2217,6 +2244,7 @@ function mapKahootQuestions(kQuestions = []) {
         answers: textAnswers,
         correct: correctIdx + 1,
         time: Math.round((q.time || 20000) / 1000) || 20,
+        pointsMultiplier: detectPointsMultiplier(q),
         image: q.image || '',
         video: (q.video && q.video.full_url) || ''
       };
@@ -2790,7 +2818,8 @@ io.on('connection', (socket) => {
             answers: currentQuestion.answers,
             type: currentQuestion.type || 'quiz',
             image: currentQuestion.image || '',
-            video: currentQuestion.video || ''
+            video: currentQuestion.video || '',
+            pointsMultiplier: Number(currentQuestion.pointsMultiplier) > 1 ? 2 : 1
           });
         }
       } catch (err) {
@@ -2895,6 +2924,7 @@ io.on('connection', (socket) => {
           type: current.type || 'quiz',
           image: current.image || '',
           video: current.video || '',
+          pointsMultiplier: Number(current.pointsMultiplier) > 1 ? 2 : 1,
           time: timeLeft
         });
         socket.emit('questionMedia', { image: current.image || '', video: current.video || '' });

@@ -18,6 +18,7 @@ var currentQuestionType = 'quiz';
 var multiSelections = [];
 var freeControlsReady = false;
 var questionCountdownTimer = null;
+var currentPointsMultiplier = 1;
 
 function tPlayer(key, fallback){
     return window.i18nPlayer ? window.i18nPlayer.t(key) : (fallback || key);
@@ -170,6 +171,19 @@ function updateFreeSubmitVisibility(){
     var row = document.getElementById('freeSubmitRow');
     if(!row) return;
     row.style.display = (isFreeAnswerType() && !playerAnswered) ? 'flex' : 'none';
+}
+
+function updatePlayerPointsBadge(multiplier){
+    var badge = document.getElementById('playerPointsBadge');
+    if(!badge) return;
+    var m = Number(multiplier);
+    if(!Number.isFinite(m) || m <= 1){
+        badge.style.display = 'none';
+        badge.textContent = '';
+        return;
+    }
+    badge.textContent = 'x' + m + ' · ' + tPlayer('points_double', 'Double points');
+    badge.style.display = 'inline-flex';
 }
 
 function setupFreeAnswerControls(){
@@ -466,6 +480,8 @@ function showQuestionCountdown(data){
     playerAnswered = true;
     correct = false;
     currentQuestionType = 'quiz';
+    currentPointsMultiplier = 1;
+    updatePlayerPointsBadge(1);
     multiSelections = [];
     updateMultiSelectionStyles();
     for(var i = 1; i <= 4; i++){
@@ -514,6 +530,8 @@ socket.on('playerQuestion', function(data){
     if(data.question){
         document.getElementById('questionText').textContent = data.question;
     }
+    currentPointsMultiplier = Number(data && data.pointsMultiplier) > 1 ? Number(data.pointsMultiplier) : 1;
+    updatePlayerPointsBadge(currentPointsMultiplier);
     updatePlayerAnswerButtons(data.answers || [], data.type);
     lastAnswers = (data.answers || []).slice(0, 4);
     if(typeof data.time === 'number'){
@@ -544,6 +562,7 @@ socket.on('GameOver', function(){
     if(freeRow) freeRow.style.display = 'none';
     document.getElementById('message').style.display = "block";
     document.getElementById('message').textContent = window.i18nPlayer ? window.i18nPlayer.t('game_over') : "GAME OVER";
+    updatePlayerPointsBadge(1);
 });
 
 function normalizeSvgDataUrlForImg(url){

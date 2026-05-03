@@ -143,6 +143,20 @@ body{
     letter-spacing: 0.01em;
     text-shadow: 0 6px 18px rgba(0,0,0,0.35);
 }
+
+.question-points-badge{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 6px 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(250, 204, 21, 0.22);
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    color: #fde68a;
+    font-weight: 800;
+    box-shadow: var(--shadow);
+}
 #num{
     font-size: 36px;
     font-weight: 700;

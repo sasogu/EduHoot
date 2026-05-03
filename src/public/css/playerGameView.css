@@ -71,6 +71,17 @@ body{
     text-shadow: 0 6px 20px rgba(0,0,0,0.35);
 }
 
+.player-points-badge{
+    margin: 4px 0 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(250, 204, 21, 0.22);
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    color: #fde68a;
+    font-weight: 800;
+    box-shadow: var(--shadow);
+}
+
 #playerImageWrap{
     text-align: center;
     margin: 10px 0 20px;

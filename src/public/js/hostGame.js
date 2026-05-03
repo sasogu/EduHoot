@@ -52,6 +52,7 @@ var gongUrl = '/effects/gong.mp3';
 var GONG_VOLUME_BOOST = 1.25;
 var hostModalStep = 'chart';
 var hostResultsHasRanking = true;
+var currentPointsMultiplier = 1;
 var i18n = {
     es: {
         questionXofY: function(n, t){ return 'Pregunta ' + n + ' / ' + t; },
@@ -79,6 +80,7 @@ var i18n = {
         freeAnswersReceived: function(ans, total){ return 'Respuestas recibidas ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Respuesta correcta:',
         correctOptionBadge: 'Correcta',
+        pointsDouble: 'Puntos dobles',
         questionCountdown: 'Prepara la siguiente pregunta...',
         downloadReport: 'Descargar informe (CSV)',
         downloadReportError: 'No se pudo descargar el informe de la sesión.'
@@ -109,6 +111,7 @@ var i18n = {
         freeAnswersReceived: function(ans, total){ return 'Answers received ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Correct answer:',
         correctOptionBadge: 'Correct',
+        pointsDouble: 'Double points',
         questionCountdown: 'Get ready for the next question...',
         downloadReport: 'Download report (CSV)',
         downloadReportError: 'Could not download the session report.'
@@ -139,6 +142,7 @@ var i18n = {
         freeAnswersReceived: function(ans, total){ return 'Respostes rebudes ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Resposta correcta:',
         correctOptionBadge: 'Correcta',
+        pointsDouble: 'Punts dobles',
         questionCountdown: 'Prepara la pregunta següent...',
         downloadReport: 'Descarregar informe (CSV)',
         downloadReportError: 'No s\'ha pogut descarregar l\'informe de la sessió.'
@@ -196,6 +200,19 @@ function updateModalNextButtonLabel(){
         return;
     }
     rankingNextBtn.textContent = t('resultsNextQuestion');
+}
+
+function updateQuestionPointsBadge(multiplier){
+    var badge = document.getElementById('questionPointsBadge');
+    if(!badge) return;
+    var m = Number(multiplier);
+    if(!Number.isFinite(m) || m <= 1){
+        badge.style.display = 'none';
+        badge.textContent = '';
+        return;
+    }
+    badge.textContent = 'x' + m + ' · ' + t('pointsDouble');
+    badge.style.display = 'inline-flex';
 }
 
 function ensureDownloadReportButton(){
@@ -694,6 +711,8 @@ function showQuestionCountdown(data){
     hideAnswerSquares();
     setMedia(null, null);
     currentQuestionType = 'quiz';
+    currentPointsMultiplier = 1;
+    updateQuestionPointsBadge(1);
     currentAnswerTexts = ['', '', '', ''];
     var seconds = Math.max(0, Math.ceil(Number(data && data.seconds) || 0));
     var questionEl = document.getElementById('question');
@@ -737,6 +756,8 @@ socket.on('gameQuestions', function(data){
     }
 
     currentQuestionType = data.type || 'quiz';
+    currentPointsMultiplier = Number(data && data.pointsMultiplier) > 1 ? Number(data.pointsMultiplier) : 1;
+    updateQuestionPointsBadge(currentPointsMultiplier);
     document.getElementById('question').textContent = data.q1 || '';
     setCurrentAnswerTexts([data.a1, data.a2, data.a3, data.a4]);
     hideAnswerSquares();
@@ -1077,6 +1098,7 @@ socket.on('GameOver', function(data){
     document.getElementById('timerText').textContent = "";
     document.getElementById('question').textContent = t('gameOver');
     document.getElementById('playersAnswered').textContent = "";
+    updateQuestionPointsBadge(1);
     
     
     
