@@ -381,15 +381,18 @@ function startGame(){
             }catch(e){
                 return (params && params.pin) || '';
             }
-        })(),
-        timePerQuestion: (function(){
-            var input = document.getElementById('opt-time');
-            var val = input ? parseInt(input.value, 10) : 20;
-            if(isNaN(val) || val < 5) val = 5;
-            if(val > 120) val = 120;
-            return val;
         })()
     };
+    var timeInput = document.getElementById('opt-time');
+    var rawTime = timeInput && typeof timeInput.value === 'string' ? timeInput.value.trim() : '';
+    if(rawTime){
+        var parsedTime = parseInt(rawTime, 10);
+        if(!isNaN(parsedTime)){
+            if(parsedTime < 5) parsedTime = 5;
+            if(parsedTime > 120) parsedTime = 120;
+            opts.timePerQuestion = parsedTime;
+        }
+    }
     emitStartGameWhenGongEnds(opts);
 }
 function endGame(){

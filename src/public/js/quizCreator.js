@@ -77,6 +77,7 @@ var i18n = {
         questionTypeShort: 'Respuesta corta',
         questionTypeNumeric: 'Numérica',
         questionTypeMultiHint: 'Marca todas las respuestas correctas.',
+        questionTimeLabel: 'Tiempo límite (segundos)',
         shortAnswersLabel: 'Respuestas válidas (separadas por |)',
         numericAnswerLabel: 'Respuesta numérica',
         numericToleranceLabel: 'Tolerancia (±)',
@@ -147,6 +148,7 @@ var i18n = {
         questionTypeShort: 'Short answer',
         questionTypeNumeric: 'Numeric',
         questionTypeMultiHint: 'Check every answer that counts.',
+        questionTimeLabel: 'Time limit (seconds)',
         shortAnswersLabel: 'Accepted answers (separated by |)',
         numericAnswerLabel: 'Numeric answer',
         numericToleranceLabel: 'Tolerance (±)',
@@ -217,6 +219,7 @@ var i18n = {
         questionTypeShort: 'Resposta curta',
         questionTypeNumeric: 'Numèrica',
         questionTypeMultiHint: 'Marca totes les respostes correctes.',
+        questionTimeLabel: 'Temps límit (segons)',
         shortAnswersLabel: 'Respostes vàlides (separades per |)',
         numericAnswerLabel: 'Resposta numèrica',
         numericToleranceLabel: 'Tolerància (±)',
@@ -560,6 +563,7 @@ function buildQuizPayload(){
         var shortText = document.getElementById('short' + i) ? document.getElementById('short' + i).value : '';
         var numText = document.getElementById('num' + i) ? document.getElementById('num' + i).value : '';
         var tolText = document.getElementById('tol' + i) ? document.getElementById('tol' + i).value : '';
+        var timeText = document.getElementById('time' + i) ? document.getElementById('time' + i).value : '';
         var image = document.getElementById('img' + i) ? document.getElementById('img' + i).value : '';
         var video = document.getElementById('vid' + i) ? document.getElementById('vid' + i).value : '';
         var card = document.querySelector('.question-card[data-question="' + i + '"]');
@@ -585,6 +589,9 @@ function buildQuizPayload(){
             correctValues.push(single);
         }
         var answers = [answer1, answer2, answer3, answer4];
+        var time = parseInt(timeText, 10);
+        if(Number.isNaN(time) || time < 5) time = 20;
+        if(time > 120) time = 120;
 
         function splitAccepted(raw){
             var s = (raw || '').toString().trim();
@@ -620,6 +627,7 @@ function buildQuizPayload(){
             "correct": correctValues[0],
             "correctAnswers": correctValues,
             "type": questionType,
+            "time": time,
             "image": image,
             "video": video
         };
@@ -1316,6 +1324,24 @@ function buildQuestionCard(num, data){
         : ((data && data.correct) ? data.correct : 1);
     correctField.value = providedCorrect;
 
+    var timeLabel = document.createElement('label');
+    timeLabel.textContent = t('questionTimeLabel');
+    var timeField = document.createElement('input');
+    timeField.className = 'question-time';
+    timeField.id = 'time' + String(num);
+    timeField.type = 'number';
+    timeField.min = '5';
+    timeField.max = '120';
+    timeField.step = '1';
+    var providedTime = data && Number(data.time);
+    if(!Number.isFinite(providedTime) || providedTime < 5){
+        providedTime = 20;
+    }else if(providedTime > 120){
+        providedTime = 120;
+    }
+    timeField.value = String(Math.round(providedTime));
+    timeLabel.appendChild(timeField);
+
     var shortLabel = document.createElement('label');
     shortLabel.textContent = t('shortAnswersLabel');
     var shortField = document.createElement('input');
@@ -1433,6 +1459,7 @@ function buildQuestionCard(num, data){
     card.appendChild(multiCorrect);
     card.appendChild(correctLabel);
     card.appendChild(correctField);
+    card.appendChild(timeLabel);
     card.appendChild(shortLabel);
     card.appendChild(numLabel);
     card.appendChild(tolLabel);
@@ -1544,6 +1571,8 @@ function renumberQuestions(){
         if(numField) numField.id = 'num' + num;
         var tolField = card.querySelector('input[id^="tol"]');
         if(tolField) tolField.id = 'tol' + num;
+        var timeField = card.querySelector('input[id^="time"]');
+        if(timeField) timeField.id = 'time' + num;
         var img = card.querySelector('input[id^="img"]');
         if(img) img.id = 'img' + num;
         var vid = card.querySelector('input[id^="vid"]');

@@ -2582,8 +2582,7 @@ io.on('connection', (socket) => {
             randomQuestions: true,
             randomAnswers: true,
             sendToMobile: true,
-            showScoresBetween: true,
-            timePerQuestion: 20
+            showScoresBetween: true
           }
         });
 
@@ -3129,11 +3128,17 @@ io.on('connection', (socket) => {
       randomQuestions: true,
       randomAnswers: true,
       sendToMobile: true,
-      showScoresBetween: true,
-      timePerQuestion: 20
+      showScoresBetween: true
     }, opts || {});
-    if (!options.timePerQuestion || Number.isNaN(parseInt(options.timePerQuestion, 10))) {
-      options.timePerQuestion = 20;
+    if (options.timePerQuestion !== undefined && options.timePerQuestion !== null && String(options.timePerQuestion).trim() !== '') {
+      const parsedTime = parseInt(options.timePerQuestion, 10);
+      if (Number.isNaN(parsedTime)) {
+        delete options.timePerQuestion;
+      } else {
+        options.timePerQuestion = Math.max(5, Math.min(120, parsedTime));
+      }
+    } else {
+      delete options.timePerQuestion;
     }
     game.gameData.options = options;
     const originalQuestions = Array.isArray(game.gameData.originalQuestions) ? game.gameData.originalQuestions : [];
