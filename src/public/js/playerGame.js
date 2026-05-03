@@ -24,6 +24,34 @@ function tPlayer(key, fallback){
     return window.i18nPlayer ? window.i18nPlayer.t(key) : (fallback || key);
 }
 
+function decodeBasicEntities(value){
+    var txt = document.createElement('textarea');
+    txt.innerHTML = String(value || '');
+    return txt.value;
+}
+
+function escapeHtml(value){
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatRichText(value){
+    var decoded = decodeBasicEntities(value);
+    var safe = escapeHtml(decoded);
+    safe = safe.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+    safe = safe.replace(/&lt;(\/?)(b|strong|i|em|u)&gt;/gi, '<$1$2>');
+    return safe;
+}
+
+function setRichText(el, value){
+    if(!el) return;
+    el.innerHTML = formatRichText(value);
+}
+
 function applyStaticLabels(){
     var nameLabelEl = document.getElementById('nameText');
     var scoreLabelEl = document.getElementById('scoreText');
@@ -292,7 +320,7 @@ function updatePlayerAnswerButtons(answers, type){
         var btn = document.getElementById('answer' + i);
         if(!btn) continue;
         var text = answers[i - 1] || '';
-        btn.textContent = text;
+        setRichText(btn, text);
         btn.style.display = (!isFreeAnswerType() && text && text.trim()) ? 'inline-block' : 'none';
         btn.style.visibility = 'visible';
     }
@@ -393,7 +421,7 @@ socket.on('questionOver', function(playerData, payload){
         if(answerTxt){
             var detailEl = document.createElement('span');
             detailEl.className = 'player-correct-answer';
-            detailEl.textContent = correctLabel + ' ' + answerTxt;
+            detailEl.innerHTML = escapeHtml(correctLabel + ' ') + formatRichText(answerTxt);
             messageEl.appendChild(detailEl);
         }
     }
@@ -528,7 +556,7 @@ socket.on('playerQuestion', function(data){
         msg.textContent = '';
     }
     if(data.question){
-        document.getElementById('questionText').textContent = data.question;
+        setRichText(document.getElementById('questionText'), data.question);
     }
     currentPointsMultiplier = Number(data && data.pointsMultiplier) > 1 ? Number(data.pointsMultiplier) : 1;
     updatePlayerPointsBadge(currentPointsMultiplier);

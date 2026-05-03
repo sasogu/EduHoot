@@ -153,6 +153,34 @@ function t(key){
     return (i18n[lang] && i18n[lang][key]) || i18n.es[key];
 }
 
+function decodeBasicEntities(value){
+    var txt = document.createElement('textarea');
+    txt.innerHTML = String(value || '');
+    return txt.value;
+}
+
+function escapeHtml(value){
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatRichText(value){
+    var decoded = decodeBasicEntities(value);
+    var safe = escapeHtml(decoded);
+    safe = safe.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+    safe = safe.replace(/&lt;(\/?)(b|strong|i|em|u)&gt;/gi, '<$1$2>');
+    return safe;
+}
+
+function setRichText(el, value){
+    if(!el) return;
+    el.innerHTML = formatRichText(value);
+}
+
 function updateHostMusicLabels(){
     if(!hostMusicPlayerInstance || typeof hostMusicPlayerInstance.updateLabels !== 'function') return;
     hostMusicPlayerInstance.updateLabels({
@@ -323,7 +351,7 @@ function renderResultsChart(answerCounts, totalPlayers, correctAnswers){
 
         var text = document.createElement('div');
         text.className = 'results-bar-text';
-        text.textContent = (currentAnswerTexts[i] || '').trim();
+        text.innerHTML = formatRichText((currentAnswerTexts[i] || '').trim());
 
         meta.appendChild(key);
         if(correctBadge){
@@ -366,7 +394,7 @@ function setCurrentAnswerTexts(answers){
         var el = document.getElementById('answer' + j);
         if(!el) continue;
         var text = currentAnswerTexts[j - 1];
-        el.textContent = text;
+        setRichText(el, text);
         if(currentQuestionType === 'short-answer' || currentQuestionType === 'numeric'){
             el.style.display = 'none';
         }else if(currentQuestionType === 'true-false' && j > 2){
@@ -420,7 +448,7 @@ function highlightCorrectAnswers(correctAnswers){
             continue;
         }
         if(correctSet.has(idx)){
-            el.textContent = '✓ ' + (currentAnswerTexts[idx - 1] || '');
+            el.innerHTML = '✓ ' + formatRichText(currentAnswerTexts[idx - 1] || '');
             el.style.filter = '';
         }else{
             el.style.filter = "grayscale(50%)";
@@ -758,7 +786,7 @@ socket.on('gameQuestions', function(data){
     currentQuestionType = data.type || 'quiz';
     currentPointsMultiplier = Number(data && data.pointsMultiplier) > 1 ? Number(data.pointsMultiplier) : 1;
     updateQuestionPointsBadge(currentPointsMultiplier);
-    document.getElementById('question').textContent = data.q1 || '';
+    setRichText(document.getElementById('question'), data.q1 || '');
     setCurrentAnswerTexts([data.a1, data.a2, data.a3, data.a4]);
     hideAnswerSquares();
     defaultTime = data.time || defaultTime || 20;
