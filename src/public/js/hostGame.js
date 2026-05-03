@@ -78,6 +78,7 @@ var i18n = {
         resultsNextQuestion: 'Siguiente pregunta (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Respuestas recibidas ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Respuesta correcta:',
+        correctOptionBadge: 'Correcta',
         questionCountdown: 'Prepara la siguiente pregunta...',
         downloadReport: 'Descargar informe (CSV)',
         downloadReportError: 'No se pudo descargar el informe de la sesión.'
@@ -107,6 +108,7 @@ var i18n = {
         resultsNextQuestion: 'Next question (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Answers received ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Correct answer:',
+        correctOptionBadge: 'Correct',
         questionCountdown: 'Get ready for the next question...',
         downloadReport: 'Download report (CSV)',
         downloadReportError: 'Could not download the session report.'
@@ -136,6 +138,7 @@ var i18n = {
         resultsNextQuestion: 'Següent pregunta (Enter)',
         freeAnswersReceived: function(ans, total){ return 'Respostes rebudes ' + ans + ' / ' + total; },
         correctAnswerLabel: 'Resposta correcta:',
+        correctOptionBadge: 'Correcta',
         questionCountdown: 'Prepara la pregunta següent...',
         downloadReport: 'Descarregar informe (CSV)',
         downloadReportError: 'No s\'ha pogut descarregar l\'informe de la sessió.'
@@ -250,7 +253,7 @@ function setHostModalStep(step){
     updateModalNextButtonLabel();
 }
 
-function renderResultsChart(answerCounts, totalPlayers){
+function renderResultsChart(answerCounts, totalPlayers, correctAnswers){
     if(!resultsChartEl) return;
     resultsChartEl.innerHTML = '';
 
@@ -258,6 +261,7 @@ function renderResultsChart(answerCounts, totalPlayers){
     var denom = total > 0 ? total : 1;
     var visible = getVisibleAnswerFlags();
     var letters = ['A', 'B', 'C', 'D'];
+    var correctSet = new Set((Array.isArray(correctAnswers) ? correctAnswers : []).map(Number));
 
     for(var i = 0; i < 4; i++){
         if(!visible[i]) continue;
@@ -284,6 +288,18 @@ function renderResultsChart(answerCounts, totalPlayers){
         key.className = 'results-bar-key';
         key.textContent = letters[i];
 
+        var isCorrect = correctSet.has(i + 1);
+        if(isCorrect){
+            bar.classList.add('results-bar--correct');
+        }
+
+        var correctBadge = null;
+        if(isCorrect){
+            correctBadge = document.createElement('div');
+            correctBadge.className = 'results-bar-correct-badge';
+            correctBadge.textContent = '✓ ' + t('correctOptionBadge');
+        }
+
         var stats = document.createElement('div');
         stats.className = 'results-bar-stats';
         stats.textContent = pct + '% (' + count + ')';
@@ -293,6 +309,9 @@ function renderResultsChart(answerCounts, totalPlayers){
         text.textContent = (currentAnswerTexts[i] || '').trim();
 
         meta.appendChild(key);
+        if(correctBadge){
+            meta.appendChild(correctBadge);
+        }
         meta.appendChild(stats);
         if(text.textContent){
             meta.appendChild(text);
@@ -856,7 +875,7 @@ socket.on('questionOver', function(playerData, payload){
         });
         // La gráfica se muestra dentro del modal (más visible) en lugar de en la vista principal.
         hideAnswerSquares();
-        renderResultsChart(answerCounts, totalPlayers);
+        renderResultsChart(answerCounts, totalPlayers, payload && payload.correctAnswers);
     }
     
     // El avance se hace desde el modal (Resultados -> Ranking -> Siguiente).

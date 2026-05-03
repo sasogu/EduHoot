@@ -399,6 +399,17 @@ h3[id^="answer"]{
     border-radius: 14px;
 }
 
+.results-bar-correct-badge{
+    justify-self: start;
+    font-size: 12px;
+    font-weight: 800;
+    color: #d1fae5;
+    background: rgba(16,185,129,0.22);
+    border: 1px solid rgba(16,185,129,0.45);
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+
 .results-bar-key{
     width: 36px;
     height: 36px;
@@ -443,6 +454,14 @@ h3[id^="answer"]{
 .results-bar--2 .results-bar-key{ background: linear-gradient(135deg, #f97316, #ea580c); }
 .results-bar--3 .results-bar-key{ background: linear-gradient(135deg, #3b82f6, #2563eb); }
 .results-bar--4 .results-bar-key{ background: linear-gradient(135deg, #f43f5e, #e11d48); }
+
+.results-bar--correct .results-bar-track{
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.55), var(--shadow);
+}
+
+.results-bar--correct .results-bar-meta{
+    border-color: rgba(16,185,129,0.6);
+}
 
 @media (max-width: 800px){
     .results-chart{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
