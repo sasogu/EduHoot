@@ -564,21 +564,28 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         }catch(e){}
     }
 
+    function getSoloTagQueryParams(){
+        var params = new URLSearchParams();
+        if(state.filters.tags.length === 1){
+            params.set('tag', state.filters.tags[0]);
+        }else if(state.filters.tags.length > 1){
+            params.set('tags', state.filters.tags.join(','));
+            if(state.filters.tagMode === 'all'){
+                params.set('tagMode', 'all');
+            }
+        }
+        return params;
+    }
+
     function syncSoloUrl(){
         try{
             var url = new URL(window.location.href);
-            if(state.filters.tags.length){
-                url.searchParams.set('tags', state.filters.tags.join(','));
-                if(state.filters.tagMode === 'all' && state.filters.tags.length > 1){
-                    url.searchParams.set('tagMode', 'all');
-                }else{
-                    url.searchParams.delete('tagMode');
-                }
-            }else{
-                url.searchParams.delete('tags');
-                url.searchParams.delete('tagMode');
-            }
             url.searchParams.delete('tag');
+            url.searchParams.delete('tags');
+            url.searchParams.delete('tagMode');
+            getSoloTagQueryParams().forEach(function(value, key){
+                url.searchParams.set(key, value);
+            });
             window.history.replaceState({}, '', url.pathname + url.search + url.hash);
         }catch(e){}
     }
@@ -1006,14 +1013,27 @@ function renderSelectedMeta(){
     function fetchPublicQuizzes(){
         var list = document.getElementById('public-list');
         var empty = document.getElementById('public-empty');
+        var params = getSoloTagQueryParams();
+        var qs = params.toString();
+        var endpoint = '/api/public-quizzes' + (qs ? '?' + qs : '');
         if(empty) empty.textContent = t('loading');
-        fetch('/api/public-quizzes')
+        fetch(endpoint)
             .then(function(res){ return res.json(); })
             .then(function(data){
                 state.quizzes = shuffleArray(Array.isArray(data) ? data : []);
                 state.page = 0;
                 updateTagFilterOptions();
                 renderList();
+                if(qs){
+                    fetch('/api/public-quizzes')
+                        .then(function(res){ return res.json(); })
+                        .then(function(allData){
+                            state.quizzes = shuffleArray(Array.isArray(allData) ? allData : []);
+                            updateTagFilterOptions();
+                            renderList();
+                        })
+                        .catch(function(){});
+                }
             })
             .catch(function(){
                 if(list) list.innerHTML = '';
@@ -1749,7 +1769,7 @@ function startQuiz(){
 
         if(isCorrect){
             state.correct += 1;
-            var bonus = Math.max(100, Math.round(1000 * (state.timerLeft / state.timerTotal)));
+            var bonus = Math.round(1000 * Math.max(0, Math.min(1, state.timerLeft / state.timerTotal)));
             state.score += bonus;
         }
         if(feedback){

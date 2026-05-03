@@ -67,6 +67,7 @@ const GLOBAL_OWNER_EMAIL = 'anon@local';
 const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
 const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
 const HOST_RECONNECT_GRACE_MS = 30 * 1000; // 30 segundos para reanudar partida en aula
+const MAX_POINTS_PER_QUESTION = 1000;
 const MONGO_MAX_POOL_SIZE = parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50;
 const GOOGLE_OAUTH_SCOPE = 'openid email profile';
 const GOOGLE_OAUTH_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -100,6 +101,20 @@ function normalizeEphemeralQuiz(raw) {
   };
 }
 
+function calculateQuestionScore(game) {
+  const gameData = game && game.gameData ? game.gameData : {};
+  const questions = Array.isArray(gameData.questions) ? gameData.questions : [];
+  const current = questions[(Number(gameData.question) || 1) - 1] || {};
+  const limitSeconds = Number(
+    (gameData.options && gameData.options.timePerQuestion) || current.time || 20
+  );
+  const limitMs = Math.max(1, limitSeconds) * 1000;
+  const startedAt = Number(gameData.questionStartedAt) || Date.now();
+  const elapsedMs = Math.max(0, Date.now() - startedAt);
+  const remainingRatio = Math.max(0, Math.min(1, (limitMs - elapsedMs) / limitMs));
+  return Math.round(MAX_POINTS_PER_QUESTION * remainingRatio);
+}
+
 async function persistEphemeralQuiz(quiz) {
   if (!quiz || !quiz.id) return;
   ephemeralQuizzes.set(quiz.id, quiz);
@@ -131,7 +146,7 @@ async function saveEphemeralQuiz(quiz) {
   const ownerToken = (quiz.ownerToken || '').toString().trim();
   const sanitized = {
     id,
-    name: quiz.name || 'Quiz local',
+    name: cleanImportedText(quiz.name || 'Quiz local'),
     questions: normalizeQuestions(quiz.questions || []),
     tags: normalizeTags(quiz.tags || []),
     playsCount: 0,
@@ -857,14 +872,108 @@ function quizToMoodleXml(quiz) {
   return lines.join('\n');
 }
 
+function decodeHtmlEntities(value) {
+  const named = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+    nbsp: ' ',
+    ndash: '-',
+    mdash: '-',
+    hellip: '...',
+    lsquo: "'",
+    rsquo: "'",
+    ldquo: '"',
+    rdquo: '"',
+    aacute: 'á',
+    eacute: 'é',
+    iacute: 'í',
+    oacute: 'ó',
+    uacute: 'ú',
+    agrave: 'à',
+    egrave: 'è',
+    igrave: 'ì',
+    ograve: 'ò',
+    ugrave: 'ù',
+    auml: 'ä',
+    euml: 'ë',
+    iuml: 'ï',
+    ouml: 'ö',
+    uuml: 'ü',
+    ntilde: 'ñ',
+    ccedil: 'ç',
+    Aacute: 'Á',
+    Eacute: 'É',
+    Iacute: 'Í',
+    Oacute: 'Ó',
+    Uacute: 'Ú',
+    Agrave: 'À',
+    Egrave: 'È',
+    Igrave: 'Ì',
+    Ograve: 'Ò',
+    Ugrave: 'Ù',
+    Auml: 'Ä',
+    Euml: 'Ë',
+    Iuml: 'Ï',
+    Ouml: 'Ö',
+    Uuml: 'Ü',
+    Ntilde: 'Ñ',
+    Ccedil: 'Ç'
+  };
+  return (value || '').toString().replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);/g, (match, entity) => {
+    if (entity[0] === '#') {
+      const isHex = entity[1] && entity[1].toLowerCase() === 'x';
+      const code = parseInt(entity.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+      if (Number.isFinite(code) && code > 0) {
+        try {
+          return String.fromCodePoint(code);
+        } catch (e) {}
+      }
+      return match;
+    }
+    return Object.prototype.hasOwnProperty.call(named, entity) ? named[entity] : match;
+  });
+}
+
+function cleanImportedText(value) {
+  let text = (value || '').toString();
+  for (let i = 0; i < 3; i += 1) {
+    const decoded = decodeHtmlEntities(text);
+    if (decoded === text) break;
+    text = decoded;
+  }
+  text = text.replace(/<\s*br\s*\/?\s*>/gi, ' ');
+  text = text.replace(/<\/?[a-z][^>]*>/gi, '');
+  text = text.replace(/\u00a0/g, ' ');
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 function normalizeQuestions(list = []) {
   return list
     .map((item) => {
       const answers = Array.isArray(item.answers) ? item.answers : [];
-      const safeAnswers = [answers[0] || '', answers[1] || '', answers[2] || '', answers[3] || ''];
-      const meta = normalizeQuestionMeta(item);
+      const safeAnswers = [
+        cleanImportedText(answers[0] || ''),
+        cleanImportedText(answers[1] || ''),
+        cleanImportedText(answers[2] || ''),
+        cleanImportedText(answers[3] || '')
+      ];
+      const meta = normalizeQuestionMeta({
+        ...item,
+        question: cleanImportedText(item.question || ''),
+        answers: safeAnswers,
+        texto: cleanImportedText(item.texto || item.text || item.acceptedAnswers || item.correctText || ''),
+        acceptedAnswers: Array.isArray(item.acceptedAnswers)
+          ? item.acceptedAnswers.map(cleanImportedText)
+          : cleanImportedText(item.acceptedAnswers || ''),
+        correcta: cleanImportedText(item.correcta || ''),
+        correct: Array.isArray(item.correct) ? item.correct : cleanImportedText(item.correct || ''),
+        correctText: cleanImportedText(item.correctText || '')
+      });
       const base = {
-        question: item.question || '',
+        question: cleanImportedText(item.question || ''),
         answers: safeAnswers,
         correct: meta.correct,
         correctAnswers: meta.correctAnswers,
@@ -877,7 +986,7 @@ function normalizeQuestions(list = []) {
       if (meta.type === 'short-answer') {
         return {
           ...base,
-          acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : []
+          acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers.map(cleanImportedText) : []
         };
       }
 
@@ -917,6 +1026,32 @@ function normalizeTags(list = []) {
     out.push(clean);
   }
   return out;
+}
+
+function parseTagQuery(query = {}) {
+  const values = [];
+  const addValue = (value) => {
+    if (Array.isArray(value)) {
+      value.forEach(addValue);
+      return;
+    }
+    if (typeof value !== 'string') return;
+    value.split(',').forEach((part) => {
+      if (part && part.trim()) values.push(part.trim());
+    });
+  };
+  addValue(query.tag);
+  addValue(query.tags);
+  return normalizeTags(values);
+}
+
+function matchesTags(quiz, tags, tagMode = 'all') {
+  if (!tags.length) return true;
+  const quizTags = normalizeTags(quiz.tags || []);
+  if (tagMode === 'all') {
+    return tags.every((tag) => quizTags.includes(tag));
+  }
+  return tags.some((tag) => quizTags.includes(tag));
 }
 
 function scheduleGameCleanup(hostId, delayMs = GAME_CLEANUP_DELAY) {
@@ -1332,15 +1467,15 @@ function buildQuestions(questions = [], opts = {}) {
     // Tipos de respuesta libre: no barajar opciones y preservar meta.
     if (type === 'short-answer' || type === 'numeric') {
       return {
-        question: q.question,
-        answers: Array.isArray(q.answers) ? q.answers.slice(0, 4) : [],
+        question: cleanImportedText(q.question),
+        answers: Array.isArray(q.answers) ? q.answers.slice(0, 4).map(cleanImportedText) : [],
         correct: 1,
         correctAnswers: [1],
         type,
         time: useOverrideTime ? overrideTime : (q.time || 0),
         image: q.image || '',
         video: q.video || '',
-        acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : [],
+        acceptedAnswers: Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers.map(cleanImportedText) : [],
         numericAnswer: typeof meta.numericAnswer === 'number' ? meta.numericAnswer : null,
         tolerance: typeof meta.tolerance === 'number' ? meta.tolerance : 0
       };
@@ -1348,7 +1483,7 @@ function buildQuestions(questions = [], opts = {}) {
 
     // Para verdadero/falso: trabajamos solo con 2 opciones y evitamos que el shuffle
     // meta strings vacíos en A/B o que el correcto acabe en 3/4.
-    const rawAnswers = Array.isArray(q.answers) ? q.answers : [];
+    const rawAnswers = Array.isArray(q.answers) ? q.answers.map(cleanImportedText) : [];
     const domainAnswers = type === 'true-false' ? rawAnswers.slice(0, 2) : rawAnswers;
     const indexDomain = domainAnswers.map((_, idx) => idx);
 
@@ -1371,7 +1506,7 @@ function buildQuestions(questions = [], opts = {}) {
       shuffledCorrects.push(1);
     }
     return {
-      question: q.question,
+      question: cleanImportedText(q.question),
       answers,
       correct: shuffledCorrects[0],
       correctAnswers: shuffledCorrects,
@@ -1567,9 +1702,9 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
         const newId = await nextGameId(collection);
         const quiz = {
           id: newId,
-          name: quizName,
+          name: cleanImportedText(quizName),
           tags,
-          questions,
+          questions: normalizeQuestions(questions),
           ownerToken,
           playsCount: 0,
           playersCount: 0,
@@ -1594,9 +1729,9 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
     const newId = await nextGameId(collection);
     const quiz = {
       id: newId,
-      name: quizName,
+      name: cleanImportedText(quizName),
       tags,
-      questions,
+      questions: normalizeQuestions(questions),
       playsCount: 0,
       playersCount: 0,
       visibility,
@@ -1665,7 +1800,7 @@ function sanitizeImportedQuiz(raw = {}) {
     id,
     name,
     tags,
-    questions,
+    questions: normalizeQuestions(questions || []),
     playsCount,
     playersCount,
     visibility,
@@ -1802,9 +1937,9 @@ async function buildQuizDoc({ name, tags, questions, visibility, allowClone, use
   const ownerTokenClean = (ownerToken || '').toString().trim();
   const quiz = {
     id: newId,
-    name,
+    name: cleanImportedText(name || ''),
     tags,
-    questions,
+    questions: normalizeQuestions(questions || []),
     visibility,
     allowClone,
     playsCount: 0,
@@ -1858,14 +1993,14 @@ function mapKahootQuestions(kQuestions = []) {
   return normalizeQuestions(
     (kQuestions || []).map((q) => {
       const answers = Array.isArray(q.choices) ? q.choices : [];
-      const textAnswers = answers.map((a) => (a && a.answer) || '').slice(0, 4);
+      const textAnswers = answers.map((a) => cleanImportedText((a && a.answer) || '')).slice(0, 4);
       while (textAnswers.length < 4) textAnswers.push('');
       const correctIdx = Math.max(
         0,
         answers.findIndex((a) => a && a.correct)
       );
       return {
-        question: q.question || '',
+        question: cleanImportedText(q.question || ''),
         answers: textAnswers,
         correct: correctIdx + 1,
         time: Math.round((q.time || 20000) / 1000) || 20,
@@ -1893,7 +2028,7 @@ app.post('/api/import/kahoot', async (req, res) => {
     }
     const data = await response.json();
     const k = data.kahoot || {};
-    const name = (k.title || 'Kahoot importado').trim();
+    const name = cleanImportedText(k.title || 'Kahoot importado');
     const tags = normalizeTags(
       Array.isArray(k.tags) ? k.tags : (typeof k.tags === 'string' ? k.tags.split(',') : [])
     );
@@ -1939,11 +2074,11 @@ app.get('/api/quizzes/:id', async (req, res) => {
 
     return res.json({
       id: quiz.id,
-      name: quiz.name,
+      name: cleanImportedText(quiz.name || ''),
       tags: normalizeTags(quiz.tags || []),
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
-      questions,
+      questions: normalizeQuestions(questions),
       visibility: currentVisibility(quiz),
       allowClone: normalizeAllowClone(quiz.allowClone),
       ownerId: quiz.ownerId,
@@ -2243,7 +2378,7 @@ app.patch('/api/quizzes/:id/sharing', async (req, res) => {
         const newId = await nextGameId(collection);
         const doc = {
           id: newId,
-          name: q.name,
+          name: cleanImportedText(q.name || ''),
           tags: normalizeTags(q.tags || []),
           questions: q.questions || [],
           visibility: 'public',
@@ -2350,7 +2485,7 @@ io.on('connection', (socket) => {
           playersAnswered: 0,
           questionLive: false,
           gameid: data.id,
-          quizName: kahoot.name || '',
+          quizName: cleanImportedText(kahoot.name || ''),
           question: 1,
           questions: [],
           originalQuestions: multiplayerQuestions,
@@ -2671,9 +2806,8 @@ io.on('connection', (socket) => {
 
           const isCorrect = isSubmissionCorrect(meta, normalizedSubmission);
           if (isCorrect) {
-            player.gameData.score += 100;
+            player.gameData.score += calculateQuestionScore(game);
             player.gameData.correctCount = (Number(player.gameData.correctCount) || 0) + 1;
-            io.to(game.pin).emit('getTime', socket.id);
             socket.emit('answerResult', true);
           } else {
             player.gameData.wrongCount = (Number(player.gameData.wrongCount) || 0) + 1;
@@ -2684,8 +2818,7 @@ io.on('connection', (socket) => {
           game.gameData.questionLive = false;
           // Agotar tiempo en clientes porque ya contestaron todos
           io.to(game.pin).emit('time', { player: player.hostId, time: 0 });
-          // El bonus por tiempo llega por un evento asíncrono; esperamos un margen corto
-          // para evitar desajustes entre la puntuación del jugador y el ranking.
+          // Dejamos un margen corto para que los clientes reciban el feedback antes del ranking.
           emitQuestionOverPayloadDeferred(game);
         } else {
           io.to(game.pin).emit('updatePlayersAnswered', {
@@ -2710,17 +2843,8 @@ io.on('connection', (socket) => {
     socket.emit('newScore', player.gameData.score);
   });
 
-  socket.on('time', (data) => {
-    const playerid = data.player;
-    const player = players.getPlayer(playerid);
-    const hostId = player ? player.hostId : null;
-    const game = hostId ? games.getGame(hostId) : null;
-    const limit = (game && game.gameData && game.gameData.options && game.gameData.options.timePerQuestion) || 20;
-    let time = data.time / limit;
-    time *= 100;
-    if (player) {
-      player.gameData.score += time;
-    }
+  socket.on('time', () => {
+    // Scoring is computed on playerAnswer using server time.
   });
 
   socket.on('timeUp', async () => {
@@ -2962,6 +3086,7 @@ io.on('connection', (socket) => {
     game.gameData.question = 1;
     game.gameData.playersAnswered = 0;
     game.gameData.questionLive = true;
+    game.gameData.questionStartedAt = Date.now();
     const gamePlayers = players.getPlayers(socket.id);
     for (let i = 0; i < gamePlayers.length; i++) {
       gamePlayers[i].gameData.answer = 0;
@@ -3027,21 +3152,10 @@ app.get('/api/quizzes', async (req, res) => {
     if (ownerToken) {
       req.user = { ...(req.user || {}), ownerToken };
     }
-    const tagParam = req.query.tags;
-    const tags = Array.isArray(tagParam)
-      ? tagParam
-      : (typeof tagParam === 'string' && tagParam.length ? tagParam.split(',') : []);
-    const normalized = normalizeTags(tags);
+    const normalized = parseTagQuery(req.query);
     const mineOnly = req.query.mine === '1';
     const tagMode = req.query.tagMode === 'any' ? 'any' : 'all';
-    const matchesTagFilter = (quiz) => {
-      if (!normalized.length) return true;
-      const quizTags = normalizeTags(quiz.tags || []);
-      if (tagMode === 'all') {
-        return normalized.every((tag) => quizTags.includes(tag));
-      }
-      return normalized.some((tag) => quizTags.includes(tag));
-    };
+    const matchesTagFilter = (quiz) => matchesTags(quiz, normalized, tagMode);
     const collection = await getGamesCollection();
     let quizzesRaw = await collection.find({}).project({ questions: 0 }).toArray();
     if (normalized.length) {
@@ -3060,7 +3174,7 @@ app.get('/api/quizzes', async (req, res) => {
     }
     const quizzes = selectQuizzesForUser(quizzesRaw, req.user).map((quiz) => ({
       id: quiz.id,
-      name: quiz.name,
+      name: cleanImportedText(quiz.name || ''),
       tags: quiz.tags || [],
       playsCount: quiz.playsCount || 0,
       playersCount: quiz.playersCount || 0,
@@ -3085,7 +3199,7 @@ app.get('/api/quizzes', async (req, res) => {
       if (q && !isEphemeralExpired(q) && matchesTagFilter(q)) {
         validLocal.push({
           id: q.id,
-          name: q.name,
+          name: cleanImportedText(q.name || ''),
           tags: normalizeTags(q.tags || []),
           playsCount: 0,
           playersCount: 0,
@@ -3111,6 +3225,8 @@ app.get('/api/public-quizzes', async (req, res) => {
   try {
     const mode = (req.query.mode || '').toString();
     const multiplayerMode = mode === 'multiplayer';
+    const tags = parseTagQuery(req.query);
+    const tagMode = req.query.tagMode === 'all' ? 'all' : 'any';
     const collection = await getGamesCollection();
     const quizzes = await collection
       .find({ $or: [{ visibility: 'public' }, { visibility: { $exists: false } }] })
@@ -3145,32 +3261,34 @@ app.get('/api/public-quizzes', async (req, res) => {
       ratingsById.set(String(r.quizId), { avg: toFiniteNumber(r.avg, 0), count: toFiniteNumber(r.count, 0) });
     });
 
-    let mapped = (quizzes || []).map((quiz) => {
-      const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
-      const questions = multiplayerMode
-        ? allQuestions.filter((q) => !isMultiplayerFreeTypeQuestion(q))
-        : allQuestions;
+    let mapped = (quizzes || [])
+      .filter((quiz) => matchesTags(quiz, tags, tagMode))
+      .map((quiz) => {
+        const allQuestions = Array.isArray(quiz.questions) ? quiz.questions : [];
+        const questions = multiplayerMode
+          ? allQuestions.filter((q) => !isMultiplayerFreeTypeQuestion(q))
+          : allQuestions;
 
-      const mediaQuestions = questions.filter((q) => q && (q.image || q.video));
-      const mediaQuestion = mediaQuestions.length
-        ? mediaQuestions[Math.floor(Math.random() * mediaQuestions.length)]
-        : null;
-      const rating = ratingsById.get(String(quiz.id)) || { avg: 0, count: 0 };
-      return {
-        id: quiz.id,
-        name: quiz.name,
-        tags: quiz.tags || [],
-        playsCount: quiz.playsCount || 0,
-        playersCount: quiz.playersCount || 0,
-        ownerNickname: quiz.ownerNickname || '',
-        createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
-        questionsCount: questions.length,
-        coverImage: mediaQuestion ? mediaQuestion.image : '',
-        coverVideo: mediaQuestion ? mediaQuestion.video : '',
-        ratingAvg: rating.avg,
-        ratingCount: rating.count
-      };
-    });
+        const mediaQuestions = questions.filter((q) => q && (q.image || q.video));
+        const mediaQuestion = mediaQuestions.length
+          ? mediaQuestions[Math.floor(Math.random() * mediaQuestions.length)]
+          : null;
+        const rating = ratingsById.get(String(quiz.id)) || { avg: 0, count: 0 };
+        return {
+          id: quiz.id,
+          name: cleanImportedText(quiz.name || ''),
+          tags: quiz.tags || [],
+          playsCount: quiz.playsCount || 0,
+          playersCount: quiz.playersCount || 0,
+          ownerNickname: quiz.ownerNickname || '',
+          createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
+          questionsCount: questions.length,
+          coverImage: mediaQuestion ? mediaQuestion.image : '',
+          coverVideo: mediaQuestion ? mediaQuestion.video : '',
+          ratingAvg: rating.avg,
+          ratingCount: rating.count
+        };
+      });
 
     if (multiplayerMode) {
       mapped = mapped.filter((q) => (q.questionsCount || 0) > 0);
