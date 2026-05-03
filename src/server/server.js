@@ -578,6 +578,8 @@ function liveSessionToCsv(game) {
   const playersInGame = players.getPlayers(game.hostId) || [];
   const totalQuestions = Math.max(0, Number(game && game.gameData && game.gameData.totalQuestions) || 0);
   const quizName = game && game.gameData && game.gameData.quizName ? game.gameData.quizName : '';
+  const questions = (game && game.gameData && Array.isArray(game.gameData.questions)) ? game.gameData.questions : [];
+  const globalTimePerQuestion = Number(game && game.gameData && game.gameData.options && game.gameData.options.timePerQuestion) || 0;
   const sorted = playersInGame.slice().sort((a, b) => {
     const scoreA = Number(a && a.gameData && a.gameData.score) || 0;
     const scoreB = Number(b && b.gameData && b.gameData.score) || 0;
@@ -585,29 +587,152 @@ function liveSessionToCsv(game) {
     return String(a && a.name ? a.name : '').localeCompare(String(b && b.name ? b.name : ''), 'es');
   });
 
-  const header = 'pin;quizId;quizNombre;preguntasTotales;posicion;alumno;puntuacion;aciertos;fallos;sinResponder';
-  const lines = sorted.map((player, index) => {
+  function formatChoiceList(indices, answers) {
+    const letters = ['A', 'B', 'C', 'D'];
+    const list = Array.isArray(indices) ? indices : [];
+    const out = [];
+    list.forEach((raw) => {
+      const idx = Number(raw);
+      if (!Number.isFinite(idx) || idx < 1 || idx > 4) return;
+      const label = letters[idx - 1] || String(idx);
+      const text = (Array.isArray(answers) ? (answers[idx - 1] || '') : '').toString().trim();
+      out.push(text ? `${label}: ${text}` : label);
+    });
+    return out.join(' | ');
+  }
+
+  function formatSubmissionForCsv(meta, question, submission) {
+    if (submission === undefined || submission === null || submission === '') return '';
+    if (meta.type === 'short-answer') {
+      const text = submission && typeof submission === 'object' && submission.text !== undefined
+        ? submission.text
+        : submission;
+      return String(text || '').trim();
+    }
+    if (meta.type === 'numeric') {
+      const value = submission && typeof submission === 'object' && submission.number !== undefined
+        ? submission.number
+        : submission;
+      return String(value === undefined || value === null ? '' : value).trim();
+    }
+    if (meta.type === 'multiple') {
+      return formatChoiceList(Array.isArray(submission) ? submission : [], question.answers || []);
+    }
+    return formatChoiceList([submission], question.answers || []);
+  }
+
+  function formatCorrectForCsv(meta, question) {
+    if (meta.type === 'short-answer') {
+      const accepted = Array.isArray(meta.acceptedAnswers) ? meta.acceptedAnswers : [];
+      return accepted.join(' | ');
+    }
+    if (meta.type === 'numeric') {
+      const base = (meta.numericAnswer !== undefined && meta.numericAnswer !== null) ? meta.numericAnswer : '';
+      const tol = (meta.tolerance !== undefined && meta.tolerance !== null) ? meta.tolerance : 0;
+      if (base === '') return '';
+      return Number(tol) > 0 ? `${base} +/- ${tol}` : String(base);
+    }
+    return formatChoiceList(meta.correctAnswers || [], question.answers || []);
+  }
+
+  const header = 'pin;quizId;quizNombre;preguntasTotales;posicion;alumno;puntuacionFinal;aciertos;fallos;sinResponder;preguntaNumero;tipo;enunciado;tiempoLimiteSegundos;respuestaJugador;respuestaCorrecta;resultado;tiempoRespuestaMs';
+  const lines = [];
+
+  sorted.forEach((player, index) => {
     const score = Number(player && player.gameData && player.gameData.score) || 0;
     const correctCount = Number(player && player.gameData && player.gameData.correctCount) || 0;
     const wrongCount = Number(player && player.gameData && player.gameData.wrongCount) || 0;
     const answered = Math.max(0, correctCount + wrongCount);
     const unanswered = Math.max(0, totalQuestions - answered);
+    const answerHistory = Array.isArray(player && player.gameData && player.gameData.answerHistory)
+      ? player.gameData.answerHistory
+      : [];
+    const historyByQuestion = new Map();
+    answerHistory.forEach((entry) => {
+      const num = Number(entry && entry.questionNumber);
+      if (!Number.isFinite(num) || num <= 0) return;
+      historyByQuestion.set(num, entry);
+    });
 
-    return [
-      escapeCsvField(game.pin),
-      escapeCsvField(game.gameData && game.gameData.gameid ? game.gameData.gameid : ''),
-      escapeCsvField(quizName),
-      escapeCsvField(totalQuestions),
-      escapeCsvField(index + 1),
-      escapeCsvField(player && player.name ? player.name : ''),
-      escapeCsvField(Math.round(score)),
-      escapeCsvField(correctCount),
-      escapeCsvField(wrongCount),
-      escapeCsvField(unanswered)
-    ].join(';');
+    for (let qIdx = 0; qIdx < questions.length; qIdx += 1) {
+      const questionNumber = qIdx + 1;
+      const question = questions[qIdx] || {};
+      const meta = getQuestionMeta(question);
+      const historyEntry = historyByQuestion.get(questionNumber);
+      const playerAnswer = historyEntry ? formatSubmissionForCsv(meta, question, historyEntry.submission) : '';
+      const correctAnswer = formatCorrectForCsv(meta, question);
+      const result = historyEntry
+        ? (historyEntry.isCorrect ? 'correcta' : 'incorrecta')
+        : 'sin responder';
+      const responseMs = historyEntry && typeof historyEntry.elapsedMs === 'number'
+        ? Math.max(0, Math.round(historyEntry.elapsedMs))
+        : '';
+      const timeLimitSeconds = globalTimePerQuestion > 0
+        ? globalTimePerQuestion
+        : (Number(question.time) > 0 ? Number(question.time) : 20);
+
+      lines.push([
+        escapeCsvField(game.pin),
+        escapeCsvField(game.gameData && game.gameData.gameid ? game.gameData.gameid : ''),
+        escapeCsvField(quizName),
+        escapeCsvField(totalQuestions),
+        escapeCsvField(index + 1),
+        escapeCsvField(player && player.name ? player.name : ''),
+        escapeCsvField(Math.round(score)),
+        escapeCsvField(correctCount),
+        escapeCsvField(wrongCount),
+        escapeCsvField(unanswered),
+        escapeCsvField(questionNumber),
+        escapeCsvField(meta.type || 'quiz'),
+        escapeCsvField(question.question || ''),
+        escapeCsvField(timeLimitSeconds),
+        escapeCsvField(playerAnswer),
+        escapeCsvField(correctAnswer),
+        escapeCsvField(result),
+        escapeCsvField(responseMs)
+      ].join(';'));
+    }
+
+    if (questions.length === 0) {
+      lines.push([
+        escapeCsvField(game.pin),
+        escapeCsvField(game.gameData && game.gameData.gameid ? game.gameData.gameid : ''),
+        escapeCsvField(quizName),
+        escapeCsvField(totalQuestions),
+        escapeCsvField(index + 1),
+        escapeCsvField(player && player.name ? player.name : ''),
+        escapeCsvField(Math.round(score)),
+        escapeCsvField(correctCount),
+        escapeCsvField(wrongCount),
+        escapeCsvField(unanswered),
+        '', '', '', '', '', '', '', ''
+      ].join(';'));
+    }
   });
 
   return [header].concat(lines).join('\n');
+}
+
+function recordPlayerAnswerHistory(player, game, questionNumber, submission, isCorrect) {
+  if (!player || !player.gameData) return;
+  if (!Array.isArray(player.gameData.answerHistory)) {
+    player.gameData.answerHistory = [];
+  }
+  const startedAt = Number(game && game.gameData && game.gameData.questionStartedAt) || 0;
+  const elapsedMs = startedAt > 0 ? Math.max(0, Date.now() - startedAt) : null;
+  const entry = {
+    questionNumber: Number(questionNumber) || 0,
+    submission,
+    isCorrect: !!isCorrect,
+    answeredAt: Date.now(),
+    elapsedMs
+  };
+  const idx = player.gameData.answerHistory.findIndex((item) => Number(item && item.questionNumber) === entry.questionNumber);
+  if (idx >= 0) {
+    player.gameData.answerHistory[idx] = entry;
+  } else {
+    player.gameData.answerHistory.push(entry);
+  }
 }
 
 function cacheFinishedSessionReport(game) {
@@ -2715,7 +2840,7 @@ io.on('connection', (socket) => {
     }
 
     const safeName = normalizePlayerName(params.name);
-    players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0, correctCount: 0, wrongCount: 0 }, params.icon || '', token);
+    players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0, correctCount: 0, wrongCount: 0, answerHistory: [] }, params.icon || '', token);
     socket.join(game.pin);
 
     const playersInGame = players.getPlayers(hostId);
@@ -2915,6 +3040,7 @@ io.on('connection', (socket) => {
             player.gameData.wrongCount = (Number(player.gameData.wrongCount) || 0) + 1;
             socket.emit('answerResult', false);
           }
+          recordPlayerAnswerHistory(player, game, gameQuestion, normalizedSubmission, isCorrect);
 
         if (game.gameData.playersAnswered === playerNum.length) {
           game.gameData.questionLive = false;
@@ -3158,6 +3284,10 @@ io.on('connection', (socket) => {
     const gamePlayers = players.getPlayers(socket.id);
     for (let i = 0; i < gamePlayers.length; i++) {
       gamePlayers[i].gameData.answer = 0;
+      gamePlayers[i].gameData.score = 0;
+      gamePlayers[i].gameData.correctCount = 0;
+      gamePlayers[i].gameData.wrongCount = 0;
+      gamePlayers[i].gameData.answerHistory = [];
     }
     game.gameLive = true;
     game.gameOver = false;
