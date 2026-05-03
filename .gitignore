@@ -3,3 +3,4 @@ scripts/deploy.sh
 scripts/deploy-stage.sh
 .vscode/settings.json
 .codex/
+scripts/.codex
