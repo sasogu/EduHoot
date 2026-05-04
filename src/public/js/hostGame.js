@@ -82,6 +82,7 @@ var i18n = {
         correctOptionBadge: 'Correcta',
         pointsDouble: 'Puntos dobles',
         questionCountdown: 'Prepara la siguiente pregunta...',
+        questionCountdownHint: 'La siguiente empieza en',
         downloadReport: 'Descargar informe (CSV)',
         downloadReportError: 'No se pudo descargar el informe de la sesión.'
     },
@@ -113,6 +114,7 @@ var i18n = {
         correctOptionBadge: 'Correct',
         pointsDouble: 'Double points',
         questionCountdown: 'Get ready for the next question...',
+        questionCountdownHint: 'Next question starts in',
         downloadReport: 'Download report (CSV)',
         downloadReportError: 'Could not download the session report.'
     },
@@ -144,6 +146,7 @@ var i18n = {
         correctOptionBadge: 'Correcta',
         pointsDouble: 'Punts dobles',
         questionCountdown: 'Prepara la pregunta següent...',
+        questionCountdownHint: 'La següent comença en',
         downloadReport: 'Descarregar informe (CSV)',
         downloadReportError: 'No s\'ha pogut descarregar l\'informe de la sessió.'
     }
@@ -213,6 +216,10 @@ function applyStaticText(){
     if(rankingTitle) rankingTitle.textContent = t('rankingTitle');
     var resultsTitle = document.getElementById('resultsTitle');
     if(resultsTitle) resultsTitle.textContent = t('resultsTitle');
+    var countdownLabel = document.getElementById('questionCountdownLabel');
+    if(countdownLabel) countdownLabel.textContent = t('questionCountdown');
+    var countdownHint = document.getElementById('questionCountdownHint');
+    if(countdownHint) countdownHint.textContent = t('questionCountdownHint');
     var winnerTitle = document.getElementById('winnerTitle');
     if(winnerTitle) winnerTitle.textContent = t('topPlayers');
     var reportBtn = ensureDownloadReportButton();
@@ -730,6 +737,28 @@ function clearQuestionCountdown(){
         clearInterval(questionCountdownTimer);
         questionCountdownTimer = null;
     }
+    var countdownEl = document.getElementById('questionCountdown');
+    if(countdownEl){
+        countdownEl.classList.remove('is-visible', 'is-ticking');
+        countdownEl.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('is-question-countdown');
+}
+
+function renderQuestionCountdown(seconds){
+    var countdownEl = document.getElementById('questionCountdown');
+    var numberEl = document.getElementById('questionCountdownNumber');
+    var labelEl = document.getElementById('questionCountdownLabel');
+    var hintEl = document.getElementById('questionCountdownHint');
+    if(labelEl) labelEl.textContent = t('questionCountdown');
+    if(hintEl) hintEl.textContent = t('questionCountdownHint');
+    if(numberEl) numberEl.textContent = seconds > 0 ? String(seconds) : '';
+    if(countdownEl){
+        countdownEl.classList.remove('is-ticking');
+        void countdownEl.offsetWidth;
+        countdownEl.classList.add('is-visible', 'is-ticking');
+        countdownEl.setAttribute('aria-hidden', seconds > 0 ? 'false' : 'true');
+    }
 }
 
 function showQuestionCountdown(data){
@@ -746,17 +775,20 @@ function showQuestionCountdown(data){
     var questionEl = document.getElementById('question');
     var playersEl = document.getElementById('playersAnswered');
     var timerEl = document.getElementById('timerText');
+    document.body.classList.add('is-question-countdown');
+    if(questionEl) questionEl.textContent = '';
     if(playersEl) playersEl.textContent = t('questionCountdown');
     if(timerEl) timerEl.style.display = 'none';
     if(data && data.questionNumber && data.totalQuestions){
         document.getElementById('questionNum').textContent = i18n[lang].questionXofY(data.questionNumber, data.totalQuestions);
     }
     function render(){
-        if(questionEl) questionEl.textContent = seconds > 0 ? String(seconds) : '';
-        seconds -= 1;
-        if(seconds < 0){
+        if(seconds <= 0){
             clearQuestionCountdown();
+            return;
         }
+        renderQuestionCountdown(seconds);
+        seconds -= 1;
     }
     render();
     questionCountdownTimer = setInterval(render, 1000);
