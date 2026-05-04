@@ -728,10 +728,10 @@ function liveSessionToCsv(game) {
     ].join(';'));
   });
 
-  return [header]
-    .concat(lines)
-    .concat(['', summaryHeader, summaryColumns])
+  return [summaryHeader, summaryColumns]
     .concat(summaryLines)
+    .concat(['', header])
+    .concat(lines)
     .join('\n');
 }
 
