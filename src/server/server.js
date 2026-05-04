@@ -638,7 +638,10 @@ function liveSessionToCsv(game) {
   }
 
   const header = 'pin;quizId;quizNombre;preguntasTotales;posicion;alumno;puntuacionFinal;aciertos;fallos;sinResponder;preguntaNumero;tipo;enunciado;tiempoLimiteSegundos;respuestaJugador;respuestaCorrecta;resultado;tiempoRespuestaMs';
+  const summaryHeader = 'RESUMEN FINAL';
+  const summaryColumns = 'pin;quizId;quizNombre;preguntasTotales;posicion;alumno;puntuacionFinal;aciertos;fallos;sinResponder';
   const lines = [];
+  const summaryLines = [];
 
   sorted.forEach((player, index) => {
     const score = Number(player && player.gameData && player.gameData.score) || 0;
@@ -710,9 +713,26 @@ function liveSessionToCsv(game) {
         '', '', '', '', '', '', '', ''
       ].join(';'));
     }
+
+    summaryLines.push([
+      escapeCsvField(game.pin),
+      escapeCsvField(game.gameData && game.gameData.gameid ? game.gameData.gameid : ''),
+      escapeCsvField(quizName),
+      escapeCsvField(totalQuestions),
+      escapeCsvField(index + 1),
+      escapeCsvField(player && player.name ? player.name : ''),
+      escapeCsvField(Math.round(score)),
+      escapeCsvField(correctCount),
+      escapeCsvField(wrongCount),
+      escapeCsvField(unanswered)
+    ].join(';'));
   });
 
-  return [header].concat(lines).join('\n');
+  return [header]
+    .concat(lines)
+    .concat(['', summaryHeader, summaryColumns])
+    .concat(summaryLines)
+    .join('\n');
 }
 
 function recordPlayerAnswerHistory(player, game, questionNumber, submission, isCorrect) {
