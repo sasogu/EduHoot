@@ -335,6 +335,8 @@ var i18n = {
         libraryDesc: 'Selecciona un cuestionario para hostearlo o gestiona su nombre y estado.',
         searchPlaceholder: 'Buscar por nombre o etiqueta',
         suggestedTags: 'Etiquetas usadas (toca para filtrar)',
+        foldersTitle: 'Carpetas',
+        foldersAll: 'Todos',
         editTagsPlaceholder: 'Añadir etiqueta (se guardará sin tildes ni símbolos)',
         editTagsAdd: 'Añadir',
         editTagsNeedOne: 'Debe quedar al menos una etiqueta.',
@@ -577,6 +579,8 @@ var i18n = {
         libraryDesc: 'Pick a quiz to host or manage its name and status.',
         searchPlaceholder: 'Search by name or tag',
         suggestedTags: 'Suggested tags (tap to filter)',
+        foldersTitle: 'Folders',
+        foldersAll: 'All',
         editTagsPlaceholder: 'Add tag (saved without accents or symbols)',
         editTagsAdd: 'Add',
         editTagsNeedOne: 'At least one tag is required.',
@@ -819,6 +823,8 @@ var i18n = {
         libraryDesc: 'Selecciona un qüestionari per hostatjar-lo o gestiona el seu nom i estat.',
         searchPlaceholder: 'Cerca per nom o etiqueta',
         suggestedTags: 'Etiquetes usades (toca per filtrar)',
+        foldersTitle: 'Carpetes',
+        foldersAll: 'Tots',
         editTagsPlaceholder: 'Afegeix etiqueta (es desa sense accents ni símbols)',
         editTagsAdd: 'Afegir',
         editTagsNeedOne: 'Ha de quedar com a mínim una etiqueta.',
@@ -1500,8 +1506,20 @@ function renderTagSuggestions(){
     var remaining = Math.max(0, allTags.length - visibleTags.length);
     var label = document.createElement('span');
     label.className = 'label';
-    label.textContent = t('suggestedTags');
+    label.textContent = t('foldersTitle');
     wrap.appendChild(label);
+
+    var allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'tag' + (currentFilters.tags.length === 0 ? ' active' : '');
+    allBtn.textContent = t('foldersAll');
+    allBtn.style.setProperty('--tag-weight', 0.3);
+    allBtn.onclick = function(){
+        currentFilters.tags = [];
+        syncFiltersToUrl();
+        fetchWithFilters();
+    };
+    wrap.appendChild(allBtn);
 
     visibleTags.forEach(function(tag){
         var btn = document.createElement('button');
@@ -3073,6 +3091,9 @@ function fetchMe(){
         .then(function(user){
             authState.user = user;
             updateAuthUI();
+            currentFilters.mineOnly = true;
+            var mineCb = document.getElementById('filter-mine');
+            if(mineCb) mineCb.checked = true;
             fetchWithFilters();
             claimPendingQuizAfterLogin();
         })
@@ -3116,6 +3137,9 @@ function logout(){
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
         .then(function(){
             authState.user = null;
+            currentFilters.mineOnly = false;
+            var mineCb = document.getElementById('filter-mine');
+            if(mineCb) mineCb.checked = false;
             updateAuthUI();
             closeAuthModal();
             reconnectSocket();

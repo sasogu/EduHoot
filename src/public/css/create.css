@@ -882,6 +882,121 @@ body.modal-open{
     color: rgba(255,255,255,0.65);
 }
 
+/* ── Folder sidebar layout ─────────────────────────────────── */
+.library-body {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-top: 4px;
+}
+.folder-sidebar {
+    flex: 0 0 180px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.library-main {
+    flex: 1;
+    min-width: 0;
+}
+.folder-sidebar .tag-suggestions {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 2px;
+    margin: 0;
+}
+.folder-sidebar .tag-suggestions .label {
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    opacity: 0.55;
+    padding: 0 10px 8px;
+    text-transform: uppercase;
+}
+.folder-sidebar .tag {
+    font-size: 13px !important;
+    border-radius: 10px !important;
+    padding: 8px 12px !important;
+    text-align: left;
+    width: 100%;
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    opacity: 1 !important;
+    background: rgba(255,255,255,0.07) !important;
+    border-color: rgba(255,255,255,0.1) !important;
+    box-shadow: none !important;
+}
+.folder-sidebar .tag::before {
+    content: '▸';
+    font-size: 10px;
+    opacity: 0.4;
+    flex-shrink: 0;
+    transition: opacity 0.15s, transform 0.15s;
+}
+.folder-sidebar .tag.active {
+    background: rgba(255,255,255,0.95) !important;
+    color: #0f162a !important;
+    border-color: rgba(255,255,255,0.95) !important;
+}
+.folder-sidebar .tag.active::before {
+    opacity: 1;
+    transform: rotate(90deg);
+    color: #0f162a;
+}
+.folder-sidebar .tag:hover {
+    transform: translateX(3px) !important;
+    background: rgba(255,255,255,0.14) !important;
+    box-shadow: none !important;
+}
+.folder-sidebar .tag.active:hover {
+    background: rgba(255,255,255,0.95) !important;
+}
+.folder-sidebar .tag.tag-more {
+    font-size: 12px !important;
+    opacity: 0.6 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    padding: 6px 12px !important;
+}
+.folder-sidebar .tag.tag-more:hover {
+    opacity: 1 !important;
+    background: rgba(255,255,255,0.08) !important;
+    transform: none !important;
+}
+
+@media (max-width: 768px) {
+    .library-body {
+        flex-direction: column;
+        gap: 12px;
+    }
+    .folder-sidebar {
+        flex: none;
+        position: static;
+        max-height: none;
+        overflow: visible;
+        width: 100%;
+    }
+    .folder-sidebar .tag-suggestions {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .folder-sidebar .tag {
+        width: auto !important;
+        font-size: 12px !important;
+        border-radius: 999px !important;
+    }
+    .folder-sidebar .tag::before {
+        display: none;
+    }
+    .folder-sidebar .tag:hover {
+        transform: translateY(-1px) !important;
+    }
+}
+
 @media (max-width: 600px){
     .page-shell{
         margin: 16px auto 46px auto;

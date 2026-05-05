@@ -358,18 +358,24 @@
                         <span data-i18n="filterMine">Sólo mis cuestionarios</span>
                     </label>
                 </div>
-                <div id="tag-suggestions" class="tag-suggestions"></div>
-                <p class="subtext" data-i18n="visibilityHelp">
-                    <strong>Solo yo:</strong> si no inicias sesión, el quiz se guarda solo en tu sesión y caduca en 24h.<br>
-                    <strong>Por enlace / Público:</strong> aunque no tengas cuenta, se guardan de forma global en el servidor y sobreviven a reinicios. Si inicias sesión, quedan ligados a tu usuario.
-                    Puedes permitir o no las copias.
-                </p>
-                <div id="game-list" class="game-grid">
-                </div>
-                <div id="library-pagination" class="pagination hidden">
-                    <button id="library-pagination-prev" class="btn btn-ghost" data-i18n="paginationPrev">Anterior</button>
-                    <span id="library-pagination-info"></span>
-                    <button id="library-pagination-next" class="btn btn-ghost" data-i18n="paginationNext">Siguiente</button>
+                <div class="library-body">
+                    <div class="folder-sidebar">
+                        <div id="tag-suggestions" class="tag-suggestions"></div>
+                    </div>
+                    <div class="library-main">
+                        <p class="subtext" data-i18n="visibilityHelp">
+                            <strong>Solo yo:</strong> si no inicias sesión, el quiz se guarda solo en tu sesión y caduca en 24h.<br>
+                            <strong>Por enlace / Público:</strong> aunque no tengas cuenta, se guardan de forma global en el servidor y sobreviven a reinicios. Si inicias sesión, quedan ligados a tu usuario.
+                            Puedes permitir o no las copias.
+                        </p>
+                        <div id="game-list" class="game-grid">
+                        </div>
+                        <div id="library-pagination" class="pagination hidden">
+                            <button id="library-pagination-prev" class="btn btn-ghost" data-i18n="paginationPrev">Anterior</button>
+                            <span id="library-pagination-info"></span>
+                            <button id="library-pagination-next" class="btn btn-ghost" data-i18n="paginationNext">Siguiente</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
