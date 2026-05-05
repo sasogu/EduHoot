@@ -1,8 +1,8 @@
 var socket = io({
     reconnection: true,
-    reconnectionAttempts: 15,
+    reconnectionAttempts: 30,
     reconnectionDelay: 500,
-    reconnectionDelayMax: 2000
+    reconnectionDelayMax: 3000
 });
 var playerAnswered = false;
 var correct = false;
@@ -19,6 +19,11 @@ var multiSelections = [];
 var freeControlsReady = false;
 var questionCountdownTimer = null;
 var currentPointsMultiplier = 1;
+var wakeLock = null;
+var questionActive = false;
+var reconnectGraceTimer = null;
+var reconnectGraceMs = 40000;
+var RECONNECT_GRACE_STORAGE_KEY = 'playerReconnectGrace';
 
 function tPlayer(key, fallback){
     return window.i18nPlayer ? window.i18nPlayer.t(key) : (fallback || key);
@@ -98,6 +103,158 @@ function persistJoinState(){
     }catch(e){}
 }
 
+function removePlayerToken(){
+    try{
+        var tokens = JSON.parse(localStorage.getItem('playerTokens') || '{}');
+        var key = (params.pin || '') + ':' + (params.name || '');
+        if(tokens && Object.prototype.hasOwnProperty.call(tokens, key)){
+            delete tokens[key];
+            localStorage.setItem('playerTokens', JSON.stringify(tokens));
+        }
+    }catch(e){}
+}
+
+function clearPersistedJoinState(){
+    try{ localStorage.removeItem('playerLastJoin'); }catch(e){}
+    removePlayerToken();
+    token = null;
+}
+
+function saveReconnectGrace(ms){
+    var graceMs = Number(ms);
+    if(!Number.isFinite(graceMs) || graceMs <= 0) return;
+    reconnectGraceMs = graceMs;
+    var existingExpiresAt = null;
+    try{
+        var prev = JSON.parse(localStorage.getItem(RECONNECT_GRACE_STORAGE_KEY) || '{}');
+        var prevExpiresAt = Number(prev.expiresAt);
+        if(Number.isFinite(prevExpiresAt) && prevExpiresAt > Date.now()){
+            existingExpiresAt = prevExpiresAt;
+        }
+    }catch(e){}
+    try{
+        localStorage.setItem(RECONNECT_GRACE_STORAGE_KEY, JSON.stringify({
+            ms: graceMs,
+            expiresAt: existingExpiresAt
+        }));
+    }catch(e){}
+}
+
+function loadReconnectGrace(){
+    try{
+        var raw = localStorage.getItem(RECONNECT_GRACE_STORAGE_KEY);
+        if(!raw) return null;
+        var parsed = JSON.parse(raw);
+        if(!parsed || typeof parsed !== 'object') return null;
+        var ms = Number(parsed.ms);
+        var expiresAt = Number(parsed.expiresAt);
+        if(!Number.isFinite(ms) || ms <= 0 || !Number.isFinite(expiresAt)) return null;
+        reconnectGraceMs = ms;
+        return { ms: ms, expiresAt: expiresAt };
+    }catch(e){
+        return null;
+    }
+}
+
+function clearReconnectGrace(){
+    if(reconnectGraceTimer){
+        clearInterval(reconnectGraceTimer);
+        reconnectGraceTimer = null;
+    }
+    try{ localStorage.removeItem(RECONNECT_GRACE_STORAGE_KEY); }catch(e){}
+}
+
+function setReconnectMessage(text){
+    var msg = document.getElementById('message');
+    if(!msg) return;
+    msg.style.display = 'block';
+    msg.textContent = text;
+}
+
+function tPlayerFormat(key, fallback, vars){
+    var txt = tPlayer(key, fallback || key);
+    if(!vars || typeof vars !== 'object') return txt;
+    return String(txt).replace(/\{(\w+)\}/g, function(_, name){
+        return Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : '';
+    });
+}
+
+function startReconnectGraceCountdown(){
+    if(reconnectGraceTimer){
+        clearInterval(reconnectGraceTimer);
+        reconnectGraceTimer = null;
+    }
+    var grace = loadReconnectGrace();
+    if(!grace){
+        grace = { ms: reconnectGraceMs, expiresAt: Date.now() + reconnectGraceMs };
+    }else if(!Number.isFinite(grace.expiresAt) || grace.expiresAt <= Date.now()){
+        grace.expiresAt = Date.now() + grace.ms;
+    }
+    try{
+        localStorage.setItem(RECONNECT_GRACE_STORAGE_KEY, JSON.stringify({
+            ms: grace.ms,
+            expiresAt: grace.expiresAt
+        }));
+    }catch(e){}
+
+    if(grace.ms > 0){
+        reconnectGraceMs = grace.ms;
+    }
+
+    function render(){
+        var remainingMs = Math.max(0, grace.expiresAt - Date.now());
+        var remainingSec = Math.ceil(remainingMs / 1000);
+        if(!navigator.onLine){
+            setReconnectMessage(
+                tPlayerFormat(
+                    'reconnecting_waiting_network',
+                    'Sin conexión - esperando red... ({seconds} s)',
+                    { seconds: remainingSec }
+                )
+            );
+        }else{
+            setReconnectMessage(
+                tPlayerFormat(
+                    'reconnecting_saved_spot',
+                    'Reconectando... te hemos guardado el sitio durante {seconds} s',
+                    { seconds: remainingSec }
+                )
+            );
+        }
+        if(remainingMs <= 0){
+            clearReconnectGrace();
+            clearPersistedJoinState();
+            setReconnectMessage(tPlayer('reconnecting_kicked', 'Has salido de la partida'));
+        }
+    }
+
+    render();
+    reconnectGraceTimer = setInterval(render, 500);
+}
+
+async function requestWakeLock(){
+    if(!questionActive) return;
+    if(!('wakeLock' in navigator)) return;
+    if(wakeLock && !wakeLock.released) return;
+    try{
+        wakeLock = await navigator.wakeLock.request('screen');
+        if(wakeLock && typeof wakeLock.addEventListener === 'function'){
+            wakeLock.addEventListener('release', function(){
+                if(wakeLock && wakeLock.released){
+                    wakeLock = null;
+                }
+            });
+        }
+    }catch(e){}
+}
+
+function releaseWakeLock(){
+    if(wakeLock){
+        try{ wakeLock.release(); }catch(e){}
+        wakeLock = null;
+    }
+}
+
 function emitJoin(){
     applyStaticLabels();
     var payload = Object.assign({}, params);
@@ -120,6 +277,10 @@ socket.on('connect', function() {
     if (langSw) langSw.style.display = 'none';
 
     resetTimer();
+    clearReconnectGrace();
+    if(questionActive){
+        requestWakeLock();
+    }
 
     if(!freeControlsReady){
         setupFreeAnswerControls();
@@ -131,12 +292,12 @@ socket.on('connect', function() {
 // registrar ambos causaría doble player-join-game al servidor.
 
 socket.on('disconnect', function(){
-    // Mantener la vista y confiar en el reintento automático
-    var msg = document.getElementById('message');
-    if(msg){
-        msg.style.display = "block";
-        var txt = window.i18nPlayer ? window.i18nPlayer.t('reconnecting') : 'Reconectando...';
-        msg.textContent = txt;
+    startReconnectGraceCountdown();
+});
+
+socket.on('playerGracePeriod', function(data){
+    if(data && data.ms){
+        saveReconnectGrace(data.ms);
     }
 });
 
@@ -376,6 +537,8 @@ function updatePlayerRank(playerData){
 }
 
 socket.on('questionOver', function(playerData, payload){
+    questionActive = false;
+    releaseWakeLock();
     setMedia(null, null);
     var multiRow = document.getElementById('multiSubmitRow');
     if(multiRow) multiRow.style.display = 'none';
@@ -503,6 +666,8 @@ function clearQuestionCountdown(){
 
 function showQuestionCountdown(data){
     clearQuestionCountdown();
+    questionActive = false;
+    releaseWakeLock();
     stopTimer();
     setMedia(null, null);
     playerAnswered = true;
@@ -547,6 +712,8 @@ socket.on('questionCountdown', showQuestionCountdown);
 
 socket.on('playerQuestion', function(data){
     clearQuestionCountdown();
+    questionActive = true;
+    requestWakeLock();
     playerAnswered = false;
     correct = false;
     document.body.style.backgroundColor = "#FFFFFF";
@@ -579,6 +746,8 @@ socket.on('playerQuestion', function(data){
 });
 
 socket.on('GameOver', function(){
+    questionActive = false;
+    releaseWakeLock();
     document.body.style.backgroundColor = "#FFFFFF";
     document.getElementById('answer1').style.visibility = "hidden";
     document.getElementById('answer2').style.visibility = "hidden";
@@ -788,3 +957,28 @@ function setAnswerStatus(state){
         statusEl.classList.add('hidden');
     }
 }
+
+window.addEventListener('online', function(){
+    if(!socket.connected){
+        socket.connect();
+        startReconnectGraceCountdown();
+    }
+});
+
+window.addEventListener('offline', function(){
+    startReconnectGraceCountdown();
+});
+
+document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){
+        if(!socket.connected){
+            socket.connect();
+            startReconnectGraceCountdown();
+        }
+        if(questionActive){
+            requestWakeLock();
+        }
+    }else{
+        releaseWakeLock();
+    }
+});

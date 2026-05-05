@@ -67,6 +67,7 @@ const GLOBAL_OWNER_EMAIL = 'anon@local';
 const GAME_CLEANUP_DELAY = 100 * 1000; // 90 segundos tras GameOver
 const GAME_INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos de inactividad
 const HOST_RECONNECT_GRACE_MS = 30 * 1000; // 30 segundos para reanudar partida en aula
+const PLAYER_RECONNECT_GRACE_MS = 40 * 1000; // 40 segundos para reconexion de alumno
 const MAX_POINTS_PER_QUESTION = 1000;
 const QUESTION_COUNTDOWN_SECONDS = 3;
 const MONGO_MAX_POOL_SIZE = parseInt(process.env.MONGO_MAX_POOL_SIZE, 10) || 50;
@@ -2949,6 +2950,7 @@ io.on('connection', (socket) => {
       }
       socket.join(game.pin);
       player.playerId = socket.id;
+      socket.emit('playerGracePeriod', { ms: PLAYER_RECONNECT_GRACE_MS });
 
       const playerData = players.getPlayers(game.hostId);
       socket.emit('playerGameData', playerData);
@@ -3012,7 +3014,8 @@ io.on('connection', (socket) => {
         const hostGame = games.getGame(hostId);
         if (hostGame) {
           const pin = hostGame.pin;
-          // gracia: no expulsar al instante, esperar unos segundos por si reanuda
+          // gracia: no expulsar al instante, esperar unos segundos por si reanuda.
+          // El cliente ya usa el valor por defecto y lo recibe en join/rejoin.
           setTimeout(() => {
             const stillMissing = players.getPlayer(socket.id);
             if (stillMissing) {
@@ -3031,7 +3034,7 @@ io.on('connection', (socket) => {
                 }
               }
             }
-          }, 15000);
+          }, PLAYER_RECONNECT_GRACE_MS);
           socket.leave(pin);
         }
       }
