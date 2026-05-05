@@ -252,6 +252,12 @@ var i18n = {
         mirrorKahootWorking: 'Migrando imágenes... (puede tardar varios minutos)',
         mirrorKahootOk: 'Migración iniciada. Revisa los logs del servidor.',
         mirrorKahootError: 'No se pudo iniciar la migración.',
+        adminMirrorExternalTitle: 'Migrar imágenes externas (S3, etc.)',
+        adminMirrorExternalDesc: 'Descarga al servidor las imágenes alojadas en servidores externos (Amazon S3 y similares) para evitar que desaparezcan si la fuente cierra.',
+        btnMirrorExternalImages: 'Migrar imágenes externas',
+        mirrorExternalWorking: 'Migrando imágenes externas... (puede tardar varios minutos)',
+        mirrorExternalOk: 'Migración iniciada. Revisa los logs del servidor.',
+        mirrorExternalError: 'No se pudo iniciar la migración.',
         createUser: 'Crea un usuario nuevo',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -496,6 +502,12 @@ var i18n = {
         mirrorKahootWorking: 'Migrating images... (may take several minutes)',
         mirrorKahootOk: 'Migration started. Check server logs.',
         mirrorKahootError: 'Could not start the migration.',
+        adminMirrorExternalTitle: 'Migrate external images (S3, etc.)',
+        adminMirrorExternalDesc: 'Download to the server images hosted on external servers (Amazon S3 and similar) to avoid losing them if the source goes offline.',
+        btnMirrorExternalImages: 'Migrate external images',
+        mirrorExternalWorking: 'Migrating external images... (may take several minutes)',
+        mirrorExternalOk: 'Migration started. Check server logs.',
+        mirrorExternalError: 'Could not start the migration.',
         createUser: 'Create a new user',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -740,6 +752,12 @@ var i18n = {
         mirrorKahootWorking: 'Migrant imatges... (pot trigar uns minuts)',
         mirrorKahootOk: 'Migració iniciada. Comprova els logs del servidor.',
         mirrorKahootError: 'No s\'ha pogut iniciar la migració.',
+        adminMirrorExternalTitle: 'Migrar imatges externes (S3, etc.)',
+        adminMirrorExternalDesc: 'Descarrega al servidor les imatges allotjades en servidors externs (Amazon S3 i similars) per evitar que desapareguin si la font tanca.',
+        btnMirrorExternalImages: 'Migrar imatges externes',
+        mirrorExternalWorking: 'Migrant imatges externes... (pot trigar uns minuts)',
+        mirrorExternalOk: 'Migració iniciada. Comprova els logs del servidor.',
+        mirrorExternalError: 'No s\'ha pogut iniciar la migració.',
         createUser: 'Crea un usuari nou',
         roleEditor: 'Editor',
         roleAdmin: 'Admin',
@@ -3027,6 +3045,8 @@ var adminImportBtn = document.getElementById('admin-import-quizzes');
 var adminImportStatus = document.getElementById('admin-import-quizzes-status');
 var adminMirrorKahootBtn = document.getElementById('admin-mirror-kahoot-images');
 var adminMirrorKahootStatus = document.getElementById('admin-mirror-kahoot-status');
+var adminMirrorExternalBtn = document.getElementById('admin-mirror-external-images');
+var adminMirrorExternalStatus = document.getElementById('admin-mirror-external-status');
 var toggleResetBtn = document.getElementById('toggle-reset');
 var resetPanel = document.getElementById('reset-panel');
 var resetEmail = document.getElementById('reset-email');
@@ -3412,6 +3432,22 @@ if(adminMirrorKahootBtn){
             if(adminMirrorKahootStatus) adminMirrorKahootStatus.textContent = t('mirrorKahootError') + (e.message ? ' ' + e.message : '');
         }finally{
             adminMirrorKahootBtn.disabled = false;
+        }
+    });
+}
+if(adminMirrorExternalBtn){
+    adminMirrorExternalBtn.addEventListener('click', async function(){
+        if(adminMirrorExternalStatus) adminMirrorExternalStatus.textContent = t('mirrorExternalWorking');
+        adminMirrorExternalBtn.disabled = true;
+        try{
+            var res = await fetch('/api/admin/mirror-external-images', { method: 'POST', credentials: 'include' });
+            var data = await res.json();
+            if(!res.ok) throw new Error(data.error || '');
+            if(adminMirrorExternalStatus) adminMirrorExternalStatus.textContent = t('mirrorExternalOk');
+        }catch(e){
+            if(adminMirrorExternalStatus) adminMirrorExternalStatus.textContent = t('mirrorExternalError') + (e.message ? ' ' + e.message : '');
+        }finally{
+            adminMirrorExternalBtn.disabled = false;
         }
     });
 }

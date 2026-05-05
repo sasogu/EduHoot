@@ -2205,6 +2205,37 @@ const KAHOOT_IMG_MAX_BYTES = 5 * 1024 * 1024; // 5 MB por imagen
 const KAHOOT_IMG_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']);
 const KAHOOT_IMG_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/svg+xml': '.svg' };
 
+function isExternalImgHost(hostname) {
+  if (!hostname) return false;
+  if (hostname === KAHOOT_IMG_DOMAIN) return true;
+  if (hostname.endsWith('.amazonaws.com') || hostname === 'amazonaws.com') return true;
+  return false;
+}
+
+async function mirrorExternalImage(imageUrl) {
+  if (!imageUrl || imageUrl.startsWith('/') || imageUrl.startsWith('data:')) return imageUrl;
+  try {
+    const parsed = new URL(imageUrl);
+    if (!isExternalImgHost(parsed.hostname)) return imageUrl;
+    const hash = crypto.createHash('sha256').update(imageUrl).digest('hex');
+    const existing = fs.readdirSync(uploadsPath).find(f => f.startsWith(hash));
+    if (existing) return `/uploads/quiz-images/${existing}`;
+    const response = await fetch(imageUrl, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) return imageUrl;
+    const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!KAHOOT_IMG_ALLOWED_TYPES.has(contentType)) return imageUrl;
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > KAHOOT_IMG_MAX_BYTES) return imageUrl;
+    const ext = KAHOOT_IMG_EXT[contentType] || '.bin';
+    const filename = hash + ext;
+    fs.writeFileSync(path.join(uploadsPath, filename), Buffer.from(buffer));
+    return `/uploads/quiz-images/${filename}`;
+  } catch (err) {
+    console.warn('mirrorExternalImage failed for', imageUrl, err.message);
+    return imageUrl;
+  }
+}
+
 async function mirrorKahootImage(imageUrl) {
   if (!imageUrl) return '';
   try {
@@ -4060,6 +4091,56 @@ app.post('/api/admin/mirror-kahoot-images', requireRole('admin'), async (req, re
       console.error('[mirror-kahoot-images] Error:', err);
     } finally {
       kahootMirrorJobRunning = false;
+    }
+  })();
+});
+
+let externalMirrorJobRunning = false;
+app.post('/api/admin/mirror-external-images', requireRole('admin'), async (req, res) => {
+  if (externalMirrorJobRunning) {
+    return res.status(409).json({ error: 'Ya hay una migración en curso.' });
+  }
+  externalMirrorJobRunning = true;
+  res.json({ message: 'Migración de imágenes externas iniciada en background. Consulta los logs del servidor para el progreso.' });
+
+  (async () => {
+    try {
+      const collection = await getGamesCollection();
+      const quizzes = await collection.find(
+        { 'questions.image': { $regex: 'https?://', $options: 'i' } },
+        { projection: { id: 1, questions: 1 } }
+      ).toArray();
+
+      const candidates = quizzes.filter(q =>
+        (q.questions || []).some(qq => qq.image && /^https?:\/\//.test(qq.image) && !qq.image.startsWith('/'))
+      );
+
+      console.log(`[mirror-external-images] ${candidates.length} quizzes con imágenes externas encontrados.`);
+      let updatedQuizzes = 0;
+      let updatedImages = 0;
+
+      for (const quiz of candidates) {
+        let changed = false;
+        const newQuestions = await Promise.all((quiz.questions || []).map(async (q) => {
+          if (!q.image || !/^https?:\/\//.test(q.image)) return q;
+          const localUrl = await mirrorExternalImage(q.image);
+          if (localUrl !== q.image) {
+            changed = true;
+            updatedImages++;
+            return { ...q, image: localUrl };
+          }
+          return q;
+        }));
+        if (changed) {
+          await collection.updateOne({ id: quiz.id }, { $set: { questions: newQuestions, updatedAt: new Date() } });
+          updatedQuizzes++;
+        }
+      }
+      console.log(`[mirror-external-images] Completado: ${updatedImages} imágenes migradas en ${updatedQuizzes} quizzes.`);
+    } catch (err) {
+      console.error('[mirror-external-images] Error:', err);
+    } finally {
+      externalMirrorJobRunning = false;
     }
   })();
 });

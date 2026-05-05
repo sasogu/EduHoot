@@ -2209,8 +2209,8 @@ function startQuiz(){
 
     applyStaticText();
     initSoloMusicPlayer();
-    bindEvents();
     parseTagFiltersFromUrl();
+    bindEvents();
     // Asegura que el selector quede consistente al cargar.
     syncQuestionCountControls();
     fetchPublicQuizzes();
