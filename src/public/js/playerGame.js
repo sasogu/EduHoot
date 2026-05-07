@@ -662,6 +662,27 @@ function clearQuestionCountdown(){
         clearInterval(questionCountdownTimer);
         questionCountdownTimer = null;
     }
+    var countdownEl = document.getElementById('questionCountdown');
+    if(countdownEl){
+        countdownEl.classList.remove('is-visible', 'is-ticking');
+        countdownEl.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function renderQuestionCountdown(seconds){
+    var countdownEl = document.getElementById('questionCountdown');
+    var labelEl = document.getElementById('questionCountdownLabel');
+    var hintEl = document.getElementById('questionCountdownHint');
+    var numberEl = document.getElementById('questionCountdownNumber');
+    if(labelEl) labelEl.textContent = tPlayer('question_countdown', 'Prepara la siguiente pregunta...');
+    if(hintEl) hintEl.textContent = tPlayer('question_countdown_hint', 'La siguiente empieza en');
+    if(numberEl) numberEl.textContent = seconds > 0 ? String(seconds) : '';
+    if(countdownEl){
+        countdownEl.classList.remove('is-ticking');
+        void countdownEl.offsetWidth;
+        countdownEl.classList.add('is-visible', 'is-ticking');
+        countdownEl.setAttribute('aria-hidden', seconds > 0 ? 'false' : 'true');
+    }
 }
 
 function showQuestionCountdown(data){
@@ -692,17 +713,19 @@ function showQuestionCountdown(data){
     var seconds = Math.max(0, Math.ceil(Number(data && data.seconds) || 0));
     var questionEl = document.getElementById('questionText');
     var msg = document.getElementById('message');
+    if(questionEl) questionEl.textContent = '';
     if(msg){
         msg.style.display = 'block';
         msg.textContent = '';
     }
     setAnswerStatus('pending');
     function render(){
-        if(questionEl) questionEl.textContent = seconds > 0 ? String(seconds) : '';
-        seconds -= 1;
-        if(seconds < 0){
+        if(seconds <= 0){
             clearQuestionCountdown();
+            return;
         }
+        renderQuestionCountdown(seconds);
+        seconds -= 1;
     }
     render();
     questionCountdownTimer = setInterval(render, 1000);
