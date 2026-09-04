@@ -559,7 +559,6 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             if(normalized.length){
                 state.filters.tags = normalized;
                 state.filters.tagMode = tagMode === 'all' ? 'all' : 'any';
-                tagFilterExpanded = true;
             }
         }catch(e){}
     }
