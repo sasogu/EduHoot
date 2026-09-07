@@ -49,7 +49,8 @@
       landing_install_app: 'Instalar app',
       landing_langLabel: 'Idioma',
       landing_prof_access: 'Acceso profesorado',
-      footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+      footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)',
+      footerPrivacy: 'Privacidad'
     },
     ca: {
       join_title: 'Uneix-te a una partida',
@@ -99,7 +100,8 @@
       landing_install_app: 'Instal·lar app',
       landing_langLabel: 'Idioma',
       landing_prof_access: 'Accés professorat',
-      footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+      footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)',
+      footerPrivacy: 'Privacitat'
     },
     en: {
       join_title: 'Join a Game',
@@ -149,7 +151,8 @@
       landing_install_app: 'Install app',
       landing_langLabel: 'Language',
       landing_prof_access: 'Teacher access',
-      footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+      footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)',
+      footerPrivacy: 'Privacy'
     }
   };
 
