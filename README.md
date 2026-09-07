@@ -9,7 +9,7 @@
 - Host: botó de “Saltar pregunta”, indicador de progrés i reentrada ràpida quan algun jugador perd la connexió.
 - Importació Kahoot: enganxa la URL pública i juga des d’EduHoot.
 
-**Llicència:** Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+**Llicència:** GNU Affero General Public License v3.0 (AGPL-3.0).
 
 ### Inici ràpid
 
@@ -68,7 +68,7 @@ En la pantalla de create, el bloc d'alta ràpida mostra només el botó de Googl
 - Host: botón de “Saltar pregunta”, indicador de progreso y reincorporación rápida cuando los jugadores pierden la conexión.
 - Importación Kahoot: pega la URL pública y juega desde EduHoot.
 
-**Licencia:** Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+**Licencia:** GNU Affero General Public License v3.0 (AGPL-3.0).
 
 ### Inicio rápido
 
@@ -142,7 +142,7 @@ Flujo recomendado:
 - Host: “Skip question” button, progress counter, and quick player rejoin when connections drop.
 - Kahoot import: paste a public URL and play it from EduHoot.
 
-**License:** Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+**License:** GNU Affero General Public License v3.0 (AGPL-3.0).
 
 ### Quick start
 
