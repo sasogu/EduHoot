@@ -292,7 +292,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
         freeTextPlaceholder: 'Escribe tu respuesta',
         freeNumberPlaceholder: 'Introduce un número',
         submitFreeAnswer: 'Enviar',
-        footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+        footerLicense: 'EduHoot · Licencia GNU Affero General Public License v3.0 (AGPL-3.0)',
+        footerSource: 'Código fuente'
     },
         en: {
             back: 'Back',
@@ -380,7 +381,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
                 freeTextPlaceholder: 'Type your answer',
                 freeNumberPlaceholder: 'Enter a number',
                 submitFreeAnswer: 'Submit',
-            footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+            footerLicense: 'EduHoot · GNU Affero General Public License v3.0 (AGPL-3.0)',
+            footerSource: 'Source code'
     },
         ca: {
             back: 'Tornar',
@@ -468,7 +470,8 @@ var browserLang = (navigator.language || 'es').slice(0,2);
             freeTextPlaceholder: 'Escriu la teua resposta',
             freeNumberPlaceholder: 'Introdueix un número',
             submitFreeAnswer: 'Enviar',
-            footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)'
+            footerLicense: 'EduHoot · Llicència GNU Affero General Public License v3.0 (AGPL-3.0)',
+            footerSource: 'Codi font'
         }
     };
 

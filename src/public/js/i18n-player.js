@@ -49,7 +49,8 @@
       landing_install_app: 'Instalar app',
       landing_langLabel: 'Idioma',
       landing_prof_access: 'Acceso profesorado',
-      footerLicense: 'EduHoot · Licencia Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)',
+      footerLicense: 'EduHoot · Licencia GNU Affero General Public License v3.0 (AGPL-3.0)',
+      footerSource: 'Código fuente',
       footerPrivacy: 'Privacidad'
     },
     ca: {
@@ -100,7 +101,8 @@
       landing_install_app: 'Instal·lar app',
       landing_langLabel: 'Idioma',
       landing_prof_access: 'Accés professorat',
-      footerLicense: 'EduHoot · Llicència Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)',
+      footerLicense: 'EduHoot · Llicència GNU Affero General Public License v3.0 (AGPL-3.0)',
+      footerSource: 'Codi font',
       footerPrivacy: 'Privacitat'
     },
     en: {
@@ -151,7 +153,8 @@
       landing_install_app: 'Install app',
       landing_langLabel: 'Language',
       landing_prof_access: 'Teacher access',
-      footerLicense: 'EduHoot · Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)',
+      footerLicense: 'EduHoot · GNU Affero General Public License v3.0 (AGPL-3.0)',
+      footerSource: 'Source code',
       footerPrivacy: 'Privacy'
     }
   };
