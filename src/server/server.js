@@ -1099,6 +1099,12 @@ function cleanImportedText(value) {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+// Texto opcional de metadatos (idioma, licencia, descripción) con límite de tamaño.
+function cleanMetaText(value, maxLength = 500) {
+  if (value === undefined || value === null) return '';
+  return cleanImportedText(value).slice(0, maxLength);
+}
+
 function normalizeQuestions(list = []) {
   return list
     .map((item) => {
@@ -1934,6 +1940,9 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
     const questions = rows.map(toQuestion);
     const tags = normalizeTags(req.body.tags ? [].concat(req.body.tags) : []);
     const ownerToken = (req.body.ownerToken || req.headers['x-owner-token'] || '').toString().trim();
+    const language = cleanMetaText(req.body.language, 40);
+    const license = cleanMetaText(req.body.license, 120);
+    const description = cleanMetaText(req.body.description, 1000);
 
     const visibility = normalizeVisibility(req.body.visibility, req.user ? 'private' : 'private');
     const allowClone = normalizeAllowClone(req.body.allowClone);
@@ -1946,6 +1955,9 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
           id: newId,
           name: cleanImportedText(quizName),
           tags,
+          language,
+          license,
+          description,
           questions: normalizeQuestions(questions),
           ownerToken,
           playsCount: 0,
@@ -1973,6 +1985,9 @@ app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req
       id: newId,
       name: cleanImportedText(quizName),
       tags,
+      language,
+      license,
+      description,
       questions: normalizeQuestions(questions),
       playsCount: 0,
       playersCount: 0,
@@ -2173,7 +2188,7 @@ app.post('/api/admin/quizzes/import', requireRole('admin'), bulkUpload.single('f
   }
 });
 
-async function buildQuizDoc({ name, tags, questions, visibility, allowClone, user, ownerToken }) {
+async function buildQuizDoc({ name, tags, questions, visibility, allowClone, user, ownerToken, language = '', license = '', description = '' }) {
   const collection = await getGamesCollection();
   const newId = await nextGameId(collection);
   const ownerTokenClean = (ownerToken || '').toString().trim();
@@ -2181,6 +2196,9 @@ async function buildQuizDoc({ name, tags, questions, visibility, allowClone, use
     id: newId,
     name: cleanImportedText(name || ''),
     tags,
+    language: cleanMetaText(language, 40),
+    license: cleanMetaText(license, 120),
+    description: cleanMetaText(description, 1000),
     questions: normalizeQuestions(questions || []),
     visibility,
     allowClone,
@@ -2339,7 +2357,18 @@ app.post('/api/import/kahoot', async (req, res) => {
       return res.json({ id: saved.id, name, count: questions.length, local: true });
     }
 
-    const { quiz } = await buildQuizDoc({ name, tags, questions, visibility, allowClone, user: req.user, ownerToken });
+    const { quiz } = await buildQuizDoc({
+      name,
+      tags,
+      questions,
+      visibility,
+      allowClone,
+      user: req.user,
+      ownerToken,
+      language: req.body.language || '',
+      license: req.body.license || '',
+      description: req.body.description || ''
+    });
     return res.json({ id: quiz.id, name, count: questions.length, local: false });
   } catch (err) {
     console.error('import-kahoot error', err);
@@ -3522,7 +3551,10 @@ app.get('/api/public-quizzes', async (req, res) => {
         ownerNickname: 1,
         createdAt: 1,
         updatedAt: 1,
-        questions: 1
+        questions: 1,
+        language: 1,
+        license: 1,
+        description: 1
       })
       .toArray();
 
@@ -3553,9 +3585,7 @@ app.get('/api/public-quizzes', async (req, res) => {
           : allQuestions;
 
         const mediaQuestions = questions.filter((q) => q && (q.image || q.video));
-        const mediaQuestion = mediaQuestions.length
-          ? mediaQuestions[Math.floor(Math.random() * mediaQuestions.length)]
-          : null;
+        const mediaQuestion = mediaQuestions.length ? mediaQuestions[0] : null;
         const rating = ratingsById.get(String(quiz.id)) || { avg: 0, count: 0 };
         return {
           id: quiz.id,
@@ -3564,6 +3594,9 @@ app.get('/api/public-quizzes', async (req, res) => {
           playsCount: quiz.playsCount || 0,
           playersCount: quiz.playersCount || 0,
           ownerNickname: quiz.ownerNickname || '',
+          language: quiz.language || '',
+          license: quiz.license || '',
+          description: quiz.description || '',
           createdAt: quiz.createdAt || quiz.updatedAt || new Date(0),
           questionsCount: questions.length,
           coverImage: mediaQuestion ? mediaQuestion.image : '',
