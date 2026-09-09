@@ -1901,7 +1901,7 @@ app.use(express.static(publicPath, {
 app.use(sessionMiddleware);
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log('Server started on port ' + PORT);
 });
 
