@@ -10,7 +10,9 @@ ssh -tt -p $REMOTE_PORT $REMOTE_HOST << 'EOF'
   set -e
 
   SERVICE_NAME=""
-  if systemctl list-unit-files | grep -q '^eduhoot.service'; then
+  if systemctl list-unit-files | grep -q '^eduhoot-server.service'; then
+    SERVICE_NAME="eduhoot-server.service"
+  elif systemctl list-unit-files | grep -q '^eduhoot.service'; then
     SERVICE_NAME="eduhoot.service"
   elif systemctl list-unit-files | grep -q '^llixhoot-server.service'; then
     SERVICE_NAME="llixhoot-server.service"
@@ -29,11 +31,11 @@ ssh -tt -p $REMOTE_PORT $REMOTE_HOST << 'EOF'
     sudo -n systemctl --no-pager -l status "$SERVICE_NAME" | head -20 || true
   else
     echo "No systemd service found; falling back to manual node restart"
-    cd /opt/llixhoot/src
-    mkdir -p /opt/llixhoot/logs
+    cd /opt/eduhoot/src
+    mkdir -p /opt/eduhoot/logs
     pkill -f "node.*server/server.js" || true
     sleep 1
-    nohup node server/server.js > /opt/llixhoot/logs/server.log 2>&1 &
+    nohup node server/server.js > /opt/eduhoot/logs/server.log 2>&1 &
   fi
 
   if curl -fsS http://127.0.0.1:3000/ > /dev/null; then

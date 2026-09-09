@@ -1,0 +1,21 @@
+[Unit]
+Description=EduHoot server
+After=network-online.target mongod.service
+Wants=network-online.target
+Requires=mongod.service
+
+[Service]
+Type=simple
+User=samgua
+Group=samgua
+WorkingDirectory=/opt/eduhoot/src
+EnvironmentFile=/opt/eduhoot/src/.env
+Environment=MONGO_URL=mongodb://127.0.0.1:27017/
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/env node /opt/eduhoot/src/server/server.js
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
