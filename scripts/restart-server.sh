@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-REMOTE_HOST="samgua@edutictac.es"
-REMOTE_PORT="2222"
+REMOTE_HOST="user@example.org"
+REMOTE_PORT="22"
 
 echo "Restarting server on $REMOTE_HOST..."
 

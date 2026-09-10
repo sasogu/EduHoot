@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REMOTE_USER_HOST="${REMOTE_USER_HOST:-samgua@edutictac.es}"
-REMOTE_PORT="${REMOTE_PORT:-2222}"
-REMOTE_BASE_DIR="${REMOTE_BASE_DIR:-/opt/llixhoot/src}"
+REMOTE_USER_HOST="${REMOTE_USER_HOST:-user@example.org}"
+REMOTE_PORT="${REMOTE_PORT:-22}"
+REMOTE_BASE_DIR="${REMOTE_BASE_DIR:-/srv/eduhoot/src}"
 LOCAL_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/src/scripts/normalize-tags.js"
 REMOTE_SCRIPT_DIR="${REMOTE_BASE_DIR}/scripts"
 REMOTE_SCRIPT_PATH="${REMOTE_SCRIPT_DIR}/normalize-tags.js"
