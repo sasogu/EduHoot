@@ -101,14 +101,14 @@ En la pantalla de create, el bloque de alta rápida muestra solo el botón de Go
 
 - Guía completa: `STAGE_SETUP.md`
 - Plantilla de deploy stage: `scripts/deploy-stage.example.sh`
-- Servicio systemd stage: `install-files/service/llixhoot-stage-server.service`
-- Config Nginx stage: `install-files/nginx/llixhoot-stage.conf`
+- Servicio systemd stage: `install-files/service/eduhoot-stage-server.service`
+- Config Nginx stage: `install-files/nginx/eduhoot-stage.conf`
 - Variables de entorno stage: `install-files/stage.env.example`
 
 Flujo recomendado:
 
 1. Monta stage una vez siguiendo `STAGE_SETUP.md`.
-2. Despliega cambios a `/opt/llixhoot-stage/src` con `scripts/deploy-stage.sh`.
+2. Despliega cambios a `/opt/eduhoot-stage/src` con `scripts/deploy-stage.sh`.
 3. Valida en `stage.tu-dominio` (flujos host/player, login y CSV).
 4. Solo después promueve a producción.
 
@@ -173,14 +173,14 @@ The first Google user becomes `admin`; later users become `editor`. If a user wi
 
 - Full guide: `STAGE_SETUP.md`
 - Stage deploy template: `scripts/deploy-stage.example.sh`
-- Stage systemd service: `install-files/service/llixhoot-stage-server.service`
-- Stage Nginx config: `install-files/nginx/llixhoot-stage.conf`
+- Stage systemd service: `install-files/service/eduhoot-stage-server.service`
+- Stage Nginx config: `install-files/nginx/eduhoot-stage.conf`
 - Stage environment variables: `install-files/stage.env.example`
 
 Recommended flow:
 
 1. Set up stage once using `STAGE_SETUP.md`.
-2. Deploy changes to `/opt/llixhoot-stage/src` via `scripts/deploy-stage.sh`.
+2. Deploy changes to `/opt/eduhoot-stage/src` via `scripts/deploy-stage.sh`.
 3. Validate on `stage.your-domain` (host/player flows, login, CSV import).
 4. Promote to production only after stage is green.
 

@@ -8,11 +8,11 @@ set -euo pipefail
 #   ./scripts/deploy-stage.sh
 #
 # También puedes lanzar la plantilla directamente sobreescribiendo variables:
-#   DEPLOY_TARGET=usuario@vps:/opt/llixhoot-stage/src bash scripts/deploy-stage.example.sh
+#   DEPLOY_TARGET=usuario@vps:/opt/eduhoot-stage/src bash scripts/deploy-stage.example.sh
 
-DEPLOY_TARGET="${DEPLOY_TARGET:-usuario@vps:/opt/llixhoot-stage/src}"
+DEPLOY_TARGET="${DEPLOY_TARGET:-usuario@vps:/opt/eduhoot-stage/src}"
 DEPLOY_PORT="${DEPLOY_PORT:-22}"
-DEPLOY_REMOTE_CMD="${DEPLOY_REMOTE_CMD-cd /opt/llixhoot-stage/src && npm ci --omit=dev && sudo systemctl restart llixhoot-stage-server && sudo systemctl --no-pager --full status llixhoot-stage-server | sed -n '1,12p'}"
+DEPLOY_REMOTE_CMD="${DEPLOY_REMOTE_CMD-cd /opt/eduhoot-stage/src && npm ci --omit=dev && sudo systemctl restart eduhoot-stage-server && sudo systemctl --no-pager --full status eduhoot-stage-server | sed -n '1,12p'}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPLOY_SOURCE_DIR="${DEPLOY_SOURCE_DIR:-${ROOT_DIR}/src}"

@@ -14,8 +14,8 @@ ssh -tt -p $REMOTE_PORT $REMOTE_HOST << 'EOF'
     SERVICE_NAME="eduhoot-server.service"
   elif systemctl list-unit-files | grep -q '^eduhoot.service'; then
     SERVICE_NAME="eduhoot.service"
-  elif systemctl list-unit-files | grep -q '^llixhoot-server.service'; then
-    SERVICE_NAME="llixhoot-server.service"
+  elif systemctl list-unit-files | grep -q '^eduhoot-server.service'; then
+    SERVICE_NAME="eduhoot-server.service"
   fi
 
   if [ -n "$SERVICE_NAME" ]; then

@@ -6,8 +6,8 @@ Requires=mongod.service
 
 [Service]
 Type=simple
-User=samgua
-Group=samgua
+User=eduhoot
+Group=eduhoot
 WorkingDirectory=/opt/eduhoot/src
 EnvironmentFile=/opt/eduhoot/src/.env
 Environment=MONGO_URL=mongodb://127.0.0.1:27017/

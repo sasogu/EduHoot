@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/llixhoot-stage/src
+WorkingDirectory=/opt/eduhoot-stage/src
 EnvironmentFile=-/etc/eduhoot/stage.env
-ExecStart=/usr/bin/env node /opt/llixhoot-stage/src/server/server.js
+ExecStart=/usr/bin/env node /opt/eduhoot-stage/src/server/server.js
 Restart=always
 RestartSec=2
 RestartPreventExitStatus=0

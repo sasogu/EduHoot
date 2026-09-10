@@ -4,8 +4,8 @@ Este documento define una preproducción (stage) aislada para validar cambios an
 
 ## Objetivo
 
-- Código separado en `/opt/llixhoot-stage/src`.
-- Proceso Node separado (`llixhoot-stage-server.service`).
+- Código separado en `/opt/eduhoot-stage/src`.
+- Proceso Node separado (`eduhoot-stage-server.service`).
 - Puerto propio (`3100`).
 - Host propio (`stage.tu-dominio`).
 - Base de datos separada (`eduhoot_stage`).
@@ -13,10 +13,10 @@ Este documento define una preproducción (stage) aislada para validar cambios an
 ## 1) Preparar servidor
 
 ```bash
-sudo mkdir -p /opt/llixhoot-stage/src
+sudo mkdir -p /opt/eduhoot-stage/src
 sudo mkdir -p /etc/eduhoot
 sudo mkdir -p /var/log/eduhoot-stage
-sudo chown -R $USER:$USER /opt/llixhoot-stage
+sudo chown -R $USER:$USER /opt/eduhoot-stage
 sudo chown -R root:adm /var/log/eduhoot-stage
 sudo chmod 755 /var/log/eduhoot-stage
 ```
@@ -37,16 +37,16 @@ Ajusta mínimo:
 ## 3) Servicio systemd stage
 
 ```bash
-sudo cp install-files/service/llixhoot-stage-server.service /etc/systemd/system/
+sudo cp install-files/service/eduhoot-stage-server.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable llixhoot-stage-server
+sudo systemctl enable eduhoot-stage-server
 ```
 
 ## 4) Nginx para stage
 
 ```bash
-sudo cp install-files/nginx/llixhoot-stage.conf /etc/nginx/sites-available/llixhoot-stage.conf
-sudo ln -sf /etc/nginx/sites-available/llixhoot-stage.conf /etc/nginx/sites-enabled/llixhoot-stage.conf
+sudo cp install-files/nginx/eduhoot-stage.conf /etc/nginx/sites-available/eduhoot-stage.conf
+sudo ln -sf /etc/nginx/sites-available/eduhoot-stage.conf /etc/nginx/sites-enabled/eduhoot-stage.conf
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -75,7 +75,7 @@ DRY_RUN=1 ./scripts/deploy-stage.sh
 ```bash
 curl -I http://127.0.0.1:3100/
 curl -I https://stage.tu-dominio/
-sudo systemctl --no-pager --full status llixhoot-stage-server
+sudo systemctl --no-pager --full status eduhoot-stage-server
 sudo tail -n 120 /var/log/eduhoot-stage/server.log
 ```
 
