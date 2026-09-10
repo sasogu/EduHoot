@@ -6,6 +6,11 @@
     var pinInput = document.getElementById('pin');
     var nameInput = document.getElementById('name');
     var tokenInput = document.getElementById('token');
+    var studentJoinTokenInput = document.getElementById('studentJoinToken');
+    var studentAuthFields = document.getElementById('student-auth-fields');
+    var studentCodeInput = document.getElementById('student-code');
+    var studentPinInput = document.getElementById('student-pin');
+    var studentAuthStatus = document.getElementById('student-auth-status');
     var joinButton = document.getElementById('joinButton');
     var pinModal = document.getElementById('pinModal');
     var pinModalForm = document.getElementById('pinModalForm');
@@ -15,6 +20,9 @@
     var pinDisplayValue = document.getElementById('pin-display-value');
     var pinValidated = false;
     var validating = false;
+    var studentAuthEnabled = false;
+    var studentAuthRequired = false;
+    var submitting = false;
 
     function t(key, fallback){
         if(window.i18nPlayer && typeof window.i18nPlayer.t === 'function'){
@@ -97,6 +105,84 @@
         }
     }
 
+    function setStudentAuthStatus(msg){
+        if(studentAuthStatus){
+            studentAuthStatus.textContent = msg || '';
+        }
+    }
+
+    function normalizeStudentCode(value){
+        return (value || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 3);
+    }
+
+    function normalizeStudentPin(value){
+        return (value || '').replace(/[^0-9]/g, '').slice(0, 6);
+    }
+
+    function configureStudentAuth(config){
+        studentAuthEnabled = !!(config && config.enabled);
+        studentAuthRequired = !!(config && config.required);
+        if(studentAuthFields){
+            studentAuthFields.classList.toggle('hidden', !studentAuthEnabled);
+        }
+        if(nameInput){
+            var nameField = nameInput.closest ? nameInput.closest('.form-field') : null;
+            if(nameField){
+                nameField.classList.toggle('hidden', studentAuthRequired);
+            }
+            nameInput.required = !studentAuthRequired;
+        }
+        if(studentCodeInput) studentCodeInput.required = studentAuthRequired;
+        if(studentPinInput) studentPinInput.required = studentAuthRequired;
+    }
+
+    function loadStudentAuthConfig(){
+        fetch('/api/player-auth/config', { headers: { 'Accept': 'application/json' } })
+            .then(function(res){ return res.json(); })
+            .then(configureStudentAuth)
+            .catch(function(){
+                configureStudentAuth({ enabled: false, required: false });
+            });
+    }
+
+    function authenticateStudent(){
+        if(!studentAuthEnabled){
+            return Promise.resolve('');
+        }
+        var code = normalizeStudentCode(studentCodeInput && studentCodeInput.value);
+        var pin = normalizeStudentPin(studentPinInput && studentPinInput.value);
+        if(!studentAuthRequired && !code && !pin){
+            return Promise.resolve('');
+        }
+        if(!code || !pin){
+            return Promise.reject(new Error(t('join_student_missing', 'Introdueix el codi i el PIN.')));
+        }
+        setStudentAuthStatus(t('join_student_checking', 'Validant credencials...'));
+        return fetch('/api/player-auth/student', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ public_code: code, pin: pin })
+        })
+            .then(function(res){
+                return res.json().then(function(body){
+                    if(!res.ok || !body || !body.join_token){
+                        throw new Error((body && body.error) || t('join_student_error', 'Codi o PIN incorrecte.'));
+                    }
+                    return body;
+                });
+            })
+            .then(function(body){
+                if(studentJoinTokenInput) studentJoinTokenInput.value = body.join_token;
+                if(nameInput) nameInput.value = normalizeStudentCode(body.display_name || body.public_code || code);
+                if(studentPinInput) studentPinInput.value = '';
+                setStudentAuthStatus('');
+                return body.join_token;
+            });
+    }
+
     function applyValidPin(pin){
         pinValidated = true;
         if(pinInput) pinInput.value = pin;
@@ -151,7 +237,24 @@
                 nameInput.value = filtered;
             }
         });
+        if(studentCodeInput){
+            studentCodeInput.addEventListener('input', function(){
+                var filtered = normalizeStudentCode(studentCodeInput.value);
+                if(studentCodeInput.value !== filtered){
+                    studentCodeInput.value = filtered;
+                }
+            });
+        }
+        if(studentPinInput){
+            studentPinInput.addEventListener('input', function(){
+                var filtered = normalizeStudentPin(studentPinInput.value);
+                if(studentPinInput.value !== filtered){
+                    studentPinInput.value = filtered;
+                }
+            });
+        }
         joinForm.addEventListener('submit', function(ev){
+            if(submitting) return;
             var pinVal = (pinInput.value || '').trim();
             if(!pinValidated || !pinVal){
                 ev.preventDefault();
@@ -159,20 +262,35 @@
                 setError(t('join_pin_error', 'Necesitas un PIN válido para entrar.'));
                 return;
             }
+            ev.preventDefault();
             var name = (nameInput.value || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 3);
-            nameInput.value = name;
-            if(!name){
+            if(!name && !studentAuthRequired){
                 ev.preventDefault();
                 nameInput.focus();
                 return;
             }
-            var tokens = loadTokens();
-            var key = pinVal + ':' + name;
-            if(!tokens[key]){
-                tokens[key] = genToken();
-                saveTokens(tokens);
-            }
-            tokenInput.value = tokens[key];
+            authenticateStudent()
+                .then(function(){
+                    name = (nameInput.value || name || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 3);
+                    nameInput.value = name;
+                    if(!name){
+                        if(nameInput) nameInput.focus();
+                        return;
+                    }
+                    var tokens = loadTokens();
+                    var key = pinVal + ':' + name;
+                    if(!tokens[key]){
+                        tokens[key] = genToken();
+                        saveTokens(tokens);
+                    }
+                    tokenInput.value = tokens[key];
+                    submitting = true;
+                    joinForm.submit();
+                })
+                .catch(function(err){
+                    setStudentAuthStatus(err && err.message ? err.message : t('join_student_error', 'Codi o PIN incorrecte.'));
+                    if(studentPinInput) studentPinInput.focus();
+                });
         });
     }
 
@@ -197,4 +315,5 @@
     }else{
         showModal();
     }
+    loadStudentAuthConfig();
 })();

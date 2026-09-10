@@ -73,6 +73,19 @@ socket.on('playerJoinAck', function(){
     setLobbyStatus('Conectado a la partida', 'Si no apareces en pantalla del profesor, espera 1-2 segundos.');
 });
 
+socket.on('playerJoinRejected', function(data){
+    joinAck = false;
+    if(joinRetryTimer){
+        clearTimeout(joinRetryTimer);
+        joinRetryTimer = null;
+    }
+    var message = data && data.error ? data.error : 'No se pudo validar el acceso.';
+    setLobbyStatus(message, 'Vuelve a entrar con tu código y PIN.');
+    setTimeout(function(){
+        window.location.href = '../';
+    }, 1800);
+});
+
 //Boot player back to join screen if game pin has no match
 socket.on('noGameFound', function(){
     window.location.href = '../';

@@ -71,7 +71,7 @@ form{
     margin-bottom: 6px;
 }
 
-#name, #pin{
+#name, #pin, #student-code, #student-pin{
     width: 100%;
     padding: 14px 14px;
     border-radius: 12px;
@@ -86,7 +86,7 @@ form{
     text-align: center;
     letter-spacing: 0.12em;
 }
-#name:focus, #pin:focus{
+#name:focus, #pin:focus, #student-code:focus, #student-pin:focus{
     border-color: rgba(255,255,255,0.45);
 }
 .name-three{
@@ -116,6 +116,23 @@ form{
     cursor: not-allowed;
     filter: saturate(0.6);
     transform: none;
+}
+
+.student-auth{
+    border-top: 1px solid var(--card-stroke);
+    margin-top: 12px;
+    padding-top: 14px;
+}
+
+.student-auth.hidden{
+    display: none;
+}
+
+.student-auth__status{
+    min-height: 20px;
+    color: #fecaca;
+    font-size: 14px;
+    margin: 0 0 12px;
 }
 
 #icon-picker{

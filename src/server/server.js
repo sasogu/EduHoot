@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const express = require('express');
 const socketIO = require('socket.io');
 const helmet = require('helmet');
@@ -33,6 +34,7 @@ const games = new LiveGames();
 const players = new Players();
 const sessions = new Map();
 const oauthStates = new Map();
+const studentJoinTokens = new Map();
 const soloScoreBuffer = [];
 const SOLO_SCORE_BUFFER_DELAY = 150;
 const SOLO_SCORE_BUFFER_MAX = 50;
@@ -76,6 +78,9 @@ const GOOGLE_OAUTH_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_OAUTH_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 const GOOGLE_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const EDUTICTAC_ID_API_URL = (process.env.EDUTICTAC_ID_API_URL || '').replace(/\/+$/, '');
+const EDUTICTAC_ID_AUTH_REQUIRED = /^(1|true|yes)$/i.test(process.env.EDUTICTAC_ID_AUTH_REQUIRED || '');
+const STUDENT_JOIN_TOKEN_TTL_MS = 10 * 60 * 1000;
 
 function extractKahootId(raw = '') {
   if (!raw) return '';
@@ -386,6 +391,95 @@ function normalizePlayerName(name) {
   const chars = (name || '').toString().match(/[0-9a-zA-Z]/g) || [];
   const trimmed = chars.join('').toUpperCase().slice(0, 3);
   return trimmed || '???';
+}
+
+function isStudentIdentityEnabled() {
+  return !!EDUTICTAC_ID_API_URL;
+}
+
+function cleanupStudentJoinTokens() {
+  const now = Date.now();
+  for (const [token, entry] of studentJoinTokens.entries()) {
+    if (!entry || entry.expiresAt <= now) studentJoinTokens.delete(token);
+  }
+}
+
+function createStudentJoinToken(identity) {
+  cleanupStudentJoinTokens();
+  const token = crypto.randomBytes(24).toString('hex');
+  const publicCode = normalizePlayerName(identity && identity.public_code);
+  studentJoinTokens.set(token, {
+    identity: {
+      id: identity && identity.id ? String(identity.id) : '',
+      public_code: publicCode
+    },
+    expiresAt: Date.now() + STUDENT_JOIN_TOKEN_TTL_MS
+  });
+  return { token, publicCode };
+}
+
+function consumeStudentJoinToken(token) {
+  cleanupStudentJoinTokens();
+  const entry = token ? studentJoinTokens.get(String(token)) : null;
+  if (!entry) return null;
+  studentJoinTokens.delete(String(token));
+  return entry.identity;
+}
+
+function postJson(url, payload, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const body = JSON.stringify(payload || {});
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const req = lib.request({
+      protocol: parsed.protocol,
+      hostname: parsed.hostname,
+      port: parsed.port,
+      path: `${parsed.pathname}${parsed.search}`,
+      method: 'POST',
+      timeout: timeoutMs,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (resp) => {
+      const chunks = [];
+      resp.on('data', (chunk) => chunks.push(chunk));
+      resp.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (err) {}
+        resolve({ statusCode: resp.statusCode || 0, data, text });
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('request timeout')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function authenticateStudentIdentity(publicCode, pin) {
+  if (!isStudentIdentityEnabled()) {
+    throw new Error('student identity service not configured');
+  }
+  const result = await postJson(`${EDUTICTAC_ID_API_URL}/api/auth/student`, {
+    public_code: publicCode,
+    pin
+  });
+  if (result.statusCode < 200 || result.statusCode >= 300 || !result.data || !result.data.identity) {
+    const err = new Error('invalid student credentials');
+    err.statusCode = result.statusCode;
+    throw err;
+  }
+  return result.data.identity;
 }
 
 function socketIp(socket) {
@@ -1914,6 +2008,34 @@ app.get('/api/validate-pin/:pin', (req, res) => {
   res.json({ valid: !!game });
 });
 
+app.get('/api/player-auth/config', (req, res) => {
+  res.json({
+    enabled: isStudentIdentityEnabled(),
+    required: isStudentIdentityEnabled() && EDUTICTAC_ID_AUTH_REQUIRED
+  });
+});
+
+app.post('/api/player-auth/student', authRateLimiter, async (req, res) => {
+  if (!isStudentIdentityEnabled()) {
+    return res.status(503).json({ error: 'Identitat EduTicTac no configurada.' });
+  }
+  const publicCode = (req.body.public_code || '').toString().trim().toUpperCase();
+  const pin = (req.body.pin || '').toString().trim();
+  try {
+    const identity = await authenticateStudentIdentity(publicCode, pin);
+    const join = createStudentJoinToken(identity);
+    return res.json({
+      ok: true,
+      public_code: join.publicCode,
+      display_name: join.publicCode,
+      join_token: join.token
+    });
+  } catch (err) {
+    const status = err && err.statusCode === 429 ? 429 : 401;
+    return res.status(status).json({ error: 'Codi o PIN incorrecte.' });
+  }
+});
+
 app.post('/api/upload-csv', uploadRateLimiter, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Selecciona un archivo CSV para importar.' });
@@ -2915,7 +3037,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player-join', (params) => {
-    console.log('[player-join] params:', params);
+    console.log('[player-join] params:', {
+      pin: params && params.pin ? String(params.pin) : '',
+      name: params && params.name ? normalizePlayerName(params.name) : '',
+      hasToken: !!(params && params.token),
+      hasStudentJoinToken: !!(params && params.studentJoinToken)
+    });
     logGames('player-join');
     const pinParam = params.pin ? params.pin.toString() : '';
     const token = params.token;
@@ -2949,8 +3076,24 @@ io.on('connection', (socket) => {
       }
     }
 
-    const safeName = normalizePlayerName(params.name);
-    players.addPlayer(hostId, socket.id, safeName, { score: 0, answer: 0, correctCount: 0, wrongCount: 0, answerHistory: [] }, params.icon || '', token);
+    let studentIdentity = null;
+    if (isStudentIdentityEnabled()) {
+      studentIdentity = consumeStudentJoinToken(params.studentJoinToken);
+      if (EDUTICTAC_ID_AUTH_REQUIRED && !studentIdentity) {
+        socket.emit('playerJoinRejected', { error: 'Identificació de l’alumnat no vàlida.' });
+        return;
+      }
+    }
+
+    const safeName = studentIdentity ? normalizePlayerName(studentIdentity.public_code) : normalizePlayerName(params.name);
+    players.addPlayer(hostId, socket.id, safeName, {
+      score: 0,
+      answer: 0,
+      correctCount: 0,
+      wrongCount: 0,
+      answerHistory: [],
+      identity: studentIdentity || null
+    }, params.icon || '', token);
     socket.join(game.pin);
 
     const playersInGame = players.getPlayers(hostId);
